@@ -12,20 +12,25 @@ import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.core.utils.TreeBuildUtils;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.system.domain.SysMenu;
+import org.dromara.system.domain.SysMenuI18n;
 import org.dromara.system.domain.SysRole;
 import org.dromara.system.domain.SysRoleMenu;
 import org.dromara.system.domain.bo.SysMenuBo;
+import org.dromara.system.domain.dto.MenuI18nItem;
 import org.dromara.system.domain.vo.MetaVo;
 import org.dromara.system.domain.vo.RouterVo;
 import org.dromara.system.domain.vo.SysMenuVo;
+import org.dromara.system.mapper.SysMenuI18nMapper;
 import org.dromara.system.mapper.SysMenuMapper;
 import org.dromara.system.mapper.SysRoleMapper;
 import org.dromara.system.mapper.SysRoleMenuMapper;
 import org.dromara.system.service.ISysMenuService;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 菜单 业务层处理
@@ -40,6 +45,7 @@ public class SysMenuServiceImpl implements ISysMenuService {
     private final SysMenuMapper menuMapper;
     private final SysRoleMapper roleMapper;
     private final SysRoleMenuMapper roleMenuMapper;
+    private final SysMenuI18nMapper menuI18nMapper;
 
     /**
      * 根据用户查询系统菜单列表
@@ -164,9 +170,21 @@ public class SysMenuServiceImpl implements ISysMenuService {
         if (CollUtil.isEmpty(menus)) {
             return CollUtil.newArrayList();
         }
+        // 收集所有菜单ID，批量加载国际化数据
+        Set<Long> menuIds = new LinkedHashSet<>();
+        collectMenuIds(menus, menuIds);
+        Map<Long, Map<String, String>> i18nMap = menuI18nMapper.selectI18nMapByMenuIds(menuIds);
+        return buildMenusInternal(menus, i18nMap);
+    }
+
+    /**
+     * 递归构建前端路由菜单（内部方法）
+     */
+    private List<RouterVo> buildMenusInternal(List<SysMenu> menus, Map<Long, Map<String, String>> i18nMap) {
         List<RouterVo> routers = new LinkedList<>();
         for (SysMenu menu : menus) {
             String name = menu.getRouteName() + menu.getMenuId();
+            String menuTitle = resolveMenuTitle(menu, i18nMap);
             RouterVo router = new RouterVo();
             router.setHidden("1".equals(menu.getVisible()));
             router.setName(name);
@@ -174,12 +192,12 @@ public class SysMenuServiceImpl implements ISysMenuService {
             router.setComponent(menu.getComponentInfo());
             router.setQuery(menu.getQueryParam());
             router.setExt(menu.getExt());
-            router.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon(), StringUtils.equals(SystemConstants.NO, menu.getIsCache()), menu.getPath(), menu.getActiveMenu()));
+            router.setMeta(new MetaVo(menuTitle, menu.getIcon(), StringUtils.equals(SystemConstants.NO, menu.getIsCache()), menu.getPath(), menu.getActiveMenu()));
             List<SysMenu> cMenus = menu.getChildren();
             if (CollUtil.isNotEmpty(cMenus) && SystemConstants.TYPE_DIR.equals(menu.getMenuType())) {
                 router.setAlwaysShow(true);
                 router.setRedirect("noRedirect");
-                router.setChildren(buildMenus(cMenus));
+                router.setChildren(buildMenusInternal(cMenus, i18nMap));
             } else if (menu.isMenuFrame()) {
                 String frameName = StringUtils.capitalize(menu.getPath()) + menu.getMenuId();
                 router.setMeta(null);
@@ -188,13 +206,13 @@ public class SysMenuServiceImpl implements ISysMenuService {
                 children.setPath(menu.getPath());
                 children.setComponent(menu.getComponent());
                 children.setName(frameName);
-                children.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon(), StringUtils.equals(SystemConstants.NO, menu.getIsCache()), menu.getPath(), menu.getActiveMenu()));
+                children.setMeta(new MetaVo(menuTitle, menu.getIcon(), StringUtils.equals(SystemConstants.NO, menu.getIsCache()), menu.getPath(), menu.getActiveMenu()));
                 children.setQuery(menu.getQueryParam());
                 children.setExt(menu.getExt());
                 childrenList.add(children);
                 router.setChildren(childrenList);
             } else if (menu.getParentId().equals(Constants.TOP_PARENT_ID) && menu.isInnerLink()) {
-                router.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon()));
+                router.setMeta(new MetaVo(menuTitle, menu.getIcon()));
                 router.setPath("/");
                 List<RouterVo> childrenList = new ArrayList<>();
                 RouterVo children = new RouterVo();
@@ -203,7 +221,7 @@ public class SysMenuServiceImpl implements ISysMenuService {
                 children.setPath(routerPath);
                 children.setComponent(SystemConstants.INNER_LINK);
                 children.setName(innerLinkName);
-                children.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon(), menu.getPath()));
+                children.setMeta(new MetaVo(menuTitle, menu.getIcon(), menu.getPath()));
                 children.setExt(menu.getExt());
                 childrenList.add(children);
                 router.setChildren(childrenList);
@@ -224,10 +242,14 @@ public class SysMenuServiceImpl implements ISysMenuService {
         if (CollUtil.isEmpty(menus)) {
             return CollUtil.newArrayList();
         }
+        // 收集所有菜单ID，批量加载国际化数据
+        Set<Long> menuIds = menus.stream().map(SysMenuVo::getMenuId).collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, Map<String, String>> i18nMap = menuI18nMapper.selectI18nMapByMenuIds(menuIds);
         return TreeBuildUtils.build(menus, (menu, tree) -> {
+            String title = resolveMenuTitle(menu.getMenuId(), menu.getMenuName(), i18nMap);
             Tree<Long> menuTree = tree.setId(menu.getMenuId())
                 .setParentId(menu.getParentId())
-                .setName(menu.getMenuName())
+                .setName(title)
                 .setWeight(menu.getOrderNum());
             menuTree.put("menuType", menu.getMenuType());
             menuTree.put("icon", menu.getIcon());
@@ -244,7 +266,11 @@ public class SysMenuServiceImpl implements ISysMenuService {
      */
     @Override
     public SysMenuVo selectMenuById(Long menuId) {
-        return menuMapper.selectVoById(menuId);
+        SysMenuVo vo = menuMapper.selectVoById(menuId);
+        if (vo != null) {
+            fillI18nList(vo);
+        }
+        return vo;
     }
 
     /**
@@ -290,9 +316,13 @@ public class SysMenuServiceImpl implements ISysMenuService {
      * @return 结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int insertMenu(SysMenuBo bo) {
         SysMenu menu = MapstructUtils.convert(bo, SysMenu.class);
-        return menuMapper.insert(menu);
+        int result = menuMapper.insert(menu);
+        // 保存国际化数据
+        saveMenuI18n(menu.getMenuId(), bo.getI18nList());
+        return result;
     }
 
     /**
@@ -302,9 +332,16 @@ public class SysMenuServiceImpl implements ISysMenuService {
      * @return 结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updateMenu(SysMenuBo bo) {
         SysMenu menu = MapstructUtils.convert(bo, SysMenu.class);
-        return menuMapper.updateById(menu);
+        int result = menuMapper.updateById(menu);
+        // 仅当前端显式传入 i18nList 时才更新国际化数据（null = 不修改，空列表 = 清空）
+        if (bo.getI18nList() != null) {
+            menuI18nMapper.deleteByMenuId(menu.getMenuId());
+            saveMenuI18n(menu.getMenuId(), bo.getI18nList());
+        }
+        return result;
     }
 
     /**
@@ -314,7 +351,10 @@ public class SysMenuServiceImpl implements ISysMenuService {
      * @return 结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deleteMenuById(Long menuId) {
+        // 同时删除国际化数据
+        menuI18nMapper.deleteByMenuId(menuId);
         return menuMapper.deleteById(menuId);
     }
 
@@ -326,6 +366,8 @@ public class SysMenuServiceImpl implements ISysMenuService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteMenuById(Collection<Long> menuIds) {
+        // 同时批量删除国际化数据
+        menuI18nMapper.deleteByMenuIds(menuIds);
         menuMapper.deleteByIds(menuIds);
         roleMenuMapper.deleteByMenuIds(menuIds);
     }
@@ -388,6 +430,89 @@ public class SysMenuServiceImpl implements ISysMenuService {
             }
         }
         return true;
+    }
+
+    // ==================== 菜单国际化 辅助方法 ====================
+
+    /**
+     * 收集所有菜单ID（递归）
+     */
+    private void collectMenuIds(List<SysMenu> menus, Set<Long> menuIds) {
+        if (CollUtil.isEmpty(menus)) {
+            return;
+        }
+        for (SysMenu menu : menus) {
+            menuIds.add(menu.getMenuId());
+            if (CollUtil.isNotEmpty(menu.getChildren())) {
+                collectMenuIds(menu.getChildren(), menuIds);
+            }
+        }
+    }
+
+    /**
+     * 根据当前语言环境解析菜单标题（SysMenu对象版本）
+     */
+    private String resolveMenuTitle(SysMenu menu, Map<Long, Map<String, String>> i18nMap) {
+        return resolveMenuTitle(menu.getMenuId(), menu.getMenuName(), i18nMap);
+    }
+
+    /**
+     * 根据当前语言环境解析菜单标题
+     * <p>
+     * 优先查找当前 locale 对应的国际化名称，找不到则返回默认中文名称。
+     */
+    private String resolveMenuTitle(Long menuId, String defaultName, Map<Long, Map<String, String>> i18nMap) {
+        if (i18nMap == null || i18nMap.isEmpty()) {
+            return defaultName;
+        }
+        Map<String, String> i18nNames = i18nMap.get(menuId);
+        if (i18nNames == null || i18nNames.isEmpty()) {
+            return defaultName;
+        }
+        // 获取当前请求的 Locale
+        String localeKey = LocaleContextHolder.getLocale().toString();
+        // 先精确匹配，再尝试模糊匹配（如 en_US -> en）
+        String i18nName = i18nNames.get(localeKey);
+        if (i18nName == null && localeKey.contains("_")) {
+            String langOnly = localeKey.substring(0, localeKey.indexOf('_'));
+            i18nName = i18nNames.get(langOnly);
+        }
+        return StringUtils.isNotEmpty(i18nName) ? i18nName : defaultName;
+    }
+
+    /**
+     * 保存菜单国际化数据（批量插入）
+     */
+    private void saveMenuI18n(Long menuId, List<MenuI18nItem> i18nList) {
+        if (CollUtil.isEmpty(i18nList)) {
+            return;
+        }
+        List<SysMenuI18n> entities = new ArrayList<>(i18nList.size());
+        for (MenuI18nItem item : i18nList) {
+            SysMenuI18n entity = new SysMenuI18n();
+            entity.setMenuId(menuId);
+            entity.setLocale(item.getLocale());
+            entity.setMenuName(item.getMenuName());
+            entities.add(entity);
+        }
+        menuI18nMapper.insertBatch(entities);
+    }
+
+    /**
+     * 将国际化数据填充到 SysMenuVo 中
+     */
+    private void fillI18nList(SysMenuVo vo) {
+        List<SysMenuI18n> entityList = menuI18nMapper.selectByMenuId(vo.getMenuId());
+        if (CollUtil.isNotEmpty(entityList)) {
+            List<MenuI18nItem> i18nList = new ArrayList<>(entityList.size());
+            for (SysMenuI18n entity : entityList) {
+                MenuI18nItem item = new MenuI18nItem();
+                item.setLocale(entity.getLocale());
+                item.setMenuName(entity.getMenuName());
+                i18nList.add(item);
+            }
+            vo.setI18nList(i18nList);
+        }
     }
 
 }

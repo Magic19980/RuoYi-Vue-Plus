@@ -3,6 +3,7 @@ package org.dromara.system.domain.vo;
 import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
 import org.dromara.system.domain.SysMenu;
+import org.dromara.system.domain.dto.MenuI18nItem;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -122,5 +123,10 @@ public class SysMenuVo implements Serializable {
      * 子菜单
      */
     private List<SysMenuVo> children = new ArrayList<>();
+
+    /**
+     * 国际化名称列表
+     */
+    private List<MenuI18nItem> i18nList;
 
 }

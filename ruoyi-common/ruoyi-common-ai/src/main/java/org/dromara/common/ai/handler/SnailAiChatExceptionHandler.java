@@ -8,6 +8,7 @@ import com.aizuda.snail.ai.common.model.Result;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.dromara.common.core.utils.MessageUtils;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -37,19 +38,19 @@ public class SnailAiChatExceptionHandler {
     @ExceptionHandler(SnailAiAuthenticationException.class)
     public Result<Void> handleAuthenticationException(SnailAiAuthenticationException e) {
         log.warn("Snail AI Chat authentication failed: {}", e.getMessage());
-        return Result.fail(AUTHENTICATION_ERROR_STATUS, defaultMessage(e, "认证失败，请重新登录"));
+        return Result.fail(AUTHENTICATION_ERROR_STATUS, defaultMessage(e, MessageUtils.message("ai.authentication.failed")));
     }
 
     @ExceptionHandler(BaseSnailAiException.class)
     public Result<Void> handleSnailAiException(BaseSnailAiException e) {
         log.warn("Snail AI Chat request failed: {}", e.getMessage());
-        return Result.fail(defaultMessage(e, "AI 服务请求失败，请稍后再试"));
+        return Result.fail(defaultMessage(e, MessageUtils.message("ai.service.request.failed")));
     }
 
     @ExceptionHandler(ModelCallException.class)
     public Result<Void> handleModelCallException(ModelCallException e) {
         log.warn("Snail AI Chat model call failed: {}", e.getMessage(), e);
-        return Result.fail(defaultMessage(e, "模型调用失败，请稍后再试"));
+        return Result.fail(defaultMessage(e, MessageUtils.message("ai.model.call.failed")));
     }
 
     @ExceptionHandler({
@@ -69,31 +70,31 @@ public class SnailAiChatExceptionHandler {
             .map(ConstraintViolation::getMessage)
             .filter(this::hasText)
             .collect(Collectors.joining(", "));
-        return Result.fail(hasText(message) ? message : "请求参数校验失败");
+        return Result.fail(hasText(message) ? message : MessageUtils.message("ai.validation.failed"));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public Result<Void> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
         log.warn("Snail AI Chat request body parse failed: {}", e.getMessage());
-        return Result.fail("请求参数格式错误");
+        return Result.fail(MessageUtils.message("ai.request.format.error"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public Result<Void> handleIllegalArgumentException(IllegalArgumentException e) {
         log.warn("Snail AI Chat illegal argument: {}", e.getMessage());
-        return Result.fail(defaultMessage(e, "请求参数不合法"));
+        return Result.fail(defaultMessage(e, MessageUtils.message("ai.request.argument.invalid")));
     }
 
     @ExceptionHandler(IllegalStateException.class)
     public Result<Void> handleIllegalStateException(IllegalStateException e) {
         log.warn("Snail AI Chat illegal state: {}", e.getMessage());
-        return Result.fail(defaultMessage(e, "AI 会话状态异常，请刷新后重试"));
+        return Result.fail(defaultMessage(e, MessageUtils.message("ai.session.state.error")));
     }
 
     @ExceptionHandler(Exception.class)
     public Result<Void> handleException(Exception e) {
         log.error("Snail AI Chat unexpected exception", e);
-        return Result.fail("AI 服务异常，请稍后再试");
+        return Result.fail(MessageUtils.message("ai.service.error"));
     }
 
     private String validationMessage(Exception e) {
@@ -105,13 +106,13 @@ public class SnailAiChatExceptionHandler {
         } else if (e instanceof HandlerMethodValidationException handlerMethodValidationException) {
             errors = handlerMethodValidationException.getAllErrors();
         } else {
-            return "请求参数校验失败";
+            return MessageUtils.message("ai.validation.failed");
         }
         String message = errors.stream()
             .map(MessageSourceResolvable::getDefaultMessage)
             .filter(this::hasText)
             .collect(Collectors.joining(", "));
-        return hasText(message) ? message : "请求参数校验失败";
+        return hasText(message) ? message : MessageUtils.message("ai.validation.failed");
     }
 
     private String defaultMessage(Throwable e, String fallback) {

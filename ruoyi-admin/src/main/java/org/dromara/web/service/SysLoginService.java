@@ -85,7 +85,7 @@ public class SysLoginService {
         bo.setNickName(authUserData.getNickname());
         List<SysSocialVo> checkList = sysSocialService.selectByAuthId(authId);
         if (CollUtil.isNotEmpty(checkList)) {
-            throw new ServiceException("此三方账号已经被绑定!");
+            throw new ServiceException(MessageUtils.message("social.account.already.bound"));
         }
         // 查询是否已经绑定用户
         SysSocialBo params = new SysSocialBo();

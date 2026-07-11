@@ -11,9 +11,11 @@ import org.dromara.common.core.constant.RegexConstants;
 import org.dromara.common.json.validate.JsonPattern;
 import org.dromara.common.json.validate.JsonType;
 import org.dromara.system.domain.SysMenu;
+import org.dromara.system.domain.dto.MenuI18nItem;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * 菜单权限业务对象 sys_menu
@@ -124,5 +126,10 @@ public class SysMenuBo implements Serializable {
      * 备注
      */
     private String remark;
+
+    /**
+     * 国际化名称列表
+     */
+    private List<MenuI18nItem> i18nList;
 
 }

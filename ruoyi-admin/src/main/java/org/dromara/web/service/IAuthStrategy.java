@@ -4,6 +4,7 @@ package org.dromara.web.service;
 import cn.dev33.satoken.stp.parameter.SaLoginParameter;
 import cn.hutool.core.util.ObjectUtil;
 import org.dromara.common.core.exception.ServiceException;
+import org.dromara.common.core.utils.MessageUtils;
 import org.dromara.common.core.utils.SpringUtils;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.system.domain.vo.SysClientVo;
@@ -32,7 +33,7 @@ public interface IAuthStrategy {
         // 授权类型和客户端id
         String beanName = grantType + BASE_NAME;
         if (!SpringUtils.containsBean(beanName)) {
-            throw new ServiceException("授权类型不正确!");
+            throw new ServiceException(MessageUtils.message("auth.grant.type.incorrect"));
         }
         IAuthStrategy instance = SpringUtils.getBean(beanName);
         return instance.login(body, client);

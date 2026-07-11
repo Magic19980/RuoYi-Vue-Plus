@@ -16,6 +16,7 @@ import org.dromara.common.core.enums.PushSourceEnum;
 import org.dromara.common.core.enums.PushTypeEnum;
 import org.dromara.common.core.utils.DateUtils;
 import org.dromara.common.core.utils.MessageUtils;
+import org.dromara.common.core.utils.SpringUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.core.utils.ValidatorUtils;
 import org.dromara.common.encrypt.annotation.ApiEncrypt;
@@ -98,7 +99,7 @@ public class AuthController {
                 PushPayloadDTO.of(
                     PushTypeEnum.MESSAGE,
                     PushSourceEnum.BACKEND,
-                    DateUtils.getTodayHour(new Date()) + "好，欢迎登录 RuoYi-Vue-Plus 后台管理系统",
+                    MessageUtils.message("user.login.welcome", DateUtils.getTodayHour(new Date()), SpringUtils.getApplicationName()),
                     null
                 )
             );
@@ -116,7 +117,7 @@ public class AuthController {
     public R<String> authBinding(@PathVariable("source") String source) {
         SocialLoginConfigProperties obj = socialProperties.getType().get(source);
         if (ObjectUtil.isNull(obj)) {
-            return R.fail(source + "平台账号暂不支持");
+            return R.fail(MessageUtils.message("auth.social.platform.unsupported", source));
         }
         AuthRequest authRequest = SocialUtils.getAuthRequest(source, socialProperties);
         String authorizeUrl = authRequest.authorize(AuthStateUtils.createState());
@@ -158,7 +159,7 @@ public class AuthController {
         // 校验token
         StpUtil.checkLogin();
         Boolean rows = socialUserService.deleteWithValidById(socialId);
-        return rows ? R.ok() : R.fail("取消授权失败");
+        return rows ? R.ok() : R.fail(MessageUtils.message("auth.social.unlock.failed"));
     }
 
 
@@ -168,7 +169,7 @@ public class AuthController {
     @PostMapping("/logout")
     public R<Void> logout() {
         loginService.logout();
-        return R.ok("退出成功");
+        return R.ok(MessageUtils.message("user.logout.success"));
     }
 
     /**
@@ -181,7 +182,7 @@ public class AuthController {
     @PostMapping("/register")
     public R<Void> register(@Validated @RequestBody RegisterBody user) {
         if (!configService.selectRegisterEnabled()) {
-            return R.fail("当前系统没有开启注册功能！");
+            return R.fail(MessageUtils.message("auth.register.disabled"));
         }
         registerService.register(user);
         return R.ok();

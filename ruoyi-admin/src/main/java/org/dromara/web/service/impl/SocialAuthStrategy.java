@@ -11,6 +11,7 @@ import me.zhyd.oauth.model.AuthUser;
 import org.dromara.common.core.constant.SystemConstants;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.exception.user.UserException;
+import org.dromara.common.core.utils.MessageUtils;
 import org.dromara.common.core.utils.ValidatorUtils;
 import org.dromara.common.json.utils.JsonUtils;
 import org.dromara.common.satoken.utils.LoginHelper;
@@ -66,7 +67,7 @@ public class SocialAuthStrategy implements IAuthStrategy {
 
         List<SysSocialVo> list = sysSocialService.selectByAuthId(authUserData.getSource() + authUserData.getUuid());
         if (CollUtil.isEmpty(list)) {
-            throw new ServiceException("你还没有绑定第三方账号，绑定后才可以登录！");
+            throw new ServiceException(MessageUtils.message("social.account.not.bound"));
         }
         SysUserVo user = loadUser(list.getFirst().getUserId());
         // 此处可根据登录用户的数据不同 自行创建 loginUser 属性不够用继承扩展就行了
