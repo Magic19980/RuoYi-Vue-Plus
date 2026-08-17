@@ -43,7 +43,7 @@ snail-ai:
   app-id: 1
   # 认证令牌（在 Server「应用管理」页面创建时自动生成）
   token: SAI_566a6bfbc26e4998b4841cc927d50c5d
-  port: 18889
+  port: 3${server.port}
   # Skill 文件临时目录
   skill-temp-dir: /tmp/snail-ai-agent/skills
   # ==================== Chat 嵌入模式配置 ====================
@@ -55,7 +55,7 @@ snail-ai:
     # 嵌入模式下隐藏侧边栏用户信息
     show-sidebar-user: false
     # 嵌入模式下隐藏智能体市场入口
-    show-agent-market: false
+    show-agent-market: true
     # 嵌入模式下使用紧凑输入框
     compact-input: true
     # 是否锁定当前智能体
