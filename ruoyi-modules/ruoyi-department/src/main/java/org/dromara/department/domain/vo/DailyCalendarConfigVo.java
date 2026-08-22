@@ -14,6 +14,7 @@ public class DailyCalendarConfigVo implements Serializable {
 
     private Long id;
     private Long deptId;
+    private Long userId;
     private String workDays;
     private String remark;
 }

@@ -56,6 +56,12 @@ public class DailyCalendarController extends BaseController {
         return R.ok(dailyCalendarService.queryConfig());
     }
 
+    @SaCheckPermission("department:dailyReport:query")
+    @GetMapping("/config/list")
+    public R<List<DailyCalendarConfigVo>> configList() {
+        return R.ok(dailyCalendarService.queryConfigs());
+    }
+
     @SaCheckPermission("department:dailyReport:edit")
     @Log(title = "日报工作日规则", businessType = BusinessType.UPDATE)
     @PutMapping("/config")

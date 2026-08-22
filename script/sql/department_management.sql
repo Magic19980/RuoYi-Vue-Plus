@@ -80,6 +80,7 @@ deallocate prepare stmt;
 create table if not exists dm_daily_calendar_config (
     id                  bigint(20)      not null comment '主键',
     dept_id             bigint(20)      not null comment '科室ID',
+    user_id             bigint(20)      default null comment '人员ID；为空时表示历史科室默认规则',
     work_days           varchar(30)     not null default '1,2,3,4,5' comment '每周工作日，1至7分别代表周一至周日',
     remark              varchar(500)    default null comment '规则说明',
     version             bigint(20)      default 0 comment '版本号',
@@ -90,8 +91,51 @@ create table if not exists dm_daily_calendar_config (
     update_time         datetime        default null comment '更新时间',
     del_flag             char(1)        default '0' comment '删除标志（0存在 1删除）',
     primary key (id),
-    unique key uk_dm_daily_calendar_config_dept (dept_id)
+    unique key uk_dm_daily_calendar_config_dept_user (dept_id, user_id)
 ) engine=innodb comment='科室日报周工作日规则';
+
+-- 工作日规则改为人员级配置；user_id 为空的旧记录只作为未配置人员的兼容默认值。
+set @has_daily_calendar_config_user_id = (
+    select count(1)
+    from information_schema.columns
+    where table_schema = database()
+      and table_name = 'dm_daily_calendar_config'
+      and column_name = 'user_id'
+);
+set @sql = if(@has_daily_calendar_config_user_id = 0,
+    'alter table dm_daily_calendar_config add column user_id bigint(20) default null comment ''人员ID；为空时表示历史科室默认规则'' after dept_id',
+    'select 1');
+prepare stmt from @sql;
+execute stmt;
+deallocate prepare stmt;
+
+set @has_daily_calendar_config_old_unique = (
+    select count(1)
+    from information_schema.statistics
+    where table_schema = database()
+      and table_name = 'dm_daily_calendar_config'
+      and index_name = 'uk_dm_daily_calendar_config_dept'
+);
+set @sql = if(@has_daily_calendar_config_old_unique > 0,
+    'alter table dm_daily_calendar_config drop index uk_dm_daily_calendar_config_dept',
+    'select 1');
+prepare stmt from @sql;
+execute stmt;
+deallocate prepare stmt;
+
+set @has_daily_calendar_config_new_unique = (
+    select count(1)
+    from information_schema.statistics
+    where table_schema = database()
+      and table_name = 'dm_daily_calendar_config'
+      and index_name = 'uk_dm_daily_calendar_config_dept_user'
+);
+set @sql = if(@has_daily_calendar_config_new_unique = 0,
+    'alter table dm_daily_calendar_config add unique key uk_dm_daily_calendar_config_dept_user (dept_id, user_id)',
+    'select 1');
+prepare stmt from @sql;
+execute stmt;
+deallocate prepare stmt;
 
 create table if not exists dm_daily_calendar_override (
     id                  bigint(20)      not null comment '主键',

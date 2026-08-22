@@ -13,6 +13,8 @@ public class DailyCalendarConfigBo implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
+    private Long userId;
+
     @NotBlank(message = "每周工作日不能为空")
     private String workDays;
 

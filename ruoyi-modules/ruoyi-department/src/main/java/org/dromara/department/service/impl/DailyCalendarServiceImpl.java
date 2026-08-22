@@ -88,8 +88,16 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         LocalDate lastDay = monthEnd.isAfter(today) ? today : monthEnd;
         Long userId = canViewDepartment() ? null : LoginHelper.getUserId();
 
-        DailyCalendarConfig config = getConfigEntity(deptId);
-        String workDays = config == null ? DEFAULT_WORK_DAYS : normalizeWorkDays(config.getWorkDays());
+        List<DailyCalendarConfig> configRows = getConfigEntities(deptId);
+        DailyCalendarConfig defaultConfig = configRows.stream()
+            .filter(item -> item.getUserId() == null)
+            .findFirst().orElse(null);
+        String workDays = defaultConfig == null ? DEFAULT_WORK_DAYS : normalizeWorkDays(defaultConfig.getWorkDays());
+        Set<Integer> defaultWorkDays = parseWorkDays(workDays);
+        Map<Long, Set<Integer>> personalWorkDays = configRows.stream()
+            .filter(item -> item.getUserId() != null)
+            .collect(Collectors.toMap(DailyCalendarConfig::getUserId,
+                item -> parseWorkDays(normalizeWorkDays(item.getWorkDays())), (left, right) -> right));
         List<DailyCalendarOverride> overrideRows = overrideMapper.selectList(Wrappers.<DailyCalendarOverride>lambdaQuery()
                 .eq(DailyCalendarOverride::getDeptId, deptId)
                 .between(DailyCalendarOverride::getCalendarDate, firstDay, lastDay)
@@ -122,7 +130,6 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         int filledCount = 0;
         int missingCount = 0;
         int leaveCount = 0;
-        Map<LocalDate, DailyCalendarDayVo> dayMap = days.stream().collect(Collectors.toMap(DailyCalendarDayVo::getDate, item -> item));
         for (DailyCalendarMemberVo member : members) {
             List<DailyCalendarCellVo> cells = new ArrayList<>();
             for (DailyCalendarDayVo day : days) {
@@ -130,11 +137,18 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
                 DailyLeaveVo leave = leaveMap.get(key(member.getUserId(), day.getDate()));
                 DailyCalendarCellVo cell = new DailyCalendarCellVo();
                 cell.setDate(day.getDate());
+                Set<Integer> memberWorkDays = personalWorkDays.getOrDefault(member.getUserId(), defaultWorkDays);
+                boolean hasPersonalWorkDays = personalWorkDays.containsKey(member.getUserId());
                 boolean personalWorkday = userWorkdayOverrides.contains(key(member.getUserId(), day.getDate()));
-                boolean memberWorkday = personalWorkday || Boolean.TRUE.equals(day.getWorkday());
+                boolean memberBaseWorkday = !Boolean.TRUE.equals(day.getDepartmentRest())
+                    && memberWorkDays.contains(day.getDate().getDayOfWeek().getValue());
+                boolean memberWorkday = personalWorkday || memberBaseWorkday;
                 cell.setWorkday(memberWorkday);
                 cell.setDayType(memberWorkday ? WORKDAY : REST);
-                cell.setLabel(personalWorkday ? "个人调休上班" : day.getLabel());
+                boolean changesDefault = hasPersonalWorkDays
+                    && memberWorkDays.contains(day.getDate().getDayOfWeek().getValue()) != defaultWorkDays.contains(day.getDate().getDayOfWeek().getValue());
+                cell.setLabel(personalWorkday ? "个人调休上班"
+                    : changesDefault ? (memberWorkday ? "个人工作日" : "个人休息日") : day.getLabel());
                 cell.setReportId(report == null ? null : report.getId());
                 cell.setSourceType(report == null ? null : report.getSourceType());
                 cell.setTodayWork(report == null ? null : report.getTodayWork());
@@ -185,14 +199,21 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
 
     @Override
     public DailyCalendarConfigVo queryConfig() {
-        DailyCalendarConfig entity = getConfigEntity(requireDeptId());
+        Long deptId = requireDeptId();
+        Long userId = LoginHelper.getUserId();
+        DailyCalendarConfig entity = getUserConfigEntity(deptId, userId);
+        if (entity == null) {
+            entity = getConfigEntity(deptId);
+        }
         DailyCalendarConfigVo vo = new DailyCalendarConfigVo();
         if (entity == null) {
-            vo.setDeptId(requireDeptId());
+            vo.setDeptId(deptId);
+            vo.setUserId(userId);
             vo.setWorkDays(DEFAULT_WORK_DAYS);
         } else {
             vo.setId(entity.getId());
             vo.setDeptId(entity.getDeptId());
+            vo.setUserId(entity.getUserId() == null ? userId : entity.getUserId());
             vo.setWorkDays(normalizeWorkDays(entity.getWorkDays()));
             vo.setRemark(entity.getRemark());
         }
@@ -200,15 +221,36 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
     }
 
     @Override
+    public List<DailyCalendarConfigVo> queryConfigs() {
+        Long deptId = requireDeptId();
+        List<DailyCalendarConfig> configs = getConfigEntities(deptId);
+        if (!canViewDepartment()) {
+            Long userId = LoginHelper.getUserId();
+            configs = configs.stream()
+                .filter(item -> item.getUserId() == null || Objects.equals(item.getUserId(), userId))
+                .toList();
+        }
+        return configs.stream().map(this::toConfigVo).toList();
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public DailyCalendarConfigVo saveConfig(DailyCalendarConfigBo bo) {
-        assertDepartmentManager();
         Long deptId = requireDeptId();
+        Long targetUserId = bo.getUserId() == null ? LoginHelper.getUserId() : bo.getUserId();
+        if (!canViewDepartment() && !Objects.equals(targetUserId, LoginHelper.getUserId())) {
+            throw new ServiceException("只能维护本人的工作日规则");
+        }
+        Long targetDeptId = dailyReportMapper.selectDeptIdByUserId(targetUserId);
+        if (!Objects.equals(deptId, targetDeptId)) {
+            throw new ServiceException("工作日规则人员必须属于当前科室");
+        }
         String workDays = normalizeWorkDays(bo.getWorkDays());
-        DailyCalendarConfig entity = getConfigEntity(deptId);
+        DailyCalendarConfig entity = getUserConfigEntity(deptId, targetUserId);
         if (entity == null) {
             entity = new DailyCalendarConfig();
             entity.setDeptId(deptId);
+            entity.setUserId(targetUserId);
         }
         entity.setWorkDays(workDays);
         entity.setRemark(StringUtils.trim(bo.getRemark()));
@@ -217,7 +259,7 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         } else {
             configMapper.updateById(entity);
         }
-        return queryConfig();
+        return toConfigVo(entity);
     }
 
     @Override
@@ -225,17 +267,21 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         Long deptId = requireDeptId();
         LocalDate begin = beginDate == null ? LocalDate.now().withDayOfMonth(1) : beginDate;
         LocalDate end = endDate == null ? begin.withDayOfMonth(begin.lengthOfMonth()) : endDate;
-        return overrideMapper.selectList(Wrappers.<DailyCalendarOverride>lambdaQuery()
+        var query = Wrappers.<DailyCalendarOverride>lambdaQuery()
                 .eq(DailyCalendarOverride::getDeptId, deptId)
                 .between(DailyCalendarOverride::getCalendarDate, begin, end)
-                .orderByAsc(DailyCalendarOverride::getCalendarDate))
+                .orderByAsc(DailyCalendarOverride::getCalendarDate);
+        if (!canViewDepartment()) {
+            query.and(wrapper -> wrapper.isNull(DailyCalendarOverride::getUserId)
+                .or().eq(DailyCalendarOverride::getUserId, LoginHelper.getUserId()));
+        }
+        return overrideMapper.selectList(query)
             .stream().map(this::toOverrideVo).toList();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean saveOverride(DailyCalendarOverrideBo bo) {
-        assertDepartmentManager();
         Long deptId = requireDeptId();
         if (!WORKDAY.equals(bo.getDayType()) && !REST.equals(bo.getDayType())) {
             throw new ServiceException("日期类型只能选择调休上班或休息日");
@@ -243,6 +289,14 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         Long targetUserId = WORKDAY.equals(bo.getDayType()) ? bo.getUserId() : null;
         if (WORKDAY.equals(bo.getDayType()) && targetUserId == null) {
             throw new ServiceException("调休上班必须选择具体人员");
+        }
+        if (!canViewDepartment()) {
+            if (REST.equals(bo.getDayType())) {
+                throw new ServiceException("只有科室管理员可以维护全科室休息日");
+            }
+            if (!Objects.equals(targetUserId, LoginHelper.getUserId())) {
+                throw new ServiceException("只能维护本人的调休上班安排");
+            }
         }
         if (targetUserId != null) {
             Long targetDeptId = dailyReportMapper.selectDeptIdByUserId(targetUserId);
@@ -280,11 +334,14 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteOverrides(Collection<Long> ids) {
-        assertDepartmentManager();
         for (Long id : ids) {
             DailyCalendarOverride entity = overrideMapper.selectById(id);
             if (entity != null && !Objects.equals(entity.getDeptId(), requireDeptId())) {
                 throw new ServiceException("不能删除其他科室的日期规则");
+            }
+            if (entity != null && !canViewDepartment()
+                && !Objects.equals(entity.getUserId(), LoginHelper.getUserId())) {
+                throw new ServiceException("只能删除本人的调休上班安排");
             }
         }
         return overrideMapper.deleteByIds(ids) > 0;
@@ -367,7 +424,10 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         if (globalRest != null) {
             return false;
         }
-        DailyCalendarConfig config = getConfigEntity(deptId);
+        DailyCalendarConfig config = getUserConfigEntity(deptId, userId);
+        if (config == null) {
+            config = getConfigEntity(deptId);
+        }
         String workDays = config == null ? DEFAULT_WORK_DAYS : normalizeWorkDays(config.getWorkDays());
         return new TreeSet<>(parseWorkDays(workDays)).contains(date.getDayOfWeek().getValue());
     }
@@ -466,6 +526,7 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
             day.setDate(date);
             day.setDayOfWeek(date.getDayOfWeek().getValue());
             day.setWeekLabel(weekLabel(date.getDayOfWeek()));
+            day.setDepartmentRest(override != null);
             day.setWorkday(workday);
             day.setDayType(workday ? WORKDAY : REST);
             day.setLabel(override == null ? (workday ? "工作日" : "休息日") : "休息日");
@@ -476,7 +537,34 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
     }
 
     private DailyCalendarConfig getConfigEntity(Long deptId) {
-        return configMapper.selectOne(Wrappers.<DailyCalendarConfig>lambdaQuery().eq(DailyCalendarConfig::getDeptId, deptId));
+        return configMapper.selectOne(Wrappers.<DailyCalendarConfig>lambdaQuery()
+            .eq(DailyCalendarConfig::getDeptId, deptId)
+            .isNull(DailyCalendarConfig::getUserId));
+    }
+
+    private DailyCalendarConfig getUserConfigEntity(Long deptId, Long userId) {
+        if (deptId == null || userId == null) {
+            return null;
+        }
+        return configMapper.selectOne(Wrappers.<DailyCalendarConfig>lambdaQuery()
+            .eq(DailyCalendarConfig::getDeptId, deptId)
+            .eq(DailyCalendarConfig::getUserId, userId));
+    }
+
+    private List<DailyCalendarConfig> getConfigEntities(Long deptId) {
+        return configMapper.selectList(Wrappers.<DailyCalendarConfig>lambdaQuery()
+            .eq(DailyCalendarConfig::getDeptId, deptId)
+            .orderByAsc(DailyCalendarConfig::getUserId));
+    }
+
+    private DailyCalendarConfigVo toConfigVo(DailyCalendarConfig entity) {
+        DailyCalendarConfigVo vo = new DailyCalendarConfigVo();
+        vo.setId(entity.getId());
+        vo.setDeptId(entity.getDeptId());
+        vo.setUserId(entity.getUserId());
+        vo.setWorkDays(normalizeWorkDays(entity.getWorkDays()));
+        vo.setRemark(entity.getRemark());
+        return vo;
     }
 
     private DailyCalendarOverrideVo toOverrideVo(DailyCalendarOverride entity) {
@@ -537,12 +625,6 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
             throw new ServiceException("当前登录用户缺少部门信息");
         }
         return deptId;
-    }
-
-    private void assertDepartmentManager() {
-        if (!canViewDepartment()) {
-            throw new ServiceException("只有科室管理员可以维护工作日规则");
-        }
     }
 
     private boolean canViewDepartment() {

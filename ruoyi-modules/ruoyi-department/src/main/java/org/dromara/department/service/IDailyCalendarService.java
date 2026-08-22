@@ -19,6 +19,8 @@ public interface IDailyCalendarService {
 
     DailyCalendarConfigVo queryConfig();
 
+    List<DailyCalendarConfigVo> queryConfigs();
+
     DailyCalendarConfigVo saveConfig(DailyCalendarConfigBo bo);
 
     List<DailyCalendarOverrideVo> queryOverrides(LocalDate beginDate, LocalDate endDate);

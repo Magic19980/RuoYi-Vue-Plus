@@ -25,6 +25,9 @@ public class DailyCalendarConfig extends BaseEntity {
 
     private Long deptId;
 
+    /** 个人工作日规则所属人员；为空时表示历史科室默认规则。 */
+    private Long userId;
+
     private String workDays;
 
     private String remark;
