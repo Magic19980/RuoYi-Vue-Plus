@@ -70,6 +70,13 @@ public interface ISysOssService {
     ResponseEntity<byte[]> download(Long ossId);
 
     /**
+     * 预览 OSS 对象，使用 inline 响应头返回文件内容，适用于图片预览。
+     *
+     * @param ossId OSS对象ID
+     */
+    ResponseEntity<byte[]> preview(Long ossId);
+
+    /**
      * 删除OSS对象存储
      *
      * @param ids     OSS对象ID串

@@ -18,9 +18,11 @@ import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.query.QueryBuilder;
 import org.dromara.common.oss.client.OssClient;
 import org.dromara.common.oss.enums.AccessPolicy;
+import org.dromara.common.oss.exception.S3StorageException;
 import org.dromara.common.oss.factory.OssFactory;
 import org.dromara.common.oss.model.Options;
 import org.dromara.common.oss.model.PutObjectResult;
+import org.dromara.common.redis.utils.CacheUtils;
 import org.dromara.system.api.OssService;
 import org.dromara.system.api.domain.OssDTO;
 import org.dromara.system.domain.SysOss;
@@ -28,12 +30,14 @@ import org.dromara.system.domain.SysOssExt;
 import org.dromara.system.domain.bo.SysOssBo;
 import org.dromara.system.domain.vo.SysOssVo;
 import org.dromara.system.mapper.SysOssMapper;
+import org.dromara.system.service.ISysOssConfigService;
 import org.dromara.system.service.ISysOssService;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -58,6 +62,7 @@ import java.util.function.Supplier;
 public class SysOssServiceImpl implements ISysOssService, OssService {
 
     private final SysOssMapper ossMapper;
+    private final ISysOssConfigService ossConfigService;
 
     /**
      * 查询OSS对象存储列表
@@ -83,21 +88,17 @@ public class SysOssServiceImpl implements ISysOssService, OssService {
      */
     @Override
     public List<SysOssVo> listByIds(Collection<Long> ossIds) {
-        SysOssServiceImpl ossService = SpringUtils.getAopProxy(this);
-        List<Supplier<SysOssVo>> suppliers = ossIds.stream().map(id -> (Supplier<SysOssVo>) () -> {
-            SysOssVo vo = ossService.getById(id);
-            if (ObjectUtil.isNotNull(vo)) {
-                try {
-                    return this.matchingUrl(vo);
-                } catch (Exception ignored) {
-                    // 如果oss异常无法连接则将数据直接返回
-                    return vo;
-                }
+        // 回显不能读取 getById 的缓存，否则文件删除后仍可能返回已删除的旧 OSS 记录。
+        List<SysOssVo> records = ossMapper.selectVoByIds(ossIds);
+        List<Supplier<SysOssVo>> suppliers = records.stream().map(vo -> (Supplier<SysOssVo>) () -> {
+            try {
+                return this.matchingUrl(vo);
+            } catch (Exception ignored) {
+                // 如果oss异常无法连接则将数据直接返回
+                return vo;
             }
-            return null;
         }).toList();
         List<SysOssVo> list = ThreadUtils.virtualSubmitAll(suppliers);
-        list.removeAll(Collections.singleton(null));
         return list;
     }
 
@@ -201,7 +202,7 @@ public class SysOssServiceImpl implements ISysOssService, OssService {
             throw new ServiceException("文件数据不存在!");
         }
         String percentEncodedFileName = FileUtils.percentEncode(sysOss.getOriginalName());
-        return OssFactory.instance(sysOss.getService())
+        return getOssClient(sysOss.getService())
             .download(sysOss.getFileName(), (result, inputStream) -> {
                 // 尝试解析媒体类型，如果解析失败，则使用 application/octet-stream
                 MediaType mediaType;
@@ -223,6 +224,43 @@ public class SysOssServiceImpl implements ISysOssService, OssService {
     }
 
     /**
+     * 预览OSS对象，返回 inline 内容，避免浏览器直接访问 MinIO 直链时缺少登录请求头。
+     *
+     * @param ossId OSS对象ID
+     */
+    @Override
+    public ResponseEntity<byte[]> preview(Long ossId) {
+        SysOssVo sysOss = SpringUtils.getAopProxy(this).getById(ossId);
+        if (ObjectUtil.isNull(sysOss)) {
+            throw new ServiceException("文件数据不存在!");
+        }
+        return getOssClient(sysOss.getService())
+            .download(sysOss.getFileName(), (result, inputStream) -> {
+                MediaType mediaType = resolveMediaType(result.contentType(), sysOss.getOriginalName());
+                return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                    .contentType(mediaType)
+                    .contentLength(result.size())
+                    .body(IoUtil.readBytes(inputStream));
+            });
+    }
+
+    /**
+     * 优先使用对象存储返回的媒体类型，历史数据没有媒体类型时按文件名推断。
+     */
+    private MediaType resolveMediaType(String contentType, String originalName) {
+        if (StringUtils.isNotBlank(contentType)) {
+            try {
+                return MediaType.parseMediaType(contentType);
+            } catch (Exception ignored) {
+                // 继续按文件名推断
+            }
+        }
+        return MediaTypeFactory.getMediaType(originalName)
+            .orElse(MediaType.APPLICATION_OCTET_STREAM);
+    }
+
+    /**
      * 上传 MultipartFile 到对象存储服务，并保存文件信息到数据库
      *
      * @param file 要上传的 MultipartFile 对象
@@ -236,7 +274,7 @@ public class SysOssServiceImpl implements ISysOssService, OssService {
         }
         String originalfileName = file.getOriginalFilename();
         String suffix = StringUtils.substring(originalfileName, originalfileName.lastIndexOf("."), originalfileName.length());
-        OssClient instance = OssFactory.instance();
+        OssClient instance = getDefaultOssClient();
         String pathKey = instance.buildPathKey(originalfileName);
         try (InputStream inputStream = file.getInputStream()) {
             PutObjectResult result = instance.upload(pathKey, inputStream, file.getSize(), Options.builder().setContentType(file.getContentType()));
@@ -263,13 +301,28 @@ public class SysOssServiceImpl implements ISysOssService, OssService {
         }
         String originalfileName = file.getName();
         String suffix = StringUtils.substring(originalfileName, originalfileName.lastIndexOf("."), originalfileName.length());
-        OssClient instance = OssFactory.instance();
+        OssClient instance = getDefaultOssClient();
         String pathKey = instance.buildPathKey(originalfileName);
         PutObjectResult result = instance.upload(pathKey, file, Options.builder().setContentType(FileUtils.getMimeType(file.toPath())));
         SysOssExt ext1 = ossExt == null ? new SysOssExt() : ossExt;
         ext1.setFileSize(result.size());
         // 保存文件信息
         return buildResultEntity(originalfileName, suffix, instance.clientId(), result, ext1);
+    }
+
+    /**
+     * 获取默认 OSS 客户端。Redis 被清理或缓存过期时，自动从数据库重建 OSS 配置缓存。
+     *
+     * @return 默认 OSS 客户端
+     */
+    private OssClient getDefaultOssClient() {
+        try {
+            return OssFactory.instance();
+        } catch (S3StorageException exception) {
+            log.warn("OSS默认配置缓存缺失，尝试从数据库重新加载配置: {}", exception.getMessage());
+            ossConfigService.init();
+            return OssFactory.instance();
+        }
     }
 
     /**
@@ -310,9 +363,13 @@ public class SysOssServiceImpl implements ISysOssService, OssService {
         }
         List<SysOss> list = ossMapper.selectByIds(ids);
         for (SysOss sysOss : list) {
-            OssFactory.instance(sysOss.getService()).delete(sysOss.getFileName());
+            getOssClient(sysOss.getService()).delete(sysOss.getFileName());
         }
-        return ossMapper.deleteByIds(ids) > 0;
+        boolean deleted = ossMapper.deleteByIds(ids) > 0;
+        if (deleted) {
+            ids.forEach(ossId -> CacheUtils.evict(CacheNames.SYS_OSS, ossId));
+        }
+        return deleted;
     }
 
     /**
@@ -322,11 +379,33 @@ public class SysOssServiceImpl implements ISysOssService, OssService {
      * @return oss 匹配Url的OSS对象
      */
     private SysOssVo matchingUrl(SysOssVo oss) {
-        OssClient instance = OssFactory.instance(oss.getService());
+        OssClient instance = getOssClient(oss.getService());
         // 仅修改桶类型为 private 的URL，临时URL时长为120s
         if (instance.verifyConfig(config -> AccessPolicy.PRIVATE.equals(config.accessControlPolicyConfig().accessPolicy()))) {
             oss.setUrl(instance.presignGetUrl(oss.getFileName(), Duration.ofSeconds(120)));
+        } else {
+            // 公有桶的 URL 可能是在旧 OSS 配置下生成并持久化的，不能直接复用数据库中的旧地址。
+            // 按当前客户端配置重新拼接，确保修改 endpoint、域名或桶名称后历史图片仍可回显。
+            String bucketUrl = instance.config().getBucketUrl();
+            String objectKey = oss.getFileName();
+            while (objectKey.startsWith("/")) {
+                objectKey = objectKey.substring(1);
+            }
+            oss.setUrl(bucketUrl.endsWith("/") ? bucketUrl + objectKey : bucketUrl + "/" + objectKey);
         }
         return oss;
+    }
+
+    /**
+     * 获取指定 OSS 客户端；当 Redis 中的 OSS 配置缓存被清理时，从数据库重新加载。
+     */
+    private OssClient getOssClient(String configKey) {
+        try {
+            return OssFactory.instance(configKey);
+        } catch (S3StorageException exception) {
+            log.warn("OSS配置缓存缺失，尝试从数据库重新加载配置: configKey={}, message={}", configKey, exception.getMessage());
+            ossConfigService.init();
+            return OssFactory.instance(configKey);
+        }
     }
 }

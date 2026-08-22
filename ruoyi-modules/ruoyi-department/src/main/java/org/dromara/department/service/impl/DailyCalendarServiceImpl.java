@@ -1,0 +1,551 @@
+package org.dromara.department.service.impl;
+
+import cn.dev33.satoken.stp.StpUtil;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import lombok.RequiredArgsConstructor;
+import org.dromara.common.core.exception.ServiceException;
+import org.dromara.common.core.utils.StringUtils;
+import org.dromara.common.satoken.utils.LoginHelper;
+import org.dromara.department.domain.DailyCalendarConfig;
+import org.dromara.department.domain.DailyCalendarOverride;
+import org.dromara.department.domain.DailyLeave;
+import org.dromara.department.domain.DailyReport;
+import org.dromara.department.domain.DailyReportStatus;
+import org.dromara.department.domain.bo.DailyCalendarConfigBo;
+import org.dromara.department.domain.bo.DailyCalendarOverrideBo;
+import org.dromara.department.domain.bo.DailyLeaveBo;
+import org.dromara.department.domain.vo.DailyCalendarCellVo;
+import org.dromara.department.domain.vo.DailyCalendarConfigVo;
+import org.dromara.department.domain.vo.DailyCalendarDayVo;
+import org.dromara.department.domain.vo.DailyCalendarMemberVo;
+import org.dromara.department.domain.vo.DailyCalendarOverrideVo;
+import org.dromara.department.domain.vo.DailyCalendarVo;
+import org.dromara.department.domain.vo.DailyLeaveVo;
+import org.dromara.department.domain.vo.DailyReportVo;
+import org.dromara.department.mapper.DailyCalendarConfigMapper;
+import org.dromara.department.mapper.DailyCalendarMapper;
+import org.dromara.department.mapper.DailyCalendarOverrideMapper;
+import org.dromara.department.mapper.DailyLeaveMapper;
+import org.dromara.department.mapper.DailyReportMapper;
+import org.dromara.department.service.IDailyCalendarService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
+
+/** 日报日历、工作日和休假业务实现。 */
+@RequiredArgsConstructor
+@Service
+public class DailyCalendarServiceImpl implements IDailyCalendarService {
+
+    private static final String DEPT_VIEW_PERMISSION = "department:dailyReport:viewDept";
+    private static final String WORKDAY = "WORKDAY";
+    private static final String REST = "REST";
+    private static final String LEAVE_SOURCE = "LEAVE";
+    private static final String DEFAULT_WORK_DAYS = "1,2,3,4,5";
+
+    private final DailyCalendarConfigMapper configMapper;
+    private final DailyCalendarOverrideMapper overrideMapper;
+    private final DailyLeaveMapper leaveMapper;
+    private final DailyCalendarMapper calendarMapper;
+    private final DailyReportMapper dailyReportMapper;
+
+    @Override
+    public DailyCalendarVo queryCalendar(LocalDate month) {
+        Long deptId = requireDeptId();
+        LocalDate firstDay = (month == null ? LocalDate.now() : month).withDayOfMonth(1);
+        LocalDate monthEnd = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
+        LocalDate today = LocalDate.now();
+        if (firstDay.isAfter(today)) {
+            DailyCalendarVo futureResult = new DailyCalendarVo();
+            futureResult.setMonth(firstDay);
+            futureResult.setBeginDate(firstDay);
+            futureResult.setEndDate(firstDay);
+            DailyCalendarConfig futureConfig = getConfigEntity(deptId);
+            futureResult.setWorkDays(futureConfig == null ? DEFAULT_WORK_DAYS : normalizeWorkDays(futureConfig.getWorkDays()));
+            futureResult.setDays(List.of());
+            futureResult.setMembers(List.of());
+            futureResult.setRequiredCount(0);
+            futureResult.setFilledCount(0);
+            futureResult.setMissingCount(0);
+            futureResult.setLeaveCount(0);
+            futureResult.setFutureMonth(true);
+            return futureResult;
+        }
+        LocalDate lastDay = monthEnd.isAfter(today) ? today : monthEnd;
+        Long userId = canViewDepartment() ? null : LoginHelper.getUserId();
+
+        DailyCalendarConfig config = getConfigEntity(deptId);
+        String workDays = config == null ? DEFAULT_WORK_DAYS : normalizeWorkDays(config.getWorkDays());
+        List<DailyCalendarOverride> overrideRows = overrideMapper.selectList(Wrappers.<DailyCalendarOverride>lambdaQuery()
+                .eq(DailyCalendarOverride::getDeptId, deptId)
+                .between(DailyCalendarOverride::getCalendarDate, firstDay, lastDay)
+                .orderByAsc(DailyCalendarOverride::getCalendarDate)
+                .orderByAsc(DailyCalendarOverride::getUserId));
+        Map<LocalDate, DailyCalendarOverride> globalRestOverrides = overrideRows.stream()
+            .filter(item -> item.getUserId() == null && REST.equals(item.getDayType()))
+            .collect(Collectors.toMap(DailyCalendarOverride::getCalendarDate, item -> item, (left, right) -> right));
+        Set<String> userWorkdayOverrides = overrideRows.stream()
+            .filter(item -> item.getUserId() != null && WORKDAY.equals(item.getDayType()))
+            .map(item -> key(item.getUserId(), item.getCalendarDate()))
+            .collect(Collectors.toSet());
+        List<DailyCalendarDayVo> days = buildDays(firstDay, lastDay, workDays, globalRestOverrides);
+
+        List<DailyCalendarMemberVo> members = calendarMapper.selectMembers(deptId, userId);
+        List<DailyReportVo> reports = calendarMapper.selectReports(deptId, firstDay, lastDay);
+        Map<String, DailyReportVo> reportMap = reports.stream().collect(Collectors.toMap(
+            report -> key(report.getUserId(), report.getReportDate()), report -> report, (left, right) -> right));
+        List<DailyLeaveVo> leaves = leaveMapper.selectCalendarLeaves(deptId, firstDay, lastDay, userId);
+        Map<String, DailyLeaveVo> leaveMap = new HashMap<>();
+        for (DailyLeaveVo leave : leaves) {
+            for (LocalDate date = leave.getStartDate(); !date.isAfter(leave.getEndDate()); date = date.plusDays(1)) {
+                if (!date.isBefore(firstDay) && !date.isAfter(lastDay)) {
+                    leaveMap.put(key(leave.getUserId(), date), leave);
+                }
+            }
+        }
+
+        int requiredCount = 0;
+        int filledCount = 0;
+        int missingCount = 0;
+        int leaveCount = 0;
+        Map<LocalDate, DailyCalendarDayVo> dayMap = days.stream().collect(Collectors.toMap(DailyCalendarDayVo::getDate, item -> item));
+        for (DailyCalendarMemberVo member : members) {
+            List<DailyCalendarCellVo> cells = new ArrayList<>();
+            for (DailyCalendarDayVo day : days) {
+                DailyReportVo report = reportMap.get(key(member.getUserId(), day.getDate()));
+                DailyLeaveVo leave = leaveMap.get(key(member.getUserId(), day.getDate()));
+                DailyCalendarCellVo cell = new DailyCalendarCellVo();
+                cell.setDate(day.getDate());
+                boolean personalWorkday = userWorkdayOverrides.contains(key(member.getUserId(), day.getDate()));
+                boolean memberWorkday = personalWorkday || Boolean.TRUE.equals(day.getWorkday());
+                cell.setWorkday(memberWorkday);
+                cell.setDayType(memberWorkday ? WORKDAY : REST);
+                cell.setLabel(personalWorkday ? "个人调休上班" : day.getLabel());
+                cell.setReportId(report == null ? null : report.getId());
+                cell.setSourceType(report == null ? null : report.getSourceType());
+                cell.setTodayWork(report == null ? null : report.getTodayWork());
+                cell.setTomorrowPlan(report == null ? null : report.getTomorrowPlan());
+                cell.setCoordinationNote(report == null ? null : report.getCoordinationNote());
+                cell.setLeaveId(leave == null ? null : leave.getId());
+                cell.setLeaveType(leave == null ? null : leave.getLeaveType());
+                boolean leaveAuto = leave != null && (report == null || LEAVE_SOURCE.equals(report.getSourceType()));
+                if (leaveAuto) {
+                    cell.setState("LEAVE");
+                    if (memberWorkday) {
+                        leaveCount++;
+                    }
+                } else if (report != null) {
+                    cell.setState("FILLED");
+                } else if (memberWorkday) {
+                    cell.setState("MISSING");
+                } else {
+                    cell.setState("REST");
+                }
+                if (memberWorkday) {
+                    requiredCount++;
+                    if ("MISSING".equals(cell.getState())) {
+                        missingCount++;
+                    } else {
+                        filledCount++;
+                    }
+                }
+                cells.add(cell);
+            }
+            member.setCells(cells);
+        }
+
+        DailyCalendarVo result = new DailyCalendarVo();
+        result.setMonth(firstDay);
+        result.setBeginDate(firstDay);
+        result.setEndDate(lastDay);
+        result.setFutureMonth(false);
+        result.setWorkDays(workDays);
+        result.setDays(days);
+        result.setMembers(members);
+        result.setRequiredCount(requiredCount);
+        result.setFilledCount(filledCount);
+        result.setMissingCount(missingCount);
+        result.setLeaveCount(leaveCount);
+        return result;
+    }
+
+    @Override
+    public DailyCalendarConfigVo queryConfig() {
+        DailyCalendarConfig entity = getConfigEntity(requireDeptId());
+        DailyCalendarConfigVo vo = new DailyCalendarConfigVo();
+        if (entity == null) {
+            vo.setDeptId(requireDeptId());
+            vo.setWorkDays(DEFAULT_WORK_DAYS);
+        } else {
+            vo.setId(entity.getId());
+            vo.setDeptId(entity.getDeptId());
+            vo.setWorkDays(normalizeWorkDays(entity.getWorkDays()));
+            vo.setRemark(entity.getRemark());
+        }
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DailyCalendarConfigVo saveConfig(DailyCalendarConfigBo bo) {
+        assertDepartmentManager();
+        Long deptId = requireDeptId();
+        String workDays = normalizeWorkDays(bo.getWorkDays());
+        DailyCalendarConfig entity = getConfigEntity(deptId);
+        if (entity == null) {
+            entity = new DailyCalendarConfig();
+            entity.setDeptId(deptId);
+        }
+        entity.setWorkDays(workDays);
+        entity.setRemark(StringUtils.trim(bo.getRemark()));
+        if (entity.getId() == null) {
+            configMapper.insert(entity);
+        } else {
+            configMapper.updateById(entity);
+        }
+        return queryConfig();
+    }
+
+    @Override
+    public List<DailyCalendarOverrideVo> queryOverrides(LocalDate beginDate, LocalDate endDate) {
+        Long deptId = requireDeptId();
+        LocalDate begin = beginDate == null ? LocalDate.now().withDayOfMonth(1) : beginDate;
+        LocalDate end = endDate == null ? begin.withDayOfMonth(begin.lengthOfMonth()) : endDate;
+        return overrideMapper.selectList(Wrappers.<DailyCalendarOverride>lambdaQuery()
+                .eq(DailyCalendarOverride::getDeptId, deptId)
+                .between(DailyCalendarOverride::getCalendarDate, begin, end)
+                .orderByAsc(DailyCalendarOverride::getCalendarDate))
+            .stream().map(this::toOverrideVo).toList();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean saveOverride(DailyCalendarOverrideBo bo) {
+        assertDepartmentManager();
+        Long deptId = requireDeptId();
+        if (!WORKDAY.equals(bo.getDayType()) && !REST.equals(bo.getDayType())) {
+            throw new ServiceException("日期类型只能选择调休上班或休息日");
+        }
+        Long targetUserId = WORKDAY.equals(bo.getDayType()) ? bo.getUserId() : null;
+        if (WORKDAY.equals(bo.getDayType()) && targetUserId == null) {
+            throw new ServiceException("调休上班必须选择具体人员");
+        }
+        if (targetUserId != null) {
+            Long targetDeptId = dailyReportMapper.selectDeptIdByUserId(targetUserId);
+            if (!Objects.equals(deptId, targetDeptId)) {
+                throw new ServiceException("调休人员必须属于当前科室");
+            }
+        }
+        DailyCalendarOverride entity = bo.getId() == null ? null : overrideMapper.selectById(bo.getId());
+        if (entity != null && !Objects.equals(entity.getDeptId(), deptId)) {
+            throw new ServiceException("不能维护其他科室的日期规则");
+        }
+        DailyCalendarOverride sameDate = overrideMapper.selectOne(Wrappers.<DailyCalendarOverride>lambdaQuery()
+            .eq(DailyCalendarOverride::getDeptId, deptId)
+            .eq(DailyCalendarOverride::getCalendarDate, bo.getCalendarDate())
+            .apply(targetUserId == null ? "user_id is null" : "user_id = {0}", targetUserId));
+        if (sameDate != null && (entity == null || !Objects.equals(sameDate.getId(), entity.getId()))) {
+            entity = sameDate;
+        }
+        if (entity == null) {
+            entity = new DailyCalendarOverride();
+            entity.setDeptId(deptId);
+        }
+        entity.setCalendarDate(bo.getCalendarDate());
+        entity.setDayType(bo.getDayType());
+        entity.setUserId(targetUserId);
+        entity.setRemark(StringUtils.trim(bo.getRemark()));
+        if (entity.getId() == null) {
+            overrideMapper.insert(entity);
+        } else {
+            overrideMapper.updateById(entity);
+        }
+        return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean deleteOverrides(Collection<Long> ids) {
+        assertDepartmentManager();
+        for (Long id : ids) {
+            DailyCalendarOverride entity = overrideMapper.selectById(id);
+            if (entity != null && !Objects.equals(entity.getDeptId(), requireDeptId())) {
+                throw new ServiceException("不能删除其他科室的日期规则");
+            }
+        }
+        return overrideMapper.deleteByIds(ids) > 0;
+    }
+
+    @Override
+    public List<DailyLeaveVo> queryLeaves(LocalDate beginDate, LocalDate endDate, Long userId) {
+        Long deptId = requireDeptId();
+        Long targetUserId = canViewDepartment() ? userId : LoginHelper.getUserId();
+        return leaveMapper.selectCalendarLeaves(deptId, beginDate, endDate, targetUserId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean insertLeave(DailyLeaveBo bo) {
+        assertLeaveUser(bo.getUserId());
+        DailyLeave entity = new DailyLeave();
+        entity.setDeptId(requireDeptId());
+        entity.setUserId(resolveLeaveUser(bo.getUserId()));
+        fillLeave(entity, bo);
+        ensureNoOverlap(entity, null);
+        leaveMapper.insert(entity);
+        syncLeaveReports(entity);
+        return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean updateLeave(DailyLeaveBo bo) {
+        DailyLeave entity = getLeaveAccessible(bo.getId());
+        assertLeaveUser(bo.getUserId());
+        Long oldUserId = entity.getUserId();
+        Long targetUserId = resolveLeaveUser(bo.getUserId());
+        entity.setUserId(targetUserId);
+        fillLeave(entity, bo);
+        ensureNoOverlap(entity, entity.getId());
+        if (!Objects.equals(oldUserId, targetUserId)) {
+            dailyReportMapper.delete(Wrappers.<DailyReport>lambdaQuery().eq(DailyReport::getLeaveId, entity.getId()));
+        }
+        leaveMapper.updateById(entity);
+        dailyReportMapper.delete(Wrappers.<DailyReport>lambdaQuery().eq(DailyReport::getLeaveId, entity.getId())
+            .and(wrapper -> wrapper.lt(DailyReport::getReportDate, entity.getStartDate())
+                .or().gt(DailyReport::getReportDate, entity.getEndDate())));
+        syncLeaveReports(entity);
+        return true;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean deleteLeaves(Collection<Long> ids) {
+        for (Long id : ids) {
+            getLeaveAccessible(id);
+        }
+        dailyReportMapper.delete(Wrappers.<DailyReport>lambdaQuery().in(DailyReport::getLeaveId, ids));
+        return leaveMapper.deleteByIds(ids) > 0;
+    }
+
+    @Override
+    public boolean isWorkday(Long deptId, LocalDate date) {
+        return isWorkday(deptId, null, date);
+    }
+
+    @Override
+    public boolean isWorkday(Long deptId, Long userId, LocalDate date) {
+        if (deptId == null || date == null) {
+            return false;
+        }
+        if (userId != null && overrideMapper.selectCount(Wrappers.<DailyCalendarOverride>lambdaQuery()
+            .eq(DailyCalendarOverride::getDeptId, deptId)
+            .eq(DailyCalendarOverride::getCalendarDate, date)
+            .eq(DailyCalendarOverride::getUserId, userId)
+            .eq(DailyCalendarOverride::getDayType, WORKDAY)) > 0) {
+            return true;
+        }
+        DailyCalendarOverride globalRest = overrideMapper.selectOne(Wrappers.<DailyCalendarOverride>lambdaQuery()
+            .eq(DailyCalendarOverride::getDeptId, deptId)
+            .eq(DailyCalendarOverride::getCalendarDate, date)
+            .eq(DailyCalendarOverride::getDayType, REST)
+            .isNull(DailyCalendarOverride::getUserId));
+        if (globalRest != null) {
+            return false;
+        }
+        DailyCalendarConfig config = getConfigEntity(deptId);
+        String workDays = config == null ? DEFAULT_WORK_DAYS : normalizeWorkDays(config.getWorkDays());
+        return new TreeSet<>(parseWorkDays(workDays)).contains(date.getDayOfWeek().getValue());
+    }
+
+    private void syncLeaveReports(DailyLeave leave) {
+        for (LocalDate date = leave.getStartDate(); !date.isAfter(leave.getEndDate()); date = date.plusDays(1)) {
+            if (!isWorkday(leave.getDeptId(), leave.getUserId(), date)) {
+                continue;
+            }
+            DailyReport entity = dailyReportMapper.selectOne(Wrappers.<DailyReport>lambdaQuery()
+                .eq(DailyReport::getReportDate, date).eq(DailyReport::getUserId, leave.getUserId()));
+            if (entity == null) {
+                entity = new DailyReport();
+                entity.setReportDate(date);
+                entity.setUserId(leave.getUserId());
+                entity.setDeptId(leave.getDeptId());
+                entity.setTodayWork("休假");
+                entity.setTomorrowPlan("");
+                entity.setCoordinationNote(StringUtils.isBlank(leave.getReason()) ? null : leave.getReason());
+                entity.setStatus(DailyReportStatus.SUBMITTED);
+                entity.setSourceType(LEAVE_SOURCE);
+                entity.setLeaveId(leave.getId());
+                dailyReportMapper.insert(entity);
+            } else if (LEAVE_SOURCE.equals(entity.getSourceType()) &&
+                (entity.getLeaveId() == null || Objects.equals(entity.getLeaveId(), leave.getId()))) {
+                entity.setTodayWork("休假");
+                entity.setCoordinationNote(StringUtils.isBlank(leave.getReason()) ? null : leave.getReason());
+                entity.setLeaveId(leave.getId());
+                dailyReportMapper.updateById(entity);
+            }
+        }
+    }
+
+    private void fillLeave(DailyLeave entity, DailyLeaveBo bo) {
+        if (bo.getStartDate().isAfter(bo.getEndDate())) {
+            throw new ServiceException("休假开始日期不能晚于结束日期");
+        }
+        entity.setStartDate(bo.getStartDate());
+        entity.setEndDate(bo.getEndDate());
+        entity.setLeaveType(StringUtils.isBlank(bo.getLeaveType()) ? "休假" : bo.getLeaveType().trim());
+        entity.setReason(StringUtils.trim(bo.getReason()));
+        entity.setStatus("ENABLED");
+    }
+
+    private void ensureNoOverlap(DailyLeave leave, Long excludeId) {
+        var wrapper = Wrappers.<DailyLeave>lambdaQuery()
+            .eq(DailyLeave::getDeptId, leave.getDeptId())
+            .eq(DailyLeave::getUserId, leave.getUserId())
+            .eq(DailyLeave::getStatus, "ENABLED")
+            .le(DailyLeave::getStartDate, leave.getEndDate())
+            .ge(DailyLeave::getEndDate, leave.getStartDate());
+        if (excludeId != null) {
+            wrapper.ne(DailyLeave::getId, excludeId);
+        }
+        if (leaveMapper.selectCount(wrapper) > 0) {
+            throw new ServiceException("同一人员的休假日期存在重叠，请合并后再保存");
+        }
+    }
+
+    private DailyLeave getLeaveAccessible(Long id) {
+        DailyLeave entity = leaveMapper.selectById(id);
+        if (entity == null || !Objects.equals(entity.getDeptId(), requireDeptId())) {
+            throw new ServiceException("休假记录不存在或无权访问");
+        }
+        if (!canViewDepartment() && !Objects.equals(entity.getUserId(), LoginHelper.getUserId())) {
+            throw new ServiceException("只能维护本人的休假安排");
+        }
+        return entity;
+    }
+
+    private void assertLeaveUser(Long userId) {
+        Long target = resolveLeaveUser(userId);
+        if (!canViewDepartment() && !Objects.equals(target, LoginHelper.getUserId())) {
+            throw new ServiceException("只能维护本人的休假安排");
+        }
+        Long currentDept = requireDeptId();
+        Long targetDept = dailyReportMapper.selectDeptIdByUserId(target);
+        if (!Objects.equals(currentDept, targetDept)) {
+            throw new ServiceException("休假人员必须属于当前科室");
+        }
+    }
+
+    private Long resolveLeaveUser(Long userId) {
+        return canViewDepartment() ? userId : LoginHelper.getUserId();
+    }
+
+    private List<DailyCalendarDayVo> buildDays(LocalDate begin, LocalDate end, String workDays,
+                                                Map<LocalDate, DailyCalendarOverride> overrides) {
+        Set<Integer> defaultWorkDays = parseWorkDays(workDays);
+        List<DailyCalendarDayVo> days = new ArrayList<>();
+        for (LocalDate date = begin; !date.isAfter(end); date = date.plusDays(1)) {
+            DailyCalendarOverride override = overrides.get(date);
+            boolean workday = override == null || !REST.equals(override.getDayType())
+                ? defaultWorkDays.contains(date.getDayOfWeek().getValue()) : false;
+            DailyCalendarDayVo day = new DailyCalendarDayVo();
+            day.setDate(date);
+            day.setDayOfWeek(date.getDayOfWeek().getValue());
+            day.setWeekLabel(weekLabel(date.getDayOfWeek()));
+            day.setWorkday(workday);
+            day.setDayType(workday ? WORKDAY : REST);
+            day.setLabel(override == null ? (workday ? "工作日" : "休息日") : "休息日");
+            day.setRemark(override == null ? null : override.getRemark());
+            days.add(day);
+        }
+        return days;
+    }
+
+    private DailyCalendarConfig getConfigEntity(Long deptId) {
+        return configMapper.selectOne(Wrappers.<DailyCalendarConfig>lambdaQuery().eq(DailyCalendarConfig::getDeptId, deptId));
+    }
+
+    private DailyCalendarOverrideVo toOverrideVo(DailyCalendarOverride entity) {
+        DailyCalendarOverrideVo vo = new DailyCalendarOverrideVo();
+        vo.setId(entity.getId());
+        vo.setUserId(entity.getUserId());
+        vo.setCalendarDate(entity.getCalendarDate());
+        vo.setDayType(entity.getDayType());
+        vo.setRemark(entity.getRemark());
+        return vo;
+    }
+
+    private String normalizeWorkDays(String value) {
+        Set<Integer> days = parseWorkDays(value);
+        if (days.isEmpty()) {
+            throw new ServiceException("至少选择一个工作日");
+        }
+        return days.stream().sorted().map(String::valueOf).collect(Collectors.joining(","));
+    }
+
+    private Set<Integer> parseWorkDays(String value) {
+        Set<Integer> result = new HashSet<>();
+        if (StringUtils.isBlank(value)) {
+            return result;
+        }
+        for (String item : value.split(",")) {
+            try {
+                int day = Integer.parseInt(item.trim());
+                if (day >= 1 && day <= 7) {
+                    result.add(day);
+                }
+            } catch (NumberFormatException ignored) {
+                // 忽略非法值，最终由空集合校验给出明确提示。
+            }
+        }
+        return result;
+    }
+
+    private String weekLabel(DayOfWeek dayOfWeek) {
+        return switch (dayOfWeek) {
+            case MONDAY -> "一";
+            case TUESDAY -> "二";
+            case WEDNESDAY -> "三";
+            case THURSDAY -> "四";
+            case FRIDAY -> "五";
+            case SATURDAY -> "六";
+            case SUNDAY -> "日";
+        };
+    }
+
+    private String key(Long userId, LocalDate date) {
+        return userId + "_" + date;
+    }
+
+    private Long requireDeptId() {
+        Long deptId = LoginHelper.getDeptId();
+        if (deptId == null) {
+            throw new ServiceException("当前登录用户缺少部门信息");
+        }
+        return deptId;
+    }
+
+    private void assertDepartmentManager() {
+        if (!canViewDepartment()) {
+            throw new ServiceException("只有科室管理员可以维护工作日规则");
+        }
+    }
+
+    private boolean canViewDepartment() {
+        return LoginHelper.isSuperAdmin() || StpUtil.hasPermission(DEPT_VIEW_PERMISSION);
+    }
+}

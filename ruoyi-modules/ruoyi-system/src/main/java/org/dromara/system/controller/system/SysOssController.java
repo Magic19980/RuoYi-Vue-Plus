@@ -2,6 +2,7 @@ package org.dromara.system.controller.system;
 
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.PageResult;
@@ -91,6 +92,18 @@ public class SysOssController extends BaseController {
     @GetMapping("/download/{ossId}")
     public ResponseEntity<byte[]> download(@PathVariable Long ossId) throws IOException {
         return ossService.download(ossId);
+    }
+
+    /**
+     * 预览OSS对象。图片标签无法主动添加 Authorization 请求头，前端通过当前登录令牌访问该地址。
+     *
+     * @param ossId OSS对象ID
+     * @throws IOException IO异常
+     */
+    @SaCheckLogin
+    @GetMapping("/preview/{ossId}")
+    public ResponseEntity<byte[]> preview(@PathVariable Long ossId) throws IOException {
+        return ossService.preview(ossId);
     }
 
     /**
