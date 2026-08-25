@@ -17,7 +17,7 @@ public class DailyCalendarDayVo implements Serializable {
     private Integer dayOfWeek;
     private String weekLabel;
     private Boolean workday;
-    /** 是否存在科室统一休息日例外；个人周工作日规则仍可单独计算。 */
+    /** 是否存在科室统一休息日例外；成员工作日由日报任务分配计算。 */
     private Boolean departmentRest;
     private String dayType;
     private String label;

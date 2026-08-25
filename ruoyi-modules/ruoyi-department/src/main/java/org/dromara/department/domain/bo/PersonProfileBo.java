@@ -7,7 +7,7 @@ import org.dromara.common.core.validate.EditGroup;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.time.LocalTime;
+import java.time.LocalDate;
 
 /**
  * 人员档案新增、修改参数。
@@ -24,13 +24,12 @@ public class PersonProfileBo implements Serializable {
     @NotNull(message = "系统用户不能为空", groups = {AddGroup.class, EditGroup.class})
     private Long userId;
 
-    private String employeeNo;
+    private LocalDate joinDate;
 
-    private String jobTitle;
+    private LocalDate leaveDate;
 
-    private String dailyReportEnabled;
-
-    private LocalTime reminderTime;
+    private String memberType;
 
     private String remark;
+
 }

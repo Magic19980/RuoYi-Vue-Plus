@@ -1,6 +1,5 @@
 package org.dromara.department.service.impl;
 
-import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +15,8 @@ import org.dromara.department.domain.bo.DailyReportQueryBo;
 import org.dromara.department.domain.vo.DailyReportImportVo;
 import org.dromara.department.domain.vo.DailyReportVo;
 import org.dromara.department.mapper.DailyReportMapper;
+import org.dromara.department.service.DepartmentContextResolver;
+import org.dromara.department.service.DepartmentAccessService;
 import org.dromara.department.service.IDailyCalendarService;
 import org.dromara.department.service.IDailyReportService;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,8 @@ public class DailyReportServiceImpl implements IDailyReportService {
 
     private final DailyReportMapper dailyReportMapper;
     private final IDailyCalendarService dailyCalendarService;
+    private final DepartmentContextResolver departmentContextResolver;
+    private final DepartmentAccessService departmentAccessService;
 
     @Override
     public PageResult<DailyReportVo> queryPageList(DailyReportQueryBo bo, PageQuery pageQuery) {
@@ -63,14 +66,15 @@ public class DailyReportServiceImpl implements IDailyReportService {
     @Transactional(rollbackFor = Exception.class)
     public Boolean insertByBo(DailyReportBo bo) {
         Long userId = LoginHelper.getUserId();
-        Long deptId = LoginHelper.getDeptId();
+        Long deptId = currentDeptId();
         if (userId == null || deptId == null) {
             throw new ServiceException("当前登录用户缺少部门信息，无法填写日报");
         }
-        ensureWorkday(deptId, bo.getReportDate());
+        ensureWorkday(deptId, userId, bo.getReportDate());
         long count = dailyReportMapper.selectCount(Wrappers.<DailyReport>lambdaQuery()
             .eq(DailyReport::getReportDate, bo.getReportDate())
-            .eq(DailyReport::getUserId, userId));
+            .eq(DailyReport::getUserId, userId)
+            .eq(DailyReport::getDeptId, deptId));
         if (count > 0) {
             throw new ServiceException("该日期已存在日报，请直接修改已有日报");
         }
@@ -90,7 +94,7 @@ public class DailyReportServiceImpl implements IDailyReportService {
     @Transactional(rollbackFor = Exception.class)
     public Boolean updateByBo(DailyReportBo bo) {
         DailyReport entity = getOwnedEditable(bo.getId());
-        ensureWorkday(entity.getDeptId(), bo.getReportDate());
+        ensureWorkday(entity.getDeptId(), entity.getUserId(), bo.getReportDate());
         entity.setReportDate(bo.getReportDate());
         entity.setTodayWork(bo.getTodayWork());
         entity.setTomorrowPlan(bo.getTomorrowPlan());
@@ -127,7 +131,7 @@ public class DailyReportServiceImpl implements IDailyReportService {
         int success = 0;
         int skipped = 0;
         Long currentUserId = LoginHelper.getUserId();
-        Long currentDeptId = LoginHelper.getDeptId();
+        Long currentDeptId = currentDeptId();
         for (DailyReportImportVo row : rows) {
             if (row.getReportDate() == null || StringUtils.isBlank(row.getTodayWork())) {
                 skipped++;
@@ -143,17 +147,18 @@ public class DailyReportServiceImpl implements IDailyReportService {
                     throw new ServiceException("找不到填报人：" + row.getUserName());
                 }
             }
-            Long targetDeptId = dailyReportMapper.selectDeptIdByUserId(targetUserId);
-            if (targetDeptId == null) {
-                targetDeptId = currentDeptId;
+            Long targetDeptId = currentDeptId;
+            if (targetDeptId == null || dailyReportMapper.countMemberInDeptAt(targetUserId, targetDeptId, row.getReportDate()) == 0) {
+                throw new ServiceException("填报人尚未纳入当前科室人员档案");
             }
             if (!canViewAll() && !Objects.equals(targetDeptId, currentDeptId)) {
                 throw new ServiceException("只能导入本部门人员的日报");
             }
-            ensureWorkday(targetDeptId, row.getReportDate());
+            ensureWorkday(targetDeptId, targetUserId, row.getReportDate());
             DailyReport existing = dailyReportMapper.selectOne(Wrappers.<DailyReport>lambdaQuery()
                 .eq(DailyReport::getReportDate, row.getReportDate())
-                .eq(DailyReport::getUserId, targetUserId));
+                .eq(DailyReport::getUserId, targetUserId)
+                .eq(DailyReport::getDeptId, targetDeptId));
             if (existing != null) {
                 skipped++;
                 continue;
@@ -184,11 +189,14 @@ public class DailyReportServiceImpl implements IDailyReportService {
         return entity;
     }
 
-    private void ensureWorkday(Long deptId, java.time.LocalDate reportDate) {
+    private void ensureWorkday(Long deptId, Long userId, java.time.LocalDate reportDate) {
         if (reportDate != null && reportDate.isAfter(java.time.LocalDate.now())) {
             throw new ServiceException("不能填写未来日期的日报");
         }
-        if (reportDate == null || !dailyCalendarService.isWorkday(deptId, LoginHelper.getUserId(), reportDate)) {
+        if (reportDate == null || !dailyCalendarService.isDailyReportRequired(deptId, userId, reportDate)) {
+            throw new ServiceException("当前成员未分配日报任务，无需填写日报");
+        }
+        if (!dailyCalendarService.isWorkday(deptId, userId, reportDate)) {
             throw new ServiceException("该日期为休息日，无需填写日报；如需填写请先配置为调休上班");
         }
     }
@@ -201,7 +209,7 @@ public class DailyReportServiceImpl implements IDailyReportService {
         if (canViewAll()) {
             return entity;
         }
-        if (canViewDepartment() && Objects.equals(entity.getDeptId(), LoginHelper.getDeptId())) {
+        if (departmentAccessService.canViewEntityDept(entity.getDeptId(), DEPT_VIEW_PERMISSION)) {
             return entity;
         }
         if (Objects.equals(entity.getUserId(), LoginHelper.getUserId())) {
@@ -211,14 +219,18 @@ public class DailyReportServiceImpl implements IDailyReportService {
     }
 
     private Long scopeDeptId() {
-        return canViewDepartment() && !canViewAll() ? LoginHelper.getDeptId() : null;
+        return canViewAll() ? null : departmentAccessService.scopeDeptId(DEPT_VIEW_PERMISSION);
+    }
+
+    private Long currentDeptId() {
+        return departmentContextResolver.resolveCurrentDeptId();
     }
 
     private boolean canViewAll() {
-        return LoginHelper.isSuperAdmin();
+        return false;
     }
 
     private boolean canViewDepartment() {
-        return canViewAll() || StpUtil.hasPermission(DEPT_VIEW_PERMISSION);
+        return departmentAccessService.canViewCurrentDepartment(DEPT_VIEW_PERMISSION);
     }
 }

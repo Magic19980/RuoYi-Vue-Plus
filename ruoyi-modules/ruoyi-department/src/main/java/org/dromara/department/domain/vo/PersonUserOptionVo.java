@@ -23,4 +23,6 @@ public class PersonUserOptionVo implements Serializable {
     private String nickName;
 
     private String deptName;
+
+    private String employeeNo;
 }

@@ -19,6 +19,8 @@ import org.dromara.department.domain.vo.FiveWhyVo;
 import org.dromara.department.domain.vo.FiveWhyWhyVo;
 import org.dromara.department.mapper.FiveWhyMapper;
 import org.dromara.department.service.IFiveWhyService;
+import org.dromara.department.service.IDepartmentTaskService;
+import org.dromara.department.service.DepartmentAccessService;
 import org.dromara.system.domain.SysOssExt;
 import org.dromara.system.domain.vo.SysOssVo;
 import org.dromara.system.service.ISysOssService;
@@ -43,6 +45,8 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
     private final FiveWhyMapper fiveWhyMapper;
     private final FiveWhyDocxService fiveWhyDocxService;
     private final ISysOssService ossService;
+    private final IDepartmentTaskService departmentTaskService;
+    private final DepartmentAccessService departmentAccessService;
 
     @Override
     public PageResult<FiveWhyVo> queryPageList(FiveWhyQueryBo bo, PageQuery pageQuery) {
@@ -64,7 +68,8 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
         validateWhys(bo.getWhys());
         FiveWhy entity = new FiveWhy();
         copyBo(bo, entity);
-        entity.setDeptId(LoginHelper.getDeptId());
+        entity.setDeptId(departmentAccessService.currentDeptId());
+        entity.setAnalystUserId(bo.getAnalystUserId() == null ? LoginHelper.getUserId() : bo.getAnalystUserId());
         entity.setReviewStatus(REVIEW_PENDING);
         entity.setReviewComment(null);
         return fiveWhyMapper.insert(entity) > 0;
@@ -95,11 +100,13 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
     @Transactional(rollbackFor = Exception.class)
     public Boolean review(FiveWhyReviewBo bo) {
         FiveWhy entity = getAccessible(bo.getId());
+        departmentTaskService.checkReviewer("FIVE_WHY", entity.getDeptId());
         if (!REVIEW_APPROVED.equals(bo.getReviewStatus()) && !REVIEW_REJECTED.equals(bo.getReviewStatus())) {
             throw new ServiceException("审核结果只能是通过或驳回");
         }
         entity.setReviewStatus(bo.getReviewStatus());
         entity.setReviewComment(bo.getReviewComment());
+        entity.setReviewerUserId(LoginHelper.getUserId());
         return fiveWhyMapper.updateById(entity) > 0;
     }
 
@@ -130,6 +137,9 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
         entity.setCompanyDept(bo.getCompanyDept());
         entity.setEmployeeNo(bo.getEmployeeNo());
         entity.setAnalystName(bo.getAnalystName());
+        if (bo.getAnalystUserId() != null) {
+            entity.setAnalystUserId(bo.getAnalystUserId());
+        }
         entity.setAnalysisDate(bo.getAnalysisDate());
         entity.setProblemName(bo.getProblemName());
         entity.setProblemDescription(bo.getProblemDescription());
@@ -149,6 +159,7 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
         vo.setDeptId(entity.getDeptId());
         vo.setCompanyDept(entity.getCompanyDept());
         vo.setEmployeeNo(entity.getEmployeeNo());
+        vo.setAnalystUserId(entity.getAnalystUserId());
         vo.setAnalystName(entity.getAnalystName());
         vo.setAnalysisDate(entity.getAnalysisDate());
         vo.setProblemName(entity.getProblemName());
@@ -163,6 +174,7 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
         vo.setStandardizationExecution(entity.getStandardizationExecution());
         vo.setReviewStatus(entity.getReviewStatus());
         vo.setReviewComment(entity.getReviewComment());
+        vo.setReviewerUserId(entity.getReviewerUserId());
         vo.setCreateTime(entity.getCreateTime());
         vo.setUpdateTime(entity.getUpdateTime());
         return vo;
@@ -190,23 +202,23 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
         if (entity == null) {
             throw new ServiceException("5WHY分析记录不存在");
         }
-        if (canViewAll() || Objects.equals(entity.getDeptId(), LoginHelper.getDeptId())) {
+        if (departmentAccessService.canViewEntityDept(entity.getDeptId(), "department:fiveWhy:viewDept")) {
             return entity;
         }
         throw new ServiceException("您没有访问该5WHY分析的权限");
     }
 
     private void requireDept() {
-        if (LoginHelper.getDeptId() == null) {
+        if (departmentAccessService.currentDeptId() == null) {
             throw new ServiceException("当前登录用户缺少部门信息，无法维护5WHY分析");
         }
     }
 
     private boolean canViewAll() {
-        return LoginHelper.isSuperAdmin();
+        return false;
     }
 
     private Long scopeDeptId() {
-        return canViewAll() ? null : LoginHelper.getDeptId();
+        return canViewAll() ? null : departmentAccessService.scopeDeptId("department:fiveWhy:viewDept");
     }
 }

@@ -40,6 +40,10 @@ public class LoginHelper {
     public static final String DEPT_KEY = "deptId";
     public static final String DEPT_NAME_KEY = "deptName";
     public static final String DEPT_CATEGORY_KEY = "deptCategory";
+    /** 当前业务科室上下文，允许一个用户在多个有效服务科室间切换。 */
+    public static final String ACTIVE_DEPT_ID_KEY = "activeDeptId";
+    public static final String ACTIVE_DEPT_NAME_KEY = "activeDeptName";
+    public static final String ACTIVE_DEPT_MEMBER_TYPE_KEY = "activeDeptMemberType";
     public static final String CLIENT_KEY = "clientid";
     public static final String CLIENT_ACCESS_PATH_KEY = "clientAccessPath";
     public static final String CLIENT_IP_WHITELIST_KEY = "clientIpWhitelist";
@@ -173,6 +177,12 @@ public class LoginHelper {
      * @return 部门 ID
      */
     public static Long getDeptId() {
+        Long activeDeptId = Convert.toLong(getTokenSessionValue(ACTIVE_DEPT_ID_KEY));
+        return activeDeptId != null ? activeDeptId : Convert.toLong(getExtra(DEPT_KEY));
+    }
+
+    /** 获取系统用户表中的主部门，不受当前业务科室切换影响。 */
+    public static Long getMainDeptId() {
         return Convert.toLong(getExtra(DEPT_KEY));
     }
 
@@ -182,7 +192,40 @@ public class LoginHelper {
      * @return 部门名称
      */
     public static String getDeptName() {
-        return Convert.toStr(getExtra(DEPT_NAME_KEY));
+        String activeDeptName = Convert.toStr(getTokenSessionValue(ACTIVE_DEPT_NAME_KEY));
+        return StringUtils.isNotBlank(activeDeptName) ? activeDeptName : Convert.toStr(getExtra(DEPT_NAME_KEY));
+    }
+
+    /**
+     * 获取当前会话选择的业务科室成员类型。
+     *
+     * @return FULL 正式成员，TEMP 临时协作成员；未选择时返回 null
+     */
+    public static String getActiveDeptMemberType() {
+        return Convert.toStr(getTokenSessionValue(ACTIVE_DEPT_MEMBER_TYPE_KEY));
+    }
+
+    /**
+     * 设置当前会话的业务科室上下文。上下文只写入当前 Token，不改变系统用户主部门。
+     */
+    public static void setActiveDept(Long deptId, String deptName, String memberType) {
+        SaSession session = StpUtil.getTokenSession();
+        session.set(ACTIVE_DEPT_ID_KEY, deptId);
+        session.set(ACTIVE_DEPT_NAME_KEY, deptName);
+        // SaSession 底层使用 ConcurrentHashMap，不允许写入 null；超级管理员没有人员档案成员类型。
+        if (memberType == null) {
+            session.delete(ACTIVE_DEPT_MEMBER_TYPE_KEY);
+        } else {
+            session.set(ACTIVE_DEPT_MEMBER_TYPE_KEY, memberType);
+        }
+    }
+
+    /** 清除当前会话的业务科室上下文，恢复系统用户主部门。 */
+    public static void clearActiveDept() {
+        SaSession session = StpUtil.getTokenSession();
+        session.delete(ACTIVE_DEPT_ID_KEY);
+        session.delete(ACTIVE_DEPT_NAME_KEY);
+        session.delete(ACTIVE_DEPT_MEMBER_TYPE_KEY);
     }
 
     /**
@@ -203,6 +246,14 @@ public class LoginHelper {
     private static Object getExtra(String key) {
         try {
             return StpUtil.getExtra(key);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static Object getTokenSessionValue(String key) {
+        try {
+            return StpUtil.getTokenSession().get(key);
         } catch (Exception e) {
             return null;
         }

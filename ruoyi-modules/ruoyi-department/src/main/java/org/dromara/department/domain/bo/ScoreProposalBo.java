@@ -46,6 +46,8 @@ public class ScoreProposalBo implements Serializable {
 
     private Long subCategoryId;
 
+    private Long proposerUserId;
+
     @Size(max = 255, message = "提案大类不能超过255个字符")
     private String mainCategory;
 

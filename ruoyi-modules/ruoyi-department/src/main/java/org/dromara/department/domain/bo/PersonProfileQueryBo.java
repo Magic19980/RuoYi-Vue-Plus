@@ -20,5 +20,7 @@ public class PersonProfileQueryBo implements Serializable {
 
     private String jobTitle;
 
-    private String dailyReportEnabled;
+    /** 是否包含已经结束服务关系的历史成员。 */
+    private Boolean includeHistory;
+
 }

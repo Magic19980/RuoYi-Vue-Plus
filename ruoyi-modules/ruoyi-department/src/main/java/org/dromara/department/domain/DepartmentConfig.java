@@ -11,24 +11,23 @@ import org.dromara.common.mybatis.core.domain.BaseEntity;
 
 import java.io.Serial;
 
-/** 科室日报周工作日规则。 */
+/** 业务科室配置。科室主键直接复用 sys_dept.dept_id。 */
 @Data
 @EqualsAndHashCode(callSuper = true)
-@TableName("dm_daily_calendar_config")
-public class DailyCalendarConfig extends BaseEntity {
+@TableName("dm_department")
+public class DepartmentConfig extends BaseEntity {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
-    @TableId(value = "id", type = IdType.ASSIGN_ID)
-    private Long id;
-
+    @TableId(value = "dept_id", type = IdType.INPUT)
     private Long deptId;
 
-    /** 个人工作日规则所属人员；为空时表示历史科室默认规则。 */
-    private Long userId;
+    private String status;
 
-    private String workDays;
+    private Long managerUserId;
+
+    private Integer sortNum;
 
     private String remark;
 

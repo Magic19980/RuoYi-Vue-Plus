@@ -1,6 +1,5 @@
 package org.dromara.department.service.impl;
 
-import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,20 +13,19 @@ import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.department.domain.WeeklyReport;
 import org.dromara.department.domain.WeeklyReportStatus;
 import org.dromara.department.domain.bo.DailyReportQueryBo;
-import org.dromara.department.domain.bo.PersonProfileQueryBo;
 import org.dromara.department.domain.bo.WeeklyReportBo;
 import org.dromara.department.domain.bo.WeeklyReportQueryBo;
 import org.dromara.department.domain.vo.DailyReportVo;
-import org.dromara.department.domain.vo.PersonProfileVo;
 import org.dromara.department.domain.vo.WeeklyReportItemVo;
 import org.dromara.department.domain.vo.WeeklyReportSummaryVo;
 import org.dromara.department.domain.vo.WeeklyReportVo;
 import org.dromara.department.mapper.WeeklyReportMapper;
 import org.dromara.department.service.IDailyReportService;
-import org.dromara.department.service.IOperationLedgerService;
+import org.dromara.department.service.IDepartmentTaskService;
+import org.dromara.department.service.IDepartmentMetricService;
 import org.dromara.department.service.IPersonProfileService;
 import org.dromara.department.service.IWeeklyReportService;
-import org.dromara.department.service.IWorkOrderService;
+import org.dromara.department.service.DepartmentAccessService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +36,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -56,9 +55,10 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
     private final WeeklyReportMapper weeklyReportMapper;
     private final IDailyReportService dailyReportService;
     private final IPersonProfileService personProfileService;
-    private final IWorkOrderService workOrderService;
-    private final IOperationLedgerService operationLedgerService;
+    private final IDepartmentTaskService departmentTaskService;
+    private final IDepartmentMetricService departmentMetricService;
     private final WeeklyReportPptxService weeklyReportPptxService;
+    private final DepartmentAccessService departmentAccessService;
 
     @Override
     public PageResult<WeeklyReportVo> queryPageList(WeeklyReportQueryBo bo, PageQuery pageQuery) {
@@ -82,9 +82,14 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
         query.setEndDate(weekEnd);
         List<DailyReportVo> reports = dailyReportService.queryList(query);
 
-        PersonProfileQueryBo profileQuery = new PersonProfileQueryBo();
-        profileQuery.setDailyReportEnabled("1");
-        List<PersonProfileVo> profiles = personProfileService.queryList(profileQuery);
+        List<Long> dailyTaskUserIds = departmentTaskService.queryDailyReportUserIds(weekStart, weekEnd);
+        Set<Long> dailyTaskUserIdSet = new HashSet<>(dailyTaskUserIds);
+        reports = reports.stream()
+            .filter(report -> report.getUserId() != null && dailyTaskUserIdSet.contains(report.getUserId()))
+            .toList();
+        var profiles = personProfileService.queryMemberUserOptions().stream()
+            .filter(profile -> dailyTaskUserIdSet.contains(profile.getUserId()))
+            .toList();
 
         WeeklyReportSummaryVo summary = new WeeklyReportSummaryVo();
         summary.setWeekStart(weekStart);
@@ -120,7 +125,7 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
         summary.setReportItems(items);
 
         List<String> missingNames = new ArrayList<>();
-        for (PersonProfileVo profile : profiles) {
+        for (var profile : profiles) {
             if (!filledUserIds.contains(profile.getUserId())) {
                 missingNames.add(displayName(profile.getNickName(), profile.getUserName()));
             }
@@ -128,10 +133,8 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
         summary.setFilledUserCount(filledUserIds.size());
         summary.setMissingUserCount(missingNames.size());
         summary.setMissingUserNames(missingNames);
-        summary.setManualOrderSummary(workOrderService.buildSummary(weekStart, weekEnd));
-        summary.setOperationSummary(operationLedgerService.buildSummary(weekStart, weekEnd));
-        // 保留旧字段，避免历史前端或旧快照读取时报空；新周报统一使用两个明确的数据源字段。
-        summary.setWorkOrderSummary(summary.getManualOrderSummary());
+        summary.setManualOrderSummary(departmentMetricService.buildManualOrderSummary(weekStart, weekEnd));
+        summary.setOperationSummary(departmentMetricService.buildOperationSummary(weekStart, weekEnd));
         return summary;
     }
 
@@ -207,7 +210,7 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
         if (canViewAll()) {
             return entity;
         }
-        if (canViewDepartment() && Objects.equals(entity.getCreateDept(), LoginHelper.getDeptId())) {
+        if (departmentAccessService.canViewEntityDept(entity.getCreateDept(), DEPT_VIEW_PERMISSION)) {
             return entity;
         }
         if (Objects.equals(entity.getCreateBy(), LoginHelper.getUserId())) {
@@ -227,7 +230,8 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
             return wrapper.orderByDesc(WeeklyReport::getWeekStart);
         }
         if (canViewDepartment()) {
-            return wrapper.eq(WeeklyReport::getCreateDept, LoginHelper.getDeptId()).orderByDesc(WeeklyReport::getWeekStart);
+            return wrapper.eq(WeeklyReport::getCreateDept, departmentAccessService.currentDeptId())
+                .orderByDesc(WeeklyReport::getWeekStart);
         }
         return wrapper.eq(WeeklyReport::getCreateBy, LoginHelper.getUserId()).orderByDesc(WeeklyReport::getWeekStart);
     }
@@ -252,10 +256,10 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
     }
 
     private boolean canViewAll() {
-        return LoginHelper.isSuperAdmin();
+        return false;
     }
 
     private boolean canViewDepartment() {
-        return canViewAll() || StpUtil.hasPermission(DEPT_VIEW_PERMISSION);
+        return departmentAccessService.canViewCurrentDepartment(DEPT_VIEW_PERMISSION);
     }
 }

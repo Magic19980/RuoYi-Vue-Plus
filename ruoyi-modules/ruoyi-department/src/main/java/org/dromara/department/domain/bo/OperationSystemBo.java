@@ -32,12 +32,6 @@ public class OperationSystemBo implements Serializable {
     @Size(max = 100, message = "负责人不能超过100个字符")
     private String responsiblePerson;
 
-    @Size(max = 150, message = "服务器名称不能超过150个字符")
-    private String serverName;
-
-    @Size(max = 1000, message = "服务器IP不能超过1000个字符")
-    private String serverIp;
-
     private BigDecimal onlineDays;
 
     private Integer downtimeMinutes;

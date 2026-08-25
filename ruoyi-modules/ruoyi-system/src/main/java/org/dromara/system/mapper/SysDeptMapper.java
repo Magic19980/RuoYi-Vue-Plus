@@ -14,9 +14,12 @@ import org.dromara.system.domain.SysRoleDept;
 import org.dromara.system.domain.vo.SysDeptVo;
 
 import java.util.Collections;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.dromara.common.core.constant.SystemConstants.NORMAL;
 
@@ -38,6 +41,31 @@ public interface SysDeptMapper extends BaseMapperPlus<SysDept, SysDeptVo>, MPJBa
     })
     default List<SysDeptVo> selectDeptList(Wrapper<SysDept> queryWrapper) {
         return this.selectVoList(queryWrapper);
+    }
+
+    /**
+     * 查询给定部门ID集合中哪些部门存在直属子部门。
+     *
+     * @param deptIds 部门ID集合
+     * @return 存在直属子部门的部门ID集合
+     */
+    @DataPermission({
+        @DataColumn(key = "deptName", value = "dept_id")
+    })
+    default Set<Long> selectParentIds(Collection<Long> deptIds) {
+        if (deptIds == null || deptIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return this.lambda()
+            .select(SysDept::getParentId)
+            .eq(SysDept::getDelFlag, NORMAL)
+            .in(SysDept::getParentId, deptIds)
+            .groupBy(SysDept::getParentId)
+            .list()
+            .stream()
+            .map(SysDept::getParentId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
     }
 
     /**

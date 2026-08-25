@@ -6,6 +6,7 @@ import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.department.domain.WorkOrderDetail;
 import org.dromara.department.domain.vo.WorkOrderDetailVo;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -17,6 +18,17 @@ public interface WorkOrderDetailMapper extends BaseMapperPlus<WorkOrderDetail, W
     default List<WorkOrderDetail> selectByWorkOrderId(Long workOrderId) {
         return selectList(Wrappers.<WorkOrderDetail>lambdaQuery()
             .eq(WorkOrderDetail::getWorkOrderId, workOrderId)
+            .orderByAsc(WorkOrderDetail::getSequenceNo)
+            .orderByAsc(WorkOrderDetail::getId));
+    }
+
+    default List<WorkOrderDetail> selectByWorkOrderIds(Collection<Long> workOrderIds) {
+        if (workOrderIds == null || workOrderIds.isEmpty()) {
+            return List.of();
+        }
+        return selectList(Wrappers.<WorkOrderDetail>lambdaQuery()
+            .in(WorkOrderDetail::getWorkOrderId, workOrderIds)
+            .orderByAsc(WorkOrderDetail::getWorkOrderId)
             .orderByAsc(WorkOrderDetail::getSequenceNo)
             .orderByAsc(WorkOrderDetail::getId));
     }

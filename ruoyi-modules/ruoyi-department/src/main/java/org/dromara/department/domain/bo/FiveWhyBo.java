@@ -30,6 +30,8 @@ public class FiveWhyBo implements Serializable {
     @Size(max = 64, message = "工号不能超过64个字符")
     private String employeeNo;
 
+    private Long analystUserId;
+
     @NotBlank(message = "分析人不能为空", groups = {AddGroup.class, EditGroup.class})
     @Size(max = 100, message = "分析人不能超过100个字符")
     private String analystName;

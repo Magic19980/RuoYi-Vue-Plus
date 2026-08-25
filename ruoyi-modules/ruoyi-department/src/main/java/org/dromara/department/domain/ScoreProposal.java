@@ -29,6 +29,7 @@ public class ScoreProposal extends BaseEntity {
     private Long deptId;
     private Long mainCategoryId;
     private Long subCategoryId;
+    private Long proposerUserId;
     private String companyName;
     private String teamMembers;
     private String employeeNo;
@@ -50,6 +51,7 @@ public class ScoreProposal extends BaseEntity {
     private String remark;
     private String reviewStatus;
     private String reviewComment;
+    private Long reviewerUserId;
 
     @Version
     private Long version;

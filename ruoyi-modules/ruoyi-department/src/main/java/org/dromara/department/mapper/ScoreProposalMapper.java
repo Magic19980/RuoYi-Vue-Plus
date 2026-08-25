@@ -15,11 +15,11 @@ public interface ScoreProposalMapper extends BaseMapperPlus<ScoreProposal, Score
 
     @Select({
         "<script>",
-        "select s.id, s.dept_id, s.main_category_id, s.sub_category_id, s.company_name, s.team_members, s.employee_no, s.proposer_name,",
+        "select s.id, s.dept_id, s.main_category_id, s.sub_category_id, s.proposer_user_id, s.company_name, s.team_members, s.employee_no, s.proposer_name,",
         "s.proposer_role, s.proposer_level, s.dept_name, s.main_category, s.sub_category,",
         "s.problem_description, s.improvement_measure, s.implementer_supervisor, s.before_oss_id,",
         "s.after_oss_id, s.start_date, s.planned_completion_date, s.actual_completion_date,",
-        "s.completion_status, s.remark, s.review_status, s.review_comment, s.create_time, s.update_time",
+        "s.completion_status, s.remark, s.review_status, s.review_comment, s.reviewer_user_id, s.create_time, s.update_time",
         "from dm_score_proposal s where s.del_flag = '0'",
         "<if test='bo.proposerName != null and bo.proposerName != \"\"'> and s.proposer_name like concat('%', #{bo.proposerName}, '%') </if>",
         "<if test='bo.mainCategory != null and bo.mainCategory != \"\"'> and s.main_category = #{bo.mainCategory} </if>",

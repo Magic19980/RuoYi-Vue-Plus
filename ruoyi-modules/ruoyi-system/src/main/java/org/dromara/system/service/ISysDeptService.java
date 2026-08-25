@@ -34,6 +34,14 @@ public interface ISysDeptService {
     List<SysDeptVo> selectDeptList(SysDeptBo dept);
 
     /**
+     * 按父部门查询直属子部门，供懒加载部门树使用
+     *
+     * @param parentId 父部门ID
+     * @return 直属子部门列表
+     */
+    List<SysDeptVo> selectDeptChildren(Long parentId);
+
+    /**
      * 查询部门树结构信息
      *
      * @param dept 部门信息

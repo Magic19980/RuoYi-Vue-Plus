@@ -37,10 +37,6 @@ public class OperationSystem extends BaseEntity {
 
     private String responsiblePerson;
 
-    private String serverName;
-
-    private String serverIp;
-
     private BigDecimal onlineDays;
 
     private Integer downtimeMinutes;

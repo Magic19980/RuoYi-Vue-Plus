@@ -77,14 +77,10 @@ public class WorkOrderBo implements Serializable {
     @Size(max = 100, message = "处理人不能超过100个字符")
     private String handler;
 
-    private String status;
-
     private Integer resolutionMinutes;
 
     @Size(max = 50, message = "反馈渠道不能超过50个字符")
     private String feedbackChannel;
-
-    private String reviewStatus;
 
     @Size(max = 1000, message = "备注不能超过1000个字符")
     private String remark;

@@ -76,6 +76,25 @@ public class SysDeptServiceImpl implements ISysDeptService, DeptService {
     }
 
     /**
+     * 按父部门查询直属子部门，并标记是否还存在下一级节点。
+     *
+     * @param parentId 父部门ID
+     * @return 直属子部门列表
+     */
+    @Override
+    public List<SysDeptVo> selectDeptChildren(Long parentId) {
+        SysDeptBo query = new SysDeptBo();
+        query.setParentId(parentId);
+        List<SysDeptVo> children = selectDeptList(query);
+        if (CollUtil.isEmpty(children)) {
+            return children;
+        }
+        Set<Long> childParentIds = deptMapper.selectParentIds(StreamUtils.toList(children, SysDeptVo::getDeptId));
+        children.forEach(child -> child.setHasChildren(childParentIds.contains(child.getDeptId())));
+        return children;
+    }
+
+    /**
      * 查询部门树结构信息
      *
      * @param bo 部门信息

@@ -4,13 +4,17 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.department.domain.PersonProfile;
 import org.dromara.department.domain.bo.PersonProfileQueryBo;
+import org.dromara.department.domain.bo.PersonUserOptionQueryBo;
 import org.dromara.department.domain.vo.PersonProfileVo;
+import org.dromara.department.domain.vo.PersonDepartmentContextVo;
 import org.dromara.department.domain.vo.PersonUserOptionVo;
 
 import java.util.List;
+import java.time.LocalDate;
 
 /**
  * 人员档案数据层。
@@ -21,19 +25,20 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
     @Select({
         "<script>",
         "select p.id, p.user_id, u.user_name, u.nick_name, d.dept_name,",
-        "p.employee_no, p.job_title, p.daily_report_enabled, p.reminder_time, p.remark",
+        "u.employee_no, p.job_title, p.remark, p.join_date, p.leave_date,",
+        "p.member_type, p.member_status, p.end_reason, p.ended_at",
         "from dm_person_profile p",
         "left join sys_user u on u.user_id = p.user_id and u.del_flag = '0'",
-        "left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0'",
+        "left join sys_dept d on d.dept_id = p.create_dept and d.del_flag = '0'",
         "where p.del_flag = '0'",
         "<if test='bo.id != null'> and p.id = #{bo.id} </if>",
         "<if test='bo.userName != null and bo.userName != \"\"'> and (u.user_name like concat('%', #{bo.userName}, '%') or u.nick_name like concat('%', #{bo.userName}, '%')) </if>",
         "<if test='bo.jobTitle != null and bo.jobTitle != \"\"'> and p.job_title like concat('%', #{bo.jobTitle}, '%') </if>",
-        "<if test='bo.dailyReportEnabled != null and bo.dailyReportEnabled != \"\"'> and p.daily_report_enabled = #{bo.dailyReportEnabled} </if>",
+        "<if test='bo.includeHistory != true'> and p.member_status = 'ACTIVE' and p.join_date &lt;= #{today} and (p.leave_date is null or p.leave_date &gt; #{today}) </if>",
         "<choose>",
         "<when test='all == true'>",
         "</when>",
-        "<when test='deptId != null'> and u.dept_id = #{deptId} </when>",
+        "<when test='deptId != null'> and p.create_dept = #{deptId} </when>",
         "<otherwise> and p.user_id = #{userId} </otherwise>",
         "</choose>",
         "order by p.id desc",
@@ -43,11 +48,12 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
                                           @Param("bo") PersonProfileQueryBo bo,
                                           @Param("userId") Long userId,
                                           @Param("deptId") Long deptId,
-                                          @Param("all") boolean all);
+                                          @Param("all") boolean all,
+                                          @Param("today") LocalDate today);
 
     @Select({
         "<script>",
-        "select u.user_id, u.dept_id, u.user_name, u.nick_name, d.dept_name",
+        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.employee_no, d.dept_name",
         "from sys_user u left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0'",
         "where u.del_flag = '0' and u.status = '0'",
         "<if test='all == false and deptId != null'> and u.dept_id = #{deptId} </if>",
@@ -56,6 +62,97 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
     })
     List<PersonUserOptionVo> selectUserOptions(@Param("deptId") Long deptId, @Param("all") boolean all);
 
-    @Select("select u.dept_id from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' where p.id = #{id} and p.del_flag = '0'")
+    @Select("select u.user_id, u.dept_id, u.user_name, u.nick_name, u.employee_no, d.dept_name "
+        + "from sys_user u left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0' "
+        + "where u.user_id = #{userId} and u.del_flag = '0' and u.status = '0'")
+    PersonUserOptionVo selectUserOptionById(@Param("userId") Long userId);
+
+    @Select({
+        "<script>",
+        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.employee_no, d.dept_name",
+        "from sys_user u left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0'",
+        "where u.del_flag = '0' and u.status = '0'",
+        "and not exists (select 1 from dm_person_profile p where p.user_id = u.user_id and p.create_dept = #{targetDeptId} and p.del_flag = '0'",
+        "and p.member_status = 'ACTIVE' and p.join_date &lt;= #{today} and (p.leave_date is null or p.leave_date &gt; #{today}))",
+        "<if test='all == false and scopeDeptId != null'> and u.dept_id = #{scopeDeptId} </if>",
+        "<if test='bo.keyword != null and bo.keyword != \"\"'>",
+        "and (u.user_name like concat('%', #{bo.keyword}, '%')",
+        "or u.nick_name like concat('%', #{bo.keyword}, '%')",
+        "or u.employee_no like concat('%', #{bo.keyword}, '%')",
+        "or d.dept_name like concat('%', #{bo.keyword}, '%'))",
+        "</if>",
+        "order by u.user_name",
+        "</script>"
+    })
+    Page<PersonUserOptionVo> selectUserOptionsPage(Page<PersonUserOptionVo> page,
+                                                     @Param("bo") PersonUserOptionQueryBo bo,
+                                                     @Param("targetDeptId") Long targetDeptId,
+                                                     @Param("scopeDeptId") Long scopeDeptId,
+                                                     @Param("all") boolean all,
+                                                     @Param("today") LocalDate today);
+
+    @Select("select distinct u.user_id, u.dept_id, u.user_name, u.nick_name, u.employee_no, d.dept_name "
+        + "from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' "
+        + "left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0' "
+        + "where p.create_dept = #{deptId} and p.del_flag = '0' and p.member_status = 'ACTIVE' "
+        + "and p.join_date <= #{today} and (p.leave_date is null or p.leave_date > #{today}) "
+        + "and u.status = '0' order by u.user_name")
+    List<PersonUserOptionVo> selectMemberUserOptions(@Param("deptId") Long deptId, @Param("today") LocalDate today);
+
+    @Select("select p.create_dept from dm_person_profile p where p.id = #{id} and p.del_flag = '0'")
     Long selectDeptIdByProfileId(@Param("id") Long id);
+
+    @Select("select count(1) from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' and u.status = '0' "
+        + "where p.user_id = #{userId} and p.create_dept = #{deptId} and p.del_flag = '0' and p.member_status = 'ACTIVE' "
+        + "and p.join_date <= current_date and (p.leave_date is null or p.leave_date > current_date)")
+    long countMemberInDept(@Param("userId") Long userId, @Param("deptId") Long deptId);
+
+    @Select("select count(1) from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' and u.status = '0' "
+        + "where p.user_id = #{userId} and p.create_dept = #{deptId} and p.del_flag = '0' "
+        + "and p.join_date <= #{date} and (p.leave_date is null or p.leave_date > #{date})")
+    long countMemberInDeptAt(@Param("userId") Long userId, @Param("deptId") Long deptId, @Param("date") LocalDate date);
+
+    @Select("select count(1) from dm_person_profile p join sys_user u on u.user_id = p.user_id "
+        + "and u.del_flag = '0' and u.status = '0' "
+        + "where p.user_id = #{userId} and p.create_dept = #{deptId} and p.member_type = 'FULL' "
+        + "and p.del_flag = '0' and p.member_status = 'ACTIVE' "
+        + "and p.join_date <= #{date} and (p.leave_date is null or p.leave_date > #{date})")
+    long countFullMemberInDeptAt(@Param("userId") Long userId, @Param("deptId") Long deptId, @Param("date") LocalDate date);
+
+    @Select("select p.* from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' and u.status = '0' "
+        + "where p.user_id = #{userId} and p.create_dept = #{deptId} and p.del_flag = '0' and p.member_status = 'ACTIVE' "
+        + "and p.join_date <= #{date} and (p.leave_date is null or p.leave_date > #{date}) "
+        + "order by p.join_date desc, p.id desc limit 1")
+    PersonProfile selectActiveMembership(@Param("userId") Long userId, @Param("deptId") Long deptId, @Param("date") LocalDate date);
+
+    @Select("select p.* from dm_person_profile p where p.user_id = #{userId} and p.create_dept = #{deptId} and p.del_flag = '0' "
+        + "order by case when p.member_status = 'ACTIVE' then 0 else 1 end, p.join_date desc, p.id desc limit 1")
+    PersonProfile selectLatestByUserDept(@Param("userId") Long userId, @Param("deptId") Long deptId);
+
+    @Select("select p.* from dm_person_profile p where p.user_id = #{userId} and p.member_source = 'AUTO_MAIN' "
+        + "and p.del_flag = '0' and p.member_status = 'ACTIVE'")
+    List<PersonProfile> selectActiveAutoMainMemberships(@Param("userId") Long userId);
+
+    @Select("select p.* from dm_person_profile p where p.create_dept = #{deptId} and p.member_source = 'AUTO_MAIN' "
+        + "and p.del_flag = '0' and p.member_status = 'ACTIVE'")
+    List<PersonProfile> selectActiveAutoMainMembershipsByDept(@Param("deptId") Long deptId);
+
+    @Select("select u.user_id from sys_user u where u.dept_id = #{deptId} and u.del_flag = '0' and u.status = '0'")
+    List<Long> selectMainUserIdsByDept(@Param("deptId") Long deptId);
+
+    @Update("update dm_person_profile set member_type = 'FULL', member_status = 'ACTIVE', member_source = 'AUTO_MAIN', "
+        + "leave_date = null, ended_at = null, ended_by = null, end_reason = null, update_by = #{operatorId}, update_time = now() "
+        + "where id = #{profileId} and del_flag = '0'")
+    int activateMainMembership(@Param("profileId") Long profileId, @Param("operatorId") Long operatorId);
+
+    @Select("select p.create_dept as dept_id, d.dept_name, p.member_type, p.join_date, p.leave_date "
+        + "from dm_person_profile p join sys_dept d on d.dept_id = p.create_dept and d.del_flag = '0' "
+        + "where p.id = (select p2.id from dm_person_profile p2 "
+        + "where p2.user_id = #{userId} and p2.create_dept = p.create_dept and p2.del_flag = '0' "
+        + "and p2.member_status = 'ACTIVE' and p2.join_date <= #{date} "
+        + "and (p2.leave_date is null or p2.leave_date > #{date}) "
+        + "order by p2.join_date desc, p2.id desc limit 1) "
+        + "order by d.dept_name, p.join_date desc, p.id desc")
+    List<PersonDepartmentContextVo> selectCurrentDepartmentContexts(@Param("userId") Long userId,
+                                                                       @Param("date") LocalDate date);
 }

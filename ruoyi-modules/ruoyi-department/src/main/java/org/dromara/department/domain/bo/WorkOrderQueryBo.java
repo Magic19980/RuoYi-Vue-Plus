@@ -25,10 +25,6 @@ public class WorkOrderQueryBo implements Serializable {
 
     private String faultType;
 
-    private String status;
-
-    private String reviewStatus;
-
     private String sourceType;
 
     private String keyword;

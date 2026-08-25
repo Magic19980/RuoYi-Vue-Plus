@@ -27,12 +27,6 @@ public class OperationSystemImportVo implements Serializable {
     @ExcelProperty("负责人")
     private String responsiblePerson;
 
-    @ExcelProperty("服务器名称")
-    private String serverName;
-
-    @ExcelProperty("服务器IP")
-    private String serverIp;
-
     @ExcelProperty("系统在线时长天")
     private BigDecimal onlineDays;
 

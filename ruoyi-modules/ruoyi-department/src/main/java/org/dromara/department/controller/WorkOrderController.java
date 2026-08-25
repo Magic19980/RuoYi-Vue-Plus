@@ -125,6 +125,6 @@ public class WorkOrderController extends BaseController {
     @GetMapping("/summary")
     public R<WorkOrderSummaryVo> summary(@RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate beginDate,
                                          @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
-        return R.ok(workOrderService.buildSummary(beginDate, endDate, true));
+        return R.ok(workOrderService.buildSummary(beginDate, endDate));
     }
 }

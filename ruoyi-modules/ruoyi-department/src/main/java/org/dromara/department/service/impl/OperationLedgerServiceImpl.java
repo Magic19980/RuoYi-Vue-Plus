@@ -1,13 +1,11 @@
 package org.dromara.department.service.impl;
 
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.department.domain.DepartmentProject;
 import org.dromara.department.domain.OperationRecord;
 import org.dromara.department.domain.OperationSystem;
@@ -23,6 +21,7 @@ import org.dromara.department.mapper.OperationRecordMapper;
 import org.dromara.department.mapper.OperationSystemMapper;
 import org.dromara.department.mapper.DepartmentProjectMapper;
 import org.dromara.department.service.IOperationLedgerService;
+import org.dromara.department.service.DepartmentAccessService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +30,6 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -57,6 +55,7 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
     private final OperationRecordMapper operationRecordMapper;
     private final OperationSystemMapper operationSystemMapper;
     private final DepartmentProjectMapper departmentProjectMapper;
+    private final DepartmentAccessService departmentAccessService;
 
     @Override
     public PageResult<OperationRecordVo> queryRecordPageList(OperationRecordQueryBo bo, PageQuery pageQuery) {
@@ -84,7 +83,7 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
         requireDept("维护运维记录");
         OperationRecord entity = new OperationRecord();
         copyRecord(bo, entity);
-        entity.setDeptId(LoginHelper.getDeptId());
+        entity.setDeptId(departmentAccessService.currentDeptId());
         applyProject(bo.getProjectId(), entity);
         entity.setSourceType(SOURCE_MANUAL);
         entity.setProcessStatus(normalizeStatus(bo.getProcessStatus()));
@@ -128,7 +127,7 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
                 continue;
             }
             OperationRecord entity = new OperationRecord();
-            entity.setDeptId(LoginHelper.getDeptId());
+            entity.setDeptId(departmentAccessService.currentDeptId());
             entity.setRequestPerson(row.getRequestPerson());
             entity.setCustomerUnit(row.getCustomerUnit());
             entity.setRequestRoleType(row.getRequestRoleType());
@@ -179,7 +178,7 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
     public Boolean insertSystem(OperationSystemBo bo) {
         requireDept("维护系统在线率");
         OperationSystem entity = new OperationSystem();
-        entity.setDeptId(LoginHelper.getDeptId());
+        entity.setDeptId(departmentAccessService.currentDeptId());
         copySystem(bo, entity);
         entity.setSourceType(SOURCE_MANUAL);
         normalizeSystemMetrics(entity);
@@ -220,7 +219,7 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
                 continue;
             }
             OperationSystem entity = new OperationSystem();
-            entity.setDeptId(LoginHelper.getDeptId());
+            entity.setDeptId(departmentAccessService.currentDeptId());
             entity.setStatDate(importDate);
             String projectName = StringUtils.isBlank(row.getProjectName()) ? row.getSystemName() : row.getProjectName();
             Long projectId = findProjectId(entity.getDeptId(), projectName);
@@ -231,8 +230,6 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
             entity.setProjectId(projectId);
             entity.setSystemName(row.getSystemName());
             entity.setResponsiblePerson(row.getResponsiblePerson());
-            entity.setServerName(row.getServerName());
-            entity.setServerIp(row.getServerIp());
             entity.setOnlineDays(row.getOnlineDays());
             entity.setDowntimeMinutes(parseDurationMinutes(row.getDowntimeDuration()));
             entity.setOnlineRate(normalizeRate(row.getOnlineRate()));
@@ -318,8 +315,6 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
         entity.setStatDate(bo.getStatDate());
         entity.setSystemName(bo.getSystemName());
         entity.setResponsiblePerson(bo.getResponsiblePerson());
-        entity.setServerName(bo.getServerName());
-        entity.setServerIp(bo.getServerIp());
         entity.setOnlineDays(bo.getOnlineDays());
         entity.setDowntimeMinutes(bo.getDowntimeMinutes());
         entity.setOnlineRate(bo.getOnlineRate());
@@ -475,7 +470,7 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
         if (entity == null) {
             throw new ServiceException("运维记录不存在");
         }
-        if (canViewAll() || Objects.equals(entity.getDeptId(), LoginHelper.getDeptId())) {
+        if (departmentAccessService.canViewEntityDept(entity.getDeptId(), DEPT_VIEW_PERMISSION)) {
             return entity;
         }
         throw new ServiceException("您没有访问该运维记录的权限");
@@ -486,7 +481,7 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
         if (entity == null) {
             throw new ServiceException("系统在线率记录不存在");
         }
-        if (canViewAll() || Objects.equals(entity.getDeptId(), LoginHelper.getDeptId())) {
+        if (departmentAccessService.canViewEntityDept(entity.getDeptId(), DEPT_VIEW_PERMISSION)) {
             return entity;
         }
         throw new ServiceException("您没有访问该系统在线率记录的权限");
@@ -536,8 +531,6 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
         vo.setStatDate(entity.getStatDate());
         vo.setSystemName(entity.getSystemName());
         vo.setResponsiblePerson(entity.getResponsiblePerson());
-        vo.setServerName(entity.getServerName());
-        vo.setServerIp(entity.getServerIp());
         vo.setOnlineDays(entity.getOnlineDays());
         vo.setDowntimeMinutes(entity.getDowntimeMinutes());
         vo.setOnlineRate(entity.getOnlineRate());
@@ -549,20 +542,20 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
     }
 
     private void requireDept(String action) {
-        if (LoginHelper.getDeptId() == null) {
+        if (departmentAccessService.currentDeptId() == null) {
             throw new ServiceException("当前登录用户缺少部门信息，无法" + action);
         }
     }
 
     private boolean canViewAll() {
-        return LoginHelper.isSuperAdmin();
+        return false;
     }
 
     private boolean canViewDepartment() {
-        return canViewAll() || cn.dev33.satoken.stp.StpUtil.hasPermission(DEPT_VIEW_PERMISSION);
+        return departmentAccessService.canViewCurrentDepartment(DEPT_VIEW_PERMISSION);
     }
 
     private Long scopeDeptId() {
-        return canViewDepartment() ? LoginHelper.getDeptId() : LoginHelper.getDeptId();
+        return canViewAll() ? null : departmentAccessService.scopeDeptId(DEPT_VIEW_PERMISSION);
     }
 }

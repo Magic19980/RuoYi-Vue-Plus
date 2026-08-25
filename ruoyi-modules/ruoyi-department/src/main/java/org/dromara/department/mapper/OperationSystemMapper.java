@@ -19,7 +19,7 @@ public interface OperationSystemMapper extends BaseMapperPlus<OperationSystem, O
 
     @Select({
         "<script>",
-        "select s.id, s.dept_id, s.project_id, p.project_name, s.stat_date, s.system_name, s.responsible_person, s.server_name, s.server_ip,",
+        "select s.id, s.dept_id, s.project_id, p.project_name, s.stat_date, s.system_name, s.responsible_person,",
         "s.online_days, s.downtime_minutes, s.online_rate, s.remark, s.source_type, s.source_file_name, s.create_time",
         "from dm_operation_system s left join dm_department_project p on p.id = s.project_id where s.del_flag = '0'",
         "<if test='beginDate != null'> and s.stat_date &gt;= #{beginDate} </if>",
@@ -41,7 +41,7 @@ public interface OperationSystemMapper extends BaseMapperPlus<OperationSystem, O
 
     @Select({
         "<script>",
-        "select s.id, s.dept_id, s.project_id, p.project_name, s.stat_date, s.system_name, s.responsible_person, s.server_name, s.server_ip,",
+        "select s.id, s.dept_id, s.project_id, p.project_name, s.stat_date, s.system_name, s.responsible_person,",
         "s.online_days, s.downtime_minutes, s.online_rate, s.remark, s.source_type, s.source_file_name, s.create_time",
         "from dm_operation_system s left join dm_department_project p on p.id = s.project_id where s.del_flag = '0'",
         "and s.stat_date &gt;= #{beginDate} and s.stat_date &lt;= #{endDate}",

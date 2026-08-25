@@ -18,6 +18,8 @@ import org.dromara.department.domain.vo.ScoreProposalVo;
 import org.dromara.department.mapper.ScoreProposalMapper;
 import org.dromara.department.mapper.ScoreCategoryMapper;
 import org.dromara.department.service.IScoreProposalService;
+import org.dromara.department.service.IDepartmentTaskService;
+import org.dromara.department.service.DepartmentAccessService;
 import org.dromara.system.domain.SysOssExt;
 import org.dromara.system.domain.vo.SysOssVo;
 import org.dromara.system.service.ISysOssService;
@@ -41,6 +43,8 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
     private final ScoreCategoryMapper scoreCategoryMapper;
     private final ScoreProposalXlsxService scoreProposalXlsxService;
     private final ISysOssService ossService;
+    private final IDepartmentTaskService departmentTaskService;
+    private final DepartmentAccessService departmentAccessService;
 
     @Override
     public PageResult<ScoreProposalVo> queryPageList(ScoreProposalQueryBo bo, PageQuery pageQuery) {
@@ -61,7 +65,8 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
         requireDept();
         ScoreProposal entity = new ScoreProposal();
         copyBo(bo, entity, false);
-        entity.setDeptId(LoginHelper.getDeptId());
+        entity.setDeptId(departmentAccessService.currentDeptId());
+        entity.setProposerUserId(bo.getProposerUserId() == null ? LoginHelper.getUserId() : bo.getProposerUserId());
         entity.setReviewStatus(REVIEW_PENDING);
         entity.setReviewComment(null);
         if (StringUtils.isBlank(entity.getCompletionStatus())) {
@@ -96,11 +101,13 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
     @Transactional(rollbackFor = Exception.class)
     public Boolean review(ScoreProposalReviewBo bo) {
         ScoreProposal entity = getAccessible(bo.getId());
+        departmentTaskService.checkReviewer("SCORE_PROPOSAL", entity.getDeptId());
         if (!REVIEW_APPROVED.equals(bo.getReviewStatus()) && !REVIEW_REJECTED.equals(bo.getReviewStatus())) {
             throw new ServiceException("审核结果只能是通过或驳回");
         }
         entity.setReviewStatus(bo.getReviewStatus());
         entity.setReviewComment(bo.getReviewComment());
+        entity.setReviewerUserId(LoginHelper.getUserId());
         return scoreProposalMapper.updateById(entity) > 0;
     }
 
@@ -131,6 +138,9 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
         entity.setCompanyName(bo.getCompanyName());
         entity.setTeamMembers(bo.getTeamMembers());
         entity.setEmployeeNo(bo.getEmployeeNo());
+        if (bo.getProposerUserId() != null) {
+            entity.setProposerUserId(bo.getProposerUserId());
+        }
         entity.setProposerName(bo.getProposerName());
         entity.setProposerRole(bo.getProposerRole());
         entity.setProposerLevel(bo.getProposerLevel());
@@ -171,6 +181,7 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
         vo.setDeptId(entity.getDeptId());
         vo.setMainCategoryId(entity.getMainCategoryId());
         vo.setSubCategoryId(entity.getSubCategoryId());
+        vo.setProposerUserId(entity.getProposerUserId());
         vo.setCompanyName(entity.getCompanyName());
         vo.setTeamMembers(entity.getTeamMembers());
         vo.setEmployeeNo(entity.getEmployeeNo());
@@ -192,6 +203,7 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
         vo.setRemark(entity.getRemark());
         vo.setReviewStatus(entity.getReviewStatus());
         vo.setReviewComment(entity.getReviewComment());
+        vo.setReviewerUserId(entity.getReviewerUserId());
         vo.setCreateTime(entity.getCreateTime());
         vo.setUpdateTime(entity.getUpdateTime());
         return vo;
@@ -228,23 +240,23 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
         if (entity == null) {
             throw new ServiceException("SCORE提案不存在");
         }
-        if (canViewAll() || Objects.equals(entity.getDeptId(), LoginHelper.getDeptId())) {
+        if (departmentAccessService.canViewEntityDept(entity.getDeptId(), "department:score:viewDept")) {
             return entity;
         }
         throw new ServiceException("您没有访问该SCORE提案的权限");
     }
 
     private void requireDept() {
-        if (LoginHelper.getDeptId() == null) {
+        if (departmentAccessService.currentDeptId() == null) {
             throw new ServiceException("当前登录用户缺少部门信息，无法维护SCORE提案");
         }
     }
 
     private boolean canViewAll() {
-        return LoginHelper.isSuperAdmin();
+        return false;
     }
 
     private Long scopeDeptId() {
-        return canViewAll() ? null : LoginHelper.getDeptId();
+        return canViewAll() ? null : departmentAccessService.scopeDeptId("department:score:viewDept");
     }
 }

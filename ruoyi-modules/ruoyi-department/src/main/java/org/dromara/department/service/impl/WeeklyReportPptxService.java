@@ -213,39 +213,11 @@ public class WeeklyReportPptxService {
     }
 
     private WorkOrderSummaryVo manualSummary(WeeklyReportSummaryVo summary) {
-        if (summary.getManualOrderSummary() != null) {
-            return summary.getManualOrderSummary();
-        }
-        return summary.getWorkOrderSummary() == null ? new WorkOrderSummaryVo() : summary.getWorkOrderSummary();
+        return summary.getManualOrderSummary() == null ? new WorkOrderSummaryVo() : summary.getManualOrderSummary();
     }
 
     private OperationSummaryVo operationSummary(WeeklyReportSummaryVo summary) {
-        if (summary.getOperationSummary() != null) {
-            return summary.getOperationSummary();
-        }
-        OperationSummaryVo fallback = new OperationSummaryVo();
-        WorkOrderSummaryVo legacy = summary.getWorkOrderSummary();
-        if (legacy != null) {
-            fallback.setTotalCount(legacy.getTotalCount());
-            fallback.setResolvedCount(legacy.getResolvedCount());
-            fallback.setResolutionRate(legacy.getResolutionRate());
-            fallback.setAverageProcessingMinutes(legacy.getAverageResolutionMinutes());
-            fallback.setBySystem(legacy.getBySystem().stream().map(item -> {
-                OperationSummaryVo.DimensionCountVo value = new OperationSummaryVo.DimensionCountVo();
-                value.setName(item.getName());
-                value.setCount(item.getCount());
-                value.setPercentage(item.getPercentage());
-                return value;
-            }).toList());
-            fallback.setByFaultType(legacy.getByFaultType().stream().map(item -> {
-                OperationSummaryVo.DimensionCountVo value = new OperationSummaryVo.DimensionCountVo();
-                value.setName(item.getName());
-                value.setCount(item.getCount());
-                value.setPercentage(item.getPercentage());
-                return value;
-            }).toList());
-        }
-        return fallback;
+        return summary.getOperationSummary() == null ? new OperationSummaryVo() : summary.getOperationSummary();
     }
 
     private String formatQuantity(WorkOrderSummaryVo summary) {

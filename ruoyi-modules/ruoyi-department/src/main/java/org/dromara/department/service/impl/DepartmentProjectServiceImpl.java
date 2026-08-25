@@ -14,6 +14,7 @@ import org.dromara.department.domain.bo.DepartmentProjectQueryBo;
 import org.dromara.department.domain.vo.DepartmentProjectVo;
 import org.dromara.department.mapper.DepartmentProjectMapper;
 import org.dromara.department.service.IDepartmentProjectService;
+import org.dromara.department.service.DepartmentAccessService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class DepartmentProjectServiceImpl implements IDepartmentProjectService {
     private static final String STATUS_DISABLED = "DISABLED";
 
     private final DepartmentProjectMapper departmentProjectMapper;
+    private final DepartmentAccessService departmentAccessService;
 
     @Override
     public PageResult<DepartmentProjectVo> queryPageList(DepartmentProjectQueryBo bo, PageQuery pageQuery) {
@@ -56,7 +58,7 @@ public class DepartmentProjectServiceImpl implements IDepartmentProjectService {
     public Boolean insertByBo(DepartmentProjectBo bo) {
         requireDept("新增项目");
         DepartmentProject entity = new DepartmentProject();
-        entity.setDeptId(LoginHelper.getDeptId());
+        entity.setDeptId(departmentAccessService.currentDeptId());
         copyBo(bo, entity);
         checkDuplicate(entity);
         return departmentProjectMapper.insert(entity) > 0;
@@ -112,7 +114,7 @@ public class DepartmentProjectServiceImpl implements IDepartmentProjectService {
         if (entity == null) {
             throw new ServiceException("项目不存在");
         }
-        if (canViewAll() || Objects.equals(entity.getDeptId(), LoginHelper.getDeptId())) {
+        if (departmentAccessService.canViewEntityDept(entity.getDeptId(), "department:project:viewDept")) {
             return entity;
         }
         throw new ServiceException("您没有访问该项目的权限");
@@ -134,17 +136,17 @@ public class DepartmentProjectServiceImpl implements IDepartmentProjectService {
     }
 
     private void requireDept(String action) {
-        if (LoginHelper.getDeptId() == null) {
+        if (departmentAccessService.currentDeptId() == null) {
             throw new ServiceException("当前登录用户缺少部门信息，无法" + action);
         }
     }
 
     private Long scopeDeptId() {
-        return LoginHelper.getDeptId();
+        return canViewAll() ? null : departmentAccessService.scopeDeptId("department:project:viewDept");
     }
 
     private boolean canViewAll() {
-        return LoginHelper.isSuperAdmin();
+        return false;
     }
 
 }

@@ -1,15 +1,63 @@
--- 科室管理平台第一阶段：日报 MVP
--- 当前脚本按项目开发环境 MySQL 语法编写。
+-- 科室管理平台初始化脚本
+-- 当前脚本只描述全新开发环境的最终结构，不承担历史表兼容和数据回填。
+
+-- 业务科室配置：dept_id 直接引用 sys_dept.dept_id，避免系统部门与业务数据出现两套科室主键。
+create table if not exists dm_department (
+    dept_id              bigint(20)      not null comment '系统部门ID（sys_dept.dept_id）',
+    status               varchar(20)     not null default 'ENABLED' comment '科室状态（ENABLED启用 DISABLED停用）',
+    manager_user_id      bigint(20)      default null comment '科室负责人用户ID',
+    sort_num             int(11)         not null default 0 comment '排序号',
+    remark               varchar(500)    default null comment '备注',
+    version              bigint(20)      default 0 comment '版本号',
+    create_dept          bigint(20)      default null comment '创建部门',
+    create_by            bigint(20)      default null comment '创建者',
+    create_time          datetime        default null comment '创建时间',
+    update_by            bigint(20)      default null comment '更新者',
+    update_time          datetime        default null comment '更新时间',
+    del_flag             char(1)         default '0' comment '删除标志（0存在 1删除）',
+    primary key (dept_id),
+    key idx_dm_department_status (status, del_flag),
+    key idx_dm_department_manager (manager_user_id)
+) engine=innodb comment='业务科室配置';
 
 create table if not exists dm_person_profile (
     id                  bigint(20)      not null comment '主键',
     user_id             bigint(20)      not null comment '系统用户ID',
     employee_no         varchar(64)     default null comment '工号',
     job_title           varchar(100)    default null comment '岗位',
-    daily_report_enabled char(1)        default '1' comment '是否纳入日报（1是 0否）',
-    reminder_time       time            default '18:00:00' comment '日报提醒时间',
     remark              varchar(500)    default null comment '备注',
+    join_date           date            not null comment '加入目标科室日期',
+    leave_date          date            default null comment '离开生效日期（不含当日）',
+    member_type         varchar(20)     not null default 'FULL' comment '成员类型：FULL正式/TEMP临时',
+    member_status       varchar(20)     not null default 'ACTIVE' comment '服务状态：ACTIVE有效/ENDED结束',
+    member_source       varchar(20)     not null default 'MANUAL' comment '关系来源：MANUAL人工纳入 AUTO_MAIN主部门自动同步',
+    ended_at            datetime        default null comment '结束服务时间',
+    ended_by            bigint(20)      default null comment '结束服务操作人',
+    end_reason          varchar(500)    default null comment '结束服务原因',
     version             bigint(20)      default 0 comment '版本号',
+    create_dept         bigint(20)      default null comment '纳入日报的目标科室/创建部门',
+    create_by           bigint(20)      default null comment '创建者',
+    create_time         datetime        default null comment '创建时间',
+    update_by           bigint(20)      default null comment '更新者',
+    update_time         datetime        default null comment '更新时间',
+    del_flag            char(1)         default '0' comment '删除标志（0存在 1删除）',
+    primary key (id),
+    key idx_dm_person_profile_create_dept (create_dept),
+    key idx_dm_person_profile_service_period (create_dept, member_status, join_date, leave_date)
+) engine=innodb comment='科室人员扩展信息';
+
+-- 人员档案的 create_dept 是“纳入的目标科室”，sys_user.dept_id 仍表示系统主部门。
+
+create table if not exists dm_person_profile_event (
+    id                  bigint(20)      not null comment '主键',
+    profile_id          bigint(20)      not null comment '人员档案ID',
+    user_id             bigint(20)      not null comment '用户ID',
+    dept_id             bigint(20)      not null comment '服务科室ID',
+    event_type          varchar(20)     not null comment '事件类型：JOIN REJOIN LEAVE CHANGE',
+    effective_date      date            not null comment '事件生效日期',
+    member_type         varchar(20)     default null comment '事件后的成员类型',
+    reason              varchar(500)    default null comment '变更原因',
+    operator_id         bigint(20)      default null comment '操作人',
     create_dept         bigint(20)      default null comment '创建部门',
     create_by           bigint(20)      default null comment '创建者',
     create_time         datetime        default null comment '创建时间',
@@ -17,8 +65,9 @@ create table if not exists dm_person_profile (
     update_time         datetime        default null comment '更新时间',
     del_flag            char(1)         default '0' comment '删除标志（0存在 1删除）',
     primary key (id),
-    unique key uk_dm_person_profile_user (user_id)
-) engine=innodb comment='科室人员扩展信息';
+    key idx_dm_person_profile_event_profile (profile_id, effective_date),
+    key idx_dm_person_profile_event_user_dept (user_id, dept_id, effective_date)
+) engine=innodb comment='人员服务关系变更历史';
 
 create table if not exists dm_daily_report (
     id                 bigint(20)      not null comment '主键',
@@ -39,103 +88,11 @@ create table if not exists dm_daily_report (
     update_time         datetime        default null comment '更新时间',
     del_flag            char(1)         default '0' comment '删除标志（0存在 1删除）',
     primary key (id),
-    unique key uk_dm_daily_report_date_user (report_date, user_id),
+    unique key uk_dm_daily_report_date_user_dept (report_date, user_id, dept_id, del_flag),
     key idx_dm_daily_report_dept_date (dept_id, report_date),
     key idx_dm_daily_report_status (status),
     key idx_dm_daily_report_leave (leave_id)
 ) engine=innodb comment='科室每日工作日报';
-
--- 历史版本曾使用草稿状态；现统一为填写即保存，并将默认值同步为已填写。
-update dm_daily_report set status = 'SUBMITTED' where status = 'DRAFT';
-alter table dm_daily_report modify column status varchar(20) not null default 'SUBMITTED' comment '状态（SUBMITTED已填写）';
--- 已存在 dm_daily_report 表的环境补充休假关联字段和索引，兼容不支持 ADD COLUMN IF NOT EXISTS 的 MySQL 版本。
-set @has_daily_report_leave_id = (
-    select count(1)
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_daily_report'
-      and column_name = 'leave_id'
-);
-set @sql = if(@has_daily_report_leave_id = 0,
-    'alter table dm_daily_report add column leave_id bigint(20) default null comment ''关联休假ID，人工修改后解除关联''',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
-
-set @has_daily_report_leave_index = (
-    select count(1)
-    from information_schema.statistics
-    where table_schema = database()
-      and table_name = 'dm_daily_report'
-      and index_name = 'idx_dm_daily_report_leave'
-);
-set @sql = if(@has_daily_report_leave_index = 0,
-    'alter table dm_daily_report add index idx_dm_daily_report_leave (leave_id)',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
-
-create table if not exists dm_daily_calendar_config (
-    id                  bigint(20)      not null comment '主键',
-    dept_id             bigint(20)      not null comment '科室ID',
-    user_id             bigint(20)      default null comment '人员ID；为空时表示历史科室默认规则',
-    work_days           varchar(30)     not null default '1,2,3,4,5' comment '每周工作日，1至7分别代表周一至周日',
-    remark              varchar(500)    default null comment '规则说明',
-    version             bigint(20)      default 0 comment '版本号',
-    create_dept         bigint(20)      default null comment '创建部门',
-    create_by           bigint(20)      default null comment '创建者',
-    create_time         datetime        default null comment '创建时间',
-    update_by           bigint(20)      default null comment '更新者',
-    update_time         datetime        default null comment '更新时间',
-    del_flag             char(1)        default '0' comment '删除标志（0存在 1删除）',
-    primary key (id),
-    unique key uk_dm_daily_calendar_config_dept_user (dept_id, user_id)
-) engine=innodb comment='科室日报周工作日规则';
-
--- 工作日规则改为人员级配置；user_id 为空的旧记录只作为未配置人员的兼容默认值。
-set @has_daily_calendar_config_user_id = (
-    select count(1)
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_daily_calendar_config'
-      and column_name = 'user_id'
-);
-set @sql = if(@has_daily_calendar_config_user_id = 0,
-    'alter table dm_daily_calendar_config add column user_id bigint(20) default null comment ''人员ID；为空时表示历史科室默认规则'' after dept_id',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
-
-set @has_daily_calendar_config_old_unique = (
-    select count(1)
-    from information_schema.statistics
-    where table_schema = database()
-      and table_name = 'dm_daily_calendar_config'
-      and index_name = 'uk_dm_daily_calendar_config_dept'
-);
-set @sql = if(@has_daily_calendar_config_old_unique > 0,
-    'alter table dm_daily_calendar_config drop index uk_dm_daily_calendar_config_dept',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
-
-set @has_daily_calendar_config_new_unique = (
-    select count(1)
-    from information_schema.statistics
-    where table_schema = database()
-      and table_name = 'dm_daily_calendar_config'
-      and index_name = 'uk_dm_daily_calendar_config_dept_user'
-);
-set @sql = if(@has_daily_calendar_config_new_unique = 0,
-    'alter table dm_daily_calendar_config add unique key uk_dm_daily_calendar_config_dept_user (dept_id, user_id)',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
 
 create table if not exists dm_daily_calendar_override (
     id                  bigint(20)      not null comment '主键',
@@ -155,50 +112,7 @@ create table if not exists dm_daily_calendar_override (
     unique key uk_dm_daily_calendar_override_user_date (dept_id, calendar_date, user_id),
     key idx_dm_daily_calendar_override_range (dept_id, calendar_date)
 ) engine=innodb comment='科室日报日期例外规则';
-
--- 日期例外支持人员级调休：REST 为科室统一休息日（user_id 为空），WORKDAY 必须绑定具体人员。
--- 使用动态 SQL 兼容不支持 ADD/DROP IF EXISTS 的 MySQL 版本。
-set @has_daily_calendar_override_user_id = (
-    select count(1)
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_daily_calendar_override'
-      and column_name = 'user_id'
-);
-set @sql = if(@has_daily_calendar_override_user_id = 0,
-    'alter table dm_daily_calendar_override add column user_id bigint(20) default null comment ''调休上班人员ID；科室统一休息日为空'' after dept_id',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
-
-set @has_daily_calendar_override_old_unique = (
-    select count(1)
-    from information_schema.statistics
-    where table_schema = database()
-      and table_name = 'dm_daily_calendar_override'
-      and index_name = 'uk_dm_daily_calendar_override_date'
-);
-set @sql = if(@has_daily_calendar_override_old_unique > 0,
-    'alter table dm_daily_calendar_override drop index uk_dm_daily_calendar_override_date',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
-
-set @has_daily_calendar_override_user_unique = (
-    select count(1)
-    from information_schema.statistics
-    where table_schema = database()
-      and table_name = 'dm_daily_calendar_override'
-      and index_name = 'uk_dm_daily_calendar_override_user_date'
-);
-set @sql = if(@has_daily_calendar_override_user_unique = 0,
-    'alter table dm_daily_calendar_override add unique key uk_dm_daily_calendar_override_user_date (dept_id, calendar_date, user_id)',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
+-- REST 为科室统一休息日（user_id 为空），WORKDAY 必须绑定具体人员。
 
 create table if not exists dm_daily_leave (
     id                  bigint(20)      not null comment '主键',
@@ -237,6 +151,80 @@ create table if not exists dm_daily_report_attachment (
     primary key (id),
     key idx_dm_daily_report_attachment_report (report_id)
 ) engine=innodb comment='日报附件归档';
+
+-- 科室资料分类：每个科室独立维护，支持任意层级；parent_id=0表示顶级分类。
+create table if not exists dm_department_document_category (
+    id                 bigint(20)      not null comment '主键',
+    dept_id            bigint(20)      not null comment '所属科室ID',
+    parent_id          bigint(20)      not null default 0 comment '父分类ID，0表示顶级分类',
+    category_name      varchar(100)    not null comment '分类名称',
+    sort_num           int(11)         not null default 0 comment '排序号',
+    status             varchar(20)     not null default 'ENABLED' comment '状态（ENABLED启用 DISABLED停用）',
+    remark             varchar(500)    default null comment '备注',
+    create_dept        bigint(20)      default null comment '创建部门',
+    create_by          bigint(20)      default null comment '创建者',
+    create_time        datetime        default null comment '创建时间',
+    update_by          bigint(20)      default null comment '更新者',
+    update_time        datetime        default null comment '更新时间',
+    del_flag           char(1)         default '0' comment '删除标志（0存在 1删除）',
+    primary key (id),
+    unique key uk_dm_department_document_category_parent_name (dept_id, parent_id, category_name, del_flag),
+    key idx_dm_department_document_category_dept (dept_id, parent_id, status)
+) engine=innodb comment='科室资料分类配置';
+
+-- 科室资料主表与版本表：文件内容复用 sys_oss，业务表只保存科室、项目、分类和版本关系。
+create table if not exists dm_department_document (
+    id                    bigint(20)      not null comment '主键',
+    dept_id               bigint(20)      not null comment '所属科室ID',
+    project_id            bigint(20)      default null comment '关联项目ID',
+    category_id           bigint(20)      not null comment '资料分类ID',
+    title                 varchar(200)    not null comment '资料标题',
+    description           varchar(1000)   default null comment '资料说明',
+    tags                  varchar(500)    default null comment '资料标签，逗号分隔',
+    visibility            varchar(20)     not null default 'DEPT' comment '可见范围（DEPT科室 PRIVATE私有）',
+    status                varchar(20)     not null default 'PUBLISHED' comment '状态（DRAFT草稿 PUBLISHED已发布 ARCHIVED已归档）',
+    expire_date           date            default null comment '失效日期',
+    current_version_id    bigint(20)      default null comment '当前版本ID',
+    version_no            int(11)         not null default 1 comment '当前版本号',
+    current_oss_id        bigint(20)      not null comment '当前文件OSS ID',
+    current_file_name     varchar(255)    default null comment '当前文件存储名',
+    current_original_name varchar(255)    not null comment '当前文件原名',
+    current_file_suffix   varchar(20)     default null comment '当前文件后缀',
+    current_file_size     bigint(20)      default null comment '当前文件大小（字节）',
+    current_content_type  varchar(100)    default null comment '当前文件媒体类型',
+    create_dept           bigint(20)      default null comment '创建部门',
+    create_by             bigint(20)      default null comment '创建者',
+    create_time           datetime        default null comment '创建时间',
+    update_by             bigint(20)      default null comment '更新者',
+    update_time           datetime        default null comment '更新时间',
+    del_flag              char(1)         default '0' comment '删除标志（0存在 1删除）',
+    primary key (id),
+    key idx_dm_department_document_dept (dept_id, update_time),
+    key idx_dm_department_document_project (project_id),
+    key idx_dm_department_document_category (category_id),
+    key idx_dm_department_document_oss (current_oss_id)
+) engine=innodb comment='科室资料主表';
+
+create table if not exists dm_department_document_version (
+    id                    bigint(20)      not null comment '主键',
+    document_id           bigint(20)      not null comment '资料ID',
+    version_no            int(11)         not null comment '版本号',
+    oss_id                bigint(20)      not null comment 'OSS文件ID',
+    original_name         varchar(255)    not null comment '原始文件名',
+    file_suffix           varchar(20)     default null comment '文件后缀',
+    file_size             bigint(20)      default null comment '文件大小（字节）',
+    content_type          varchar(100)    default null comment '文件媒体类型',
+    version_note          varchar(500)    default null comment '版本说明',
+    create_dept           bigint(20)      default null comment '创建部门',
+    create_by             bigint(20)      default null comment '创建者',
+    create_time           datetime        default null comment '创建时间',
+    update_by             bigint(20)      default null comment '更新者',
+    update_time           datetime        default null comment '更新时间',
+    del_flag              char(1)         default '0' comment '删除标志（0存在 1删除）',
+    primary key (id),
+    unique key uk_dm_department_document_version (document_id, version_no),
+    key idx_dm_department_document_version_oss (oss_id)
+) engine=innodb comment='科室资料版本表';
 
 create table if not exists dm_weekly_report (
     id                  bigint(20)      not null comment '主键',
@@ -304,10 +292,8 @@ create table if not exists dm_work_order (
     quantity              decimal(12,2)   not null default 1 comment '工程量/工单量',
     responsible_person    varchar(100)    default null comment '责任人',
     handler               varchar(100)    default null comment '处理人',
-    status                varchar(20)     not null default 'OPEN' comment '状态（OPEN处理中 RESOLVED已解决 CLOSED已关闭 VOID作废）',
     resolution_minutes    int(11)         default null comment '处理时长（分钟）',
     feedback_channel      varchar(50)     default null comment '反馈渠道',
-    review_status         varchar(20)     not null default 'PENDING' comment '数据状态（PENDING待确认 CONFIRMED已确认 REJECTED已驳回）',
     source_type           varchar(20)     not null default 'MANUAL' comment '来源（PDF/MANUAL）',
     source_batch_id       bigint(20)      default null comment 'PDF导入批次ID',
     source_file_name      varchar(255)    default null comment '来源文件名',
@@ -324,40 +310,9 @@ create table if not exists dm_work_order (
     del_flag              char(1)         default '0' comment '删除标志（0存在 1删除）',
     primary key (id),
     key idx_dm_work_order_dept_date (dept_id, occur_date),
-    key idx_dm_work_order_review (review_status),
     key idx_dm_work_order_system (system_name),
     key idx_dm_work_order_batch (source_batch_id)
 ) engine=innodb comment='科室人工单台账';
-
--- 已存在 dm_work_order 表的环境执行时补充 PDF 安装字段。
--- MySQL 8.0 部分版本不支持 ADD COLUMN IF NOT EXISTS，使用信息架构检查保证脚本可重复执行。
-set @has_install_department = (
-    select count(1)
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_work_order'
-      and column_name = 'install_department'
-);
-set @sql = if(@has_install_department = 0,
-    'alter table dm_work_order add column install_department varchar(150) default null comment ''安装车间''',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
-
-set @has_install_team = (
-    select count(1)
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_work_order'
-      and column_name = 'install_team'
-);
-set @sql = if(@has_install_team = 0,
-    'alter table dm_work_order add column install_team varchar(150) default null comment ''安装班组''',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
 
 create table if not exists dm_work_order_detail (
     id                    bigint(20)      not null comment '明细主键',
@@ -452,21 +407,6 @@ create table if not exists dm_operation_record (
     key idx_dm_operation_project (project_id)
 ) engine=innodb comment='科室运维工作记录台账';
 
--- 已存在 dm_operation_record 表的环境补充项目绑定字段。
-set @has_operation_project_id = (
-    select count(1)
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_operation_record'
-      and column_name = 'project_id'
-);
-set @sql = if(@has_operation_project_id = 0,
-    'alter table dm_operation_record add column project_id bigint(20) default null comment ''绑定的科室项目ID'' after dept_id',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
-
 -- 系统在线率属于运维台账的系统运行指标，单独记录，避免重复写入每一条工作记录。
 create table if not exists dm_operation_system (
     id                    bigint(20)      not null comment '主键',
@@ -496,48 +436,12 @@ create table if not exists dm_operation_system (
     key idx_dm_operation_system_project (project_id)
 ) engine=innodb comment='科室系统在线率台账';
 
--- 已存在 dm_operation_system 表的环境补充项目绑定字段；已有数据库中的旧设备字段不删列，保留历史数据兼容，但不再由业务登记或导出。
-set @has_operation_system_project_id = (
-    select count(1)
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_operation_system'
-      and column_name = 'project_id'
-);
-set @sql = if(@has_operation_system_project_id = 0,
-    'alter table dm_operation_system add column project_id bigint(20) default null comment ''绑定的科室项目ID'' after dept_id',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
-
-set @has_operation_system_project_index = (
-    select count(1)
-    from information_schema.statistics
-    where table_schema = database()
-      and table_name = 'dm_operation_system'
-      and index_name = 'idx_dm_operation_system_project'
-);
-set @sql = if(@has_operation_system_project_index = 0,
-    'alter table dm_operation_system add index idx_dm_operation_system_project (project_id)',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
-
--- 对历史记录中与项目名称完全一致的系统名称自动补齐项目关联，其余记录可在页面编辑时选择项目。
-update dm_operation_system s
-inner join dm_department_project p on p.dept_id = s.dept_id
-    and p.project_name = s.system_name
-    and p.del_flag = '0'
-set s.project_id = p.id
-where s.project_id is null;
-
 create table if not exists dm_five_why (
     id                          bigint(20)      not null comment '主键',
     dept_id                     bigint(20)      not null comment '所属部门ID',
     company_dept                varchar(255)    default null comment '公司/部门/填写日期展示文本',
     employee_no                 varchar(64)     default null comment '分析人工号',
+    analyst_user_id             bigint(20)      default null comment '分析人系统用户ID，用于任务统计',
     analyst_name                varchar(100)    not null comment '分析人姓名',
     analysis_date               date            not null comment '分析日期',
     problem_name                varchar(255)    not null comment '问题名称',
@@ -552,6 +456,7 @@ create table if not exists dm_five_why (
     standardization_execution   text            comment '标准化执行说明',
     review_status               varchar(20)     not null default 'PENDING' comment '审核状态（PENDING待审核 APPROVED已通过 REJECTED已驳回）',
     review_comment              varchar(1000)   default null comment '审核意见',
+    reviewer_user_id            bigint(20)      default null comment '实际审核人系统用户ID',
     version                     bigint(20)      default 0 comment '版本号',
     create_dept                 bigint(20)      default null comment '创建部门',
     create_by                   bigint(20)      default null comment '创建者',
@@ -590,6 +495,7 @@ create table if not exists dm_score_proposal (
     dept_id                     bigint(20)      not null comment '所属部门ID',
     main_category_id            bigint(20)      default null comment '提案大类ID',
     sub_category_id             bigint(20)      default null comment '提案小类ID',
+    proposer_user_id            bigint(20)      default null comment '提议人系统用户ID，用于任务统计',
     company_name                varchar(255)    default null comment '企业名称',
     team_members                text            comment '企业参与人员/部门EIT小组成员',
     employee_no                 varchar(64)     default null comment '提议人工号',
@@ -611,6 +517,7 @@ create table if not exists dm_score_proposal (
     remark                      varchar(1000)   default null comment '备注',
     review_status               varchar(20)     not null default 'PENDING' comment '审核状态（PENDING待审核 APPROVED已通过 REJECTED已驳回）',
     review_comment              varchar(1000)   default null comment '审核意见',
+    reviewer_user_id            bigint(20)      default null comment '实际审核人系统用户ID',
     version                     bigint(20)      default 0 comment '版本号',
     create_dept                 bigint(20)      default null comment '创建部门',
     create_by                   bigint(20)      default null comment '创建者',
@@ -625,95 +532,137 @@ create table if not exists dm_score_proposal (
     key idx_dm_score_category_id (main_category_id, sub_category_id)
 ) engine=innodb comment='科室SCORE提案记录';
 
--- 已存在 dm_score_proposal 表的环境补充分类ID字段；名称字段继续作为历史快照保存。
-set @has_score_main_category_id = (
-    select count(1)
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_score_proposal'
-      and column_name = 'main_category_id'
-);
-set @sql = if(@has_score_main_category_id = 0,
-    'alter table dm_score_proposal add column main_category_id bigint(20) default null comment ''提案大类ID'' after dept_id',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
+-- 审核规则：每个科室、每种业务维护一名主审核人和一名备用审核人。
+-- 审核时只允许配置中的审核人操作，避免拥有页面权限的普通成员越权审核。
+create table if not exists dm_review_rule (
+    id                          bigint(20)      not null comment '主键',
+    dept_id                     bigint(20)      not null comment '科室ID',
+    task_type                   varchar(30)     not null comment '业务类型（SCORE_PROPOSAL/FIVE_WHY）',
+    reviewer_user_id            bigint(20)      not null comment '主审核人用户ID',
+    backup_reviewer_user_id     bigint(20)      default null comment '备用审核人用户ID',
+    effective_start             date            default null comment '生效开始日期',
+    effective_end               date            default null comment '生效结束日期',
+    status                      varchar(20)     not null default 'ENABLED' comment '状态（ENABLED启用 DISABLED停用）',
+    remark                      varchar(500)    default null comment '备注',
+    version                     bigint(20)      default 0 comment '版本号',
+    create_dept                 bigint(20)      default null comment '创建部门',
+    create_by                   bigint(20)      default null comment '创建者',
+    create_time                 datetime        default null comment '创建时间',
+    update_by                   bigint(20)      default null comment '更新者',
+    update_time                 datetime        default null comment '更新时间',
+    del_flag                    char(1)         default '0' comment '删除标志（0存在 1删除）',
+    primary key (id),
+    unique key uk_dm_review_rule_dept_type (dept_id, task_type, del_flag),
+    key idx_dm_review_rule_effective (dept_id, task_type, status, effective_start, effective_end)
+) engine=innodb comment='科室业务审核人配置';
 
-set @has_score_sub_category_id = (
-    select count(1)
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_score_proposal'
-      and column_name = 'sub_category_id'
-);
-set @sql = if(@has_score_sub_category_id = 0,
-    'alter table dm_score_proposal add column sub_category_id bigint(20) default null comment ''提案小类ID'' after main_category_id',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
+-- 周期任务规则：任务类型可扩展，当前内置 SCORE、5WHY、日报三类。
+create table if not exists dm_department_task_rule (
+    id                          bigint(20)      not null comment '主键',
+    dept_id                     bigint(20)      not null comment '科室ID',
+    task_name                   varchar(150)    not null comment '任务名称',
+    task_type                   varchar(30)     not null comment '任务类型（SCORE_PROPOSAL/FIVE_WHY/DAILY_REPORT）',
+    cycle_type                  varchar(20)     not null default 'MONTH' comment '周期（日报为DAY；其他任务为WEEK/MONTH/QUARTER）',
+    required_count              int(11)         not null default 1 comment '周期内要求完成次数',
+    deadline_day                int(11)         not null default 0 comment '周期内截止日序号，0表示周期最后一天',
+    deadline_time               time            not null default '18:00:00' comment '截止时间',
+    count_mode                  varchar(20)     not null default 'SUBMITTED' comment '统计口径（SUBMITTED提交 APPROVED审核通过）',
+    remind_hours                int(11)         not null default 24 comment '截止前多少小时提醒',
+    effective_start             date            default null comment '生效开始日期',
+    effective_end               date            default null comment '生效结束日期',
+    status                      varchar(20)     not null default 'ENABLED' comment '状态（ENABLED启用 DISABLED停用）',
+    remark                      varchar(1000)   default null comment '备注',
+    version                     bigint(20)      default 0 comment '版本号',
+    create_dept                 bigint(20)      default null comment '创建部门',
+    create_by                   bigint(20)      default null comment '创建者',
+    create_time                 datetime        default null comment '创建时间',
+    update_by                   bigint(20)      default null comment '更新者',
+    update_time                 datetime        default null comment '更新时间',
+    del_flag                    char(1)         default '0' comment '删除标志（0存在 1删除）',
+    primary key (id),
+    key idx_dm_task_rule_dept_status (dept_id, status, task_type)
+) engine=innodb comment='科室周期任务规则';
 
-set @has_score_category_id_index = (
-    select count(1)
-    from information_schema.statistics
-    where table_schema = database()
-      and table_name = 'dm_score_proposal'
-      and index_name = 'idx_dm_score_category_id'
-);
-set @sql = if(@has_score_category_id_index = 0,
-    'alter table dm_score_proposal add index idx_dm_score_category_id (main_category_id, sub_category_id)',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
+-- 任务分配：只有被分配到规则的成员才产生该任务要求。
+create table if not exists dm_department_task_assignment (
+    id                          bigint(20)      not null comment '主键',
+    rule_id                     bigint(20)      not null comment '任务规则ID',
+    dept_id                     bigint(20)      not null comment '科室ID',
+    user_id                     bigint(20)      not null comment '被分配成员ID',
+    effective_start             date            default null comment '分配生效开始日期',
+    effective_end               date            default null comment '分配生效结束日期',
+    work_days                   varchar(20)     default null comment '日报任务个人工作日，ISO星期编号逗号分隔',
+    reminder_time               time            default null comment '日报任务个人提醒时间',
+    status                      varchar(20)     not null default 'ENABLED' comment '状态（ENABLED启用 DISABLED停用）',
+    remark                      varchar(500)    default null comment '备注',
+    version                     bigint(20)      default 0 comment '版本号',
+    create_dept                 bigint(20)      default null comment '创建部门',
+    create_by                   bigint(20)      default null comment '创建者',
+    create_time                 datetime        default null comment '创建时间',
+    update_by                   bigint(20)      default null comment '更新者',
+    update_time                 datetime        default null comment '更新时间',
+    del_flag                    char(1)         default '0' comment '删除标志（0存在 1删除）',
+    primary key (id),
+    key idx_dm_task_assignment_user (dept_id, user_id, status)
+) engine=innodb comment='科室周期任务成员分配';
 
--- 扩展 SCORE 分类名称及提案分类快照长度，支持印尼文与中文组合名称。
-set @score_category_name_length = coalesce((
-    select character_maximum_length
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_score_category'
-      and column_name = 'category_name'
-), 0);
-set @sql = if(@score_category_name_length < 500,
-    'alter table dm_score_category modify column category_name varchar(500) not null comment ''分类名称''',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
+-- 提醒去重记录，避免定时任务重复给同一成员发送相同周期提醒。
+create table if not exists dm_department_task_reminder_log (
+    id                          bigint(20)      not null comment '主键',
+    rule_id                     bigint(20)      not null comment '任务规则ID',
+    user_id                     bigint(20)      not null comment '接收人ID',
+    period_start                date            not null comment '任务周期开始',
+    reminder_type               varchar(20)     not null comment '提醒类型（BEFORE/OVERDUE）',
+    create_time                 datetime        default null comment '发送时间',
+    primary key (id),
+    unique key uk_dm_task_reminder (rule_id, user_id, period_start, reminder_type)
+) engine=innodb comment='科室周期任务提醒记录';
 
-set @score_main_category_length = coalesce((
-    select character_maximum_length
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_score_proposal'
-      and column_name = 'main_category'
-), 0);
-set @sql = if(@score_main_category_length < 500,
-    'alter table dm_score_proposal modify column main_category varchar(500) default null comment ''提案大类''',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
+-- 任务周期实例：任务定义在具体成员和周期上的落地记录。
+create table if not exists dm_department_task_instance (
+    id                  bigint(20)      not null comment '主键',
+    rule_id             bigint(20)      not null comment '任务定义ID',
+    dept_id             bigint(20)      not null comment '科室ID',
+    user_id             bigint(20)      not null comment '成员ID',
+    period_start        date            not null comment '周期开始日期',
+    period_end          date            not null comment '周期结束日期',
+    deadline            datetime        not null comment '本周期截止时间',
+    required_count      int(11)         not null default 1 comment '本周期要求次数',
+    completed_count     int(11)         not null default 0 comment '本周期完成次数',
+    status              varchar(20)     not null default 'NOT_STARTED' comment '实例状态',
+    generated_at        datetime        not null default current_timestamp comment '实例生成时间',
+    completed_at        datetime        default null comment '完成时间',
+    version             bigint(20)      default 0 comment '版本号',
+    create_dept         bigint(20)      default null comment '创建部门',
+    create_by           bigint(20)      default null comment '创建者',
+    create_time         datetime        default null comment '创建时间',
+    update_by           bigint(20)      default null comment '更新者',
+    update_time         datetime        default null comment '更新时间',
+    del_flag            char(1)         not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_task_instance_period (rule_id, user_id, period_start, del_flag),
+    key idx_dm_task_instance_dept_period (dept_id, period_start, status)
+) engine=innodb comment='科室任务周期实例';
 
-set @score_sub_category_length = coalesce((
-    select character_maximum_length
-    from information_schema.columns
-    where table_schema = database()
-      and table_name = 'dm_score_proposal'
-      and column_name = 'sub_category'
-), 0);
-set @sql = if(@score_sub_category_length < 500,
-    'alter table dm_score_proposal modify column sub_category varchar(500) default null comment ''提案小类''',
-    'select 1');
-prepare stmt from @sql;
-execute stmt;
-deallocate prepare stmt;
+-- 任务完成记录：保存实例对应的 SCORE、5WHY、日报来源记录，便于审计和扩展任务类型。
+create table if not exists dm_department_task_completion (
+    id                  bigint(20)      not null comment '主键',
+    instance_id         bigint(20)      not null comment '周期实例ID',
+    task_type           varchar(30)     not null comment '任务类型',
+    source_id           bigint(20)      not null comment '来源业务记录ID',
+    completed_at        datetime        not null default current_timestamp comment '完成时间',
+    create_dept         bigint(20)      default null comment '创建部门',
+    create_by           bigint(20)      default null comment '创建者',
+    create_time         datetime        default null comment '创建时间',
+    update_by           bigint(20)      default null comment '更新者',
+    update_time         datetime        default null comment '更新时间',
+    del_flag            char(1)         not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_task_completion_source (instance_id, task_type, source_id, del_flag),
+    key idx_dm_task_completion_instance (instance_id, completed_at)
+) engine=innodb comment='科室任务周期完成记录';
 
 -- 菜单与按钮权限。日报不设置审核，也排除签字、固化清单和推广清单。
-delete from sys_role_menu where menu_id = 1761400000000003016;
-delete from sys_menu where menu_id = 1761400000000003016;
 insert ignore into sys_menu values(1761400000000003000, '科室管理', 0, 6, 'department', null, '', 'N', 'Y', 'M', '0', '0', '', 'post', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '科室管理目录');
 insert ignore into sys_menu values(1761400000000003001, '日报管理', 1761400000000003000, 1, 'dailyReport', 'department/dailyReport/index', '', 'N', 'Y', 'C', '0', '0', 'department:dailyReport:list', 'documentation', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '科室日报管理');
 insert ignore into sys_menu values(1761400000000003010, '日报查询', 1761400000000003001, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:dailyReport:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
@@ -765,13 +714,6 @@ insert ignore into sys_role_menu values (1761300000000000001, 176140000000000303
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003034);
 
 insert ignore into sys_menu values(1761400000000003004, '人工单台账', 1761400000000003000, 4, 'workOrder', 'department/workOrder/index', '', 'N', 'Y', 'C', '0', '0', 'department:workOrder:list', 'clipboard', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'PDF导入与手动维护人工单台账');
-update sys_menu set menu_name = '人工单台账', icon = 'clipboard', perms = 'department:workOrder:list', remark = 'PDF导入与手动维护人工单台账' where menu_id = 1761400000000003004;
-update sys_menu set menu_name = '人工单查询', remark = '' where menu_id = 1761400000000003040;
-update sys_menu set menu_name = '人工单新增', remark = '' where menu_id = 1761400000000003041;
-update sys_menu set menu_name = '人工单修改', remark = '' where menu_id = 1761400000000003042;
-update sys_menu set menu_name = '人工单删除', remark = '' where menu_id = 1761400000000003043;
-update sys_menu set menu_name = '人工单PDF导入', remark = '' where menu_id = 1761400000000003044;
-update sys_menu set menu_name = '人工单导出', remark = '' where menu_id = 1761400000000003045;
 insert ignore into sys_menu values(1761400000000003040, '人工单查询', 1761400000000003004, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:workOrder:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003041, '人工单新增', 1761400000000003004, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:workOrder:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003042, '人工单修改', 1761400000000003004, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:workOrder:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
@@ -806,7 +748,6 @@ insert ignore into sys_role_menu values (1761300000000000001, 176140000000000307
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003076);
 
 insert ignore into sys_menu values(1761400000000003006, '项目管理', 1761400000000003000, 8, 'project', 'department/project/index', '', 'N', 'Y', 'C', '0', '0', 'department:project:list', 'component', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '科室负责项目主数据');
-update sys_menu set menu_name = '项目管理', icon = 'component', order_num = 8, perms = 'department:project:list', remark = '科室负责项目主数据' where menu_id = 1761400000000003006;
 insert ignore into sys_menu values(1761400000000003080, '项目查询', 1761400000000003006, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:project:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003081, '项目新增', 1761400000000003006, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:project:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003082, '项目修改', 1761400000000003006, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:project:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
@@ -819,8 +760,55 @@ insert ignore into sys_role_menu values (1761300000000000001, 176140000000000308
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003083);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003084);
 
-update sys_menu set order_num = 6 where menu_id = 1761400000000003050;
-update sys_menu set order_num = 7 where menu_id = 1761400000000003060;
+insert ignore into sys_menu values(1761400000000003110, '资料管理', 1761400000000003000, 9, 'document', 'department/document/index', '', 'N', 'Y', 'C', '0', '0', 'department:document:list', 'documentation', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '科室资料、项目资料与版本管理');
+insert ignore into sys_menu values(1761400000000003111, '资料查询', 1761400000000003110, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:document:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003112, '资料上传', 1761400000000003110, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:document:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003113, '资料修改', 1761400000000003110, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:document:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003114, '资料删除', 1761400000000003110, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:document:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003115, '资料恢复', 1761400000000003110, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:document:restore', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003116, '资料下载', 1761400000000003110, 6, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:document:download', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003110);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003111);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003112);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003113);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003114);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003115);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003116);
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003110 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003111 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003112 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003113 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003114 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003115 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003116 from sys_role_menu where menu_id = 1761400000000003000;
+
+insert ignore into sys_menu values(1761400000000003120, '资料分类配置', 1761400000000003000, 10, 'documentCategory', 'department/documentCategory/index', '', 'N', 'Y', 'C', '0', '0', 'department:documentCategory:list', 'tree', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按科室维护资料分类配置');
+insert ignore into sys_menu values(1761400000000003121, '分类查询', 1761400000000003120, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:documentCategory:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003122, '分类新增', 1761400000000003120, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:documentCategory:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003123, '分类修改', 1761400000000003120, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:documentCategory:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003124, '分类删除', 1761400000000003120, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:documentCategory:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003120);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003121);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003122);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003123);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003124);
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003120 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003121 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003122 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003123 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id)
+select distinct role_id, 1761400000000003124 from sys_role_menu where menu_id = 1761400000000003000;
 
 insert ignore into sys_menu values(1761400000000003050, '5WHY管理', 1761400000000003000, 6, 'fiveWhy', 'department/fiveWhy/index', '', 'N', 'Y', 'C', '0', '0', 'department:fiveWhy:list', 'question', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '5WHY分析记录与DOCX生成');
 insert ignore into sys_menu values(1761400000000003051, '5WHY查询', 1761400000000003050, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:fiveWhy:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
@@ -837,7 +825,7 @@ insert ignore into sys_role_menu values (1761300000000000001, 176140000000000305
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003055);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003056);
 
-insert ignore into sys_menu values(1761400000000003060, 'SCORE提案', 1761400000000003000, 7, 'scoreProposal', '', '', 'N', 'Y', 'M', '0', '0', '', 'edit', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'SCORE提案目录');
+insert ignore into sys_menu values(1761400000000003060, 'SCORE提案', 1761400000000003000, 7, 'scoreProposal', '', '', 'N', 'Y', 'M', '0', '0', '', 'tool', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'SCORE提案目录');
 insert ignore into sys_menu values(1761400000000003091, 'SCORE提案管理', 1761400000000003060, 1, 'proposal', 'department/scoreProposal/index', '', 'N', 'Y', 'C', '0', '0', 'department:scoreProposal:list', 'edit', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'SCORE提案管理与模板生成');
 insert ignore into sys_menu values(1761400000000003061, 'SCORE查询', 1761400000000003091, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:scoreProposal:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003062, 'SCORE新增', 1761400000000003091, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:scoreProposal:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
@@ -854,9 +842,7 @@ insert ignore into sys_role_menu values (1761300000000000001, 176140000000000306
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003065);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003066);
 
-insert ignore into sys_menu values(1761400000000003067, 'SCORE分类配置', 1761400000000003060, 2, 'scoreCategory', 'department/scoreCategory/index', '', 'N', 'Y', 'C', '0', '0', 'department:scoreCategory:list', 'list', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'SCORE提案全局大类与小类配置');
--- 已执行过旧版本脚本的环境，将分类配置调整为 SCORE提案的子菜单。
-update sys_menu set parent_id = 1761400000000003060, order_num = 2, menu_name = 'SCORE分类配置', path = 'scoreCategory', component = 'department/scoreCategory/index', menu_type = 'C', visible = '0', status = '0', perms = 'department:scoreCategory:list', icon = 'list', remark = 'SCORE提案全局大类与小类配置' where menu_id = 1761400000000003067;
+insert ignore into sys_menu values(1761400000000003067, 'SCORE分类配置', 1761400000000003060, 2, 'scoreCategory', 'department/scoreCategory/index', '', 'N', 'Y', 'C', '0', '0', 'department:scoreCategory:list', 'category', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'SCORE提案全局大类与小类配置');
 insert ignore into sys_menu values(1761400000000003077, 'SCORE分类查询', 1761400000000003067, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:scoreCategory:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003078, 'SCORE分类新增', 1761400000000003067, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:scoreCategory:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003079, 'SCORE分类修改', 1761400000000003067, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:scoreCategory:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
@@ -865,40 +851,35 @@ insert ignore into sys_role_menu values (1761300000000000001, 176140000000000306
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003077);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003078);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003079);
-insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003090);
+-- 科室审核人及周期任务配置：任务规则只对明确分配的成员生效，未分配成员不产生待办。
+insert ignore into sys_menu values(1761400000000003100, '任务管理', 1761400000000003000, 11, 'task', 'department/task/index', '', 'N', 'Y', 'C', '0', '0', 'department:task:list', 'my-task', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '科室周期任务与业务审核人配置');
+insert ignore into sys_menu values(1761400000000003101, '任务规则查询', 1761400000000003100, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:task:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003102, '任务规则新增', 1761400000000003100, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:task:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003103, '任务规则修改', 1761400000000003100, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:task:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003104, '任务规则删除', 1761400000000003100, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:task:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003105, '审核人配置', 1761400000000003100, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:task:reviewConfig', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003100);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003101);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003102);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003103);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003104);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003105);
 
--- 已执行过旧版本脚本的环境：将 SCORE提案调整为目录，并补充真正的提案页面子菜单。
-update sys_menu set menu_name = 'SCORE提案', parent_id = 1761400000000003000, order_num = 7,
-    path = 'scoreProposal', component = '', menu_type = 'M', visible = '0', status = '0',
-    perms = '', icon = 'edit', remark = 'SCORE提案目录'
-where menu_id = 1761400000000003060;
-insert ignore into sys_menu values(1761400000000003091, 'SCORE提案管理', 1761400000000003060, 1, 'proposal', 'department/scoreProposal/index', '', 'N', 'Y', 'C', '0', '0', 'department:scoreProposal:list', 'edit', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'SCORE提案管理与模板生成');
-update sys_menu set menu_name = 'SCORE提案管理', parent_id = 1761400000000003060, order_num = 1,
-    path = 'proposal', component = 'department/scoreProposal/index', menu_type = 'C', visible = '0', status = '0',
-    perms = 'department:scoreProposal:list', icon = 'edit', remark = 'SCORE提案管理与模板生成'
-where menu_id = 1761400000000003091;
-update sys_menu set parent_id = 1761400000000003091 where menu_id between 1761400000000003061 and 1761400000000003066;
-insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003091);
-update sys_menu set parent_id = 1761400000000003060, order_num = 2 where menu_id = 1761400000000003067;
-
--- 将已拥有 SCORE提案目录权限的角色同步到两个页面及其按钮权限，避免只清缓存后仍看不到子菜单。
-insert ignore into sys_role_menu (role_id, menu_id)
-select distinct role_id, 1761400000000003091 from sys_role_menu where menu_id = 1761400000000003060;
-insert ignore into sys_role_menu (role_id, menu_id)
-select distinct role_id, 1761400000000003067 from sys_role_menu where menu_id = 1761400000000003060;
-insert ignore into sys_role_menu (role_id, menu_id)
-select distinct parent_roles.role_id, child_menus.menu_id
-from sys_role_menu parent_roles
-join (
-    select 1761400000000003061 as menu_id
-    union all select 1761400000000003062
-    union all select 1761400000000003063
-    union all select 1761400000000003064
-    union all select 1761400000000003065
-    union all select 1761400000000003066
-    union all select 1761400000000003077
-    union all select 1761400000000003078
-    union all select 1761400000000003079
-    union all select 1761400000000003090
-) child_menus
-where parent_roles.menu_id = 1761400000000003060;
+insert ignore into sys_menu values(1761400000000003130, '科室配置', 1761400000000003000, 12, 'departmentConfig', 'department/config/index', '', 'N', 'Y', 'C', '0', '0', 'department:department:list', 'company', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按系统部门配置业务科室并自动同步正式成员');
+insert ignore into sys_menu values(1761400000000003131, '科室查询', 1761400000000003130, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:department:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003132, '科室新增', 1761400000000003130, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:department:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003133, '科室修改', 1761400000000003130, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:department:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003134, '科室停用', 1761400000000003130, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:department:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003135, '科室数据查看', 1761400000000003130, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:department:viewDept', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003130);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003131);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003132);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003133);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003134);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003135);
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003130 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003131 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003132 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003133 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003134 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003135 from sys_role_menu where menu_id = 1761400000000003000;

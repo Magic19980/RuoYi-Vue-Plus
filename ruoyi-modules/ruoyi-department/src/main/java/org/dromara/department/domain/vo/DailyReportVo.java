@@ -19,7 +19,6 @@ public class DailyReportVo implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    @ExcelProperty("主键")
     private Long id;
 
     @ExcelProperty("日报日期")
@@ -44,7 +43,6 @@ public class DailyReportVo implements Serializable {
     @ExcelProperty("待协调事项/备注")
     private String coordinationNote;
 
-    @ExcelProperty("状态")
     private String status;
 
     private String sourceType;

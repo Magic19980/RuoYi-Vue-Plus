@@ -29,6 +29,7 @@ public class FiveWhy extends BaseEntity {
     private Long deptId;
     private String companyDept;
     private String employeeNo;
+    private Long analystUserId;
     private String analystName;
     private LocalDate analysisDate;
     private String problemName;
@@ -43,6 +44,7 @@ public class FiveWhy extends BaseEntity {
     private String standardizationExecution;
     private String reviewStatus;
     private String reviewComment;
+    private Long reviewerUserId;
 
     @Version
     private Long version;

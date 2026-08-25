@@ -44,8 +44,6 @@ public class WorkOrderSummaryVo implements Serializable {
 
     private Integer unattributedCount = 0;
 
-    private Integer pendingReviewCount = 0;
-
     private List<DimensionCountVo> bySystem = new ArrayList<>();
 
     private List<DimensionCountVo> byFaultType = new ArrayList<>();

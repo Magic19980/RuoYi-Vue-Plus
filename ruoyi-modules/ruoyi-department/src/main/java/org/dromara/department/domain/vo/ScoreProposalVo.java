@@ -25,6 +25,7 @@ public class ScoreProposalVo implements Serializable {
     private String deptName;
     private Long mainCategoryId;
     private Long subCategoryId;
+    private Long proposerUserId;
     private String mainCategory;
     private String subCategory;
     private String problemDescription;
@@ -39,6 +40,7 @@ public class ScoreProposalVo implements Serializable {
     private String remark;
     private String reviewStatus;
     private String reviewComment;
+    private Long reviewerUserId;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

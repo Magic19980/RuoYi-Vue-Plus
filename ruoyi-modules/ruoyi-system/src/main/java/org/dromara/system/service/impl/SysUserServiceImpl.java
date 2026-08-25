@@ -13,6 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.constant.CacheNames;
 import org.dromara.common.core.constant.SystemConstants;
 import org.dromara.common.core.domain.PageResult;
+import org.dromara.common.core.event.UserDepartmentChangingEvent;
+import org.dromara.common.core.event.UserDepartmentChangedEvent;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.utils.*;
 import org.dromara.common.mybatis.core.page.PageQuery;
@@ -335,15 +337,24 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     @CacheEvict(cacheNames = CacheNames.SYS_NICKNAME, key = "#user.userId")
     @Transactional(rollbackFor = Exception.class)
     public int updateUser(SysUserBo user) {
+        SysUser beforeUser = userMapper.selectById(user.getUserId());
+        Long oldDeptId = beforeUser == null ? null : beforeUser.getDeptId();
         // 新增用户与角色管理
         insertUserRole(user, true);
         // 新增用户与岗位管理
         insertUserPost(user, true);
         SysUser sysUser = MapstructUtils.convert(user, SysUser.class);
+        if (!Objects.equals(oldDeptId, sysUser.getDeptId())) {
+            SpringUtils.context().publishEvent(new UserDepartmentChangingEvent(
+                sysUser.getUserId(), oldDeptId, sysUser.getDeptId()));
+        }
         // 防止错误更新后导致的数据误删除
         int flag = userMapper.updateById(sysUser);
         if (flag < 1) {
             throw new ServiceException("修改用户{}信息失败", user.getUserName());
+        }
+        if (!Objects.equals(oldDeptId, sysUser.getDeptId())) {
+            SpringUtils.context().publishEvent(new UserDepartmentChangedEvent(sysUser.getUserId(), oldDeptId, sysUser.getDeptId()));
         }
         return flag;
     }

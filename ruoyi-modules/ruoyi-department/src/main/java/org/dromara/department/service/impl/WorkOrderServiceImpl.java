@@ -24,6 +24,7 @@ import org.dromara.department.mapper.WorkOrderImportBatchMapper;
 import org.dromara.department.mapper.WorkOrderDetailMapper;
 import org.dromara.department.mapper.WorkOrderMapper;
 import org.dromara.department.service.IWorkOrderService;
+import org.dromara.department.service.DepartmentAccessService;
 import org.dromara.system.domain.SysOssExt;
 import org.dromara.system.domain.vo.SysOssVo;
 import org.dromara.system.service.ISysOssService;
@@ -44,6 +45,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * 工单台账业务实现。
@@ -52,13 +54,9 @@ import java.util.regex.Pattern;
 @Service
 public class WorkOrderServiceImpl implements IWorkOrderService {
 
+    private static final String DEPT_VIEW_PERMISSION = "department:workOrder:viewDept";
     private static final String SOURCE_PDF = "PDF";
     private static final String SOURCE_MANUAL = "MANUAL";
-    private static final String REVIEW_PENDING = "PENDING";
-    private static final String REVIEW_CONFIRMED = "CONFIRMED";
-    private static final String STATUS_OPEN = "OPEN";
-    private static final String STATUS_RESOLVED = "RESOLVED";
-    private static final String STATUS_CLOSED = "CLOSED";
     private static final Pattern DETAIL_NUMBER = Pattern.compile("[-+]?\\d+(?:\\.\\d+)?");
 
     private final WorkOrderMapper workOrderMapper;
@@ -66,6 +64,7 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     private final WorkOrderImportBatchMapper importBatchMapper;
     private final WorkOrderPdfParser pdfParser;
     private final ISysOssService ossService;
+    private final DepartmentAccessService departmentAccessService;
 
     @Override
     public PageResult<WorkOrderVo> queryPageList(WorkOrderQueryBo bo, PageQuery pageQuery) {
@@ -85,8 +84,12 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     @Override
     public List<WorkOrderExportVo> queryExportList(WorkOrderQueryBo bo) {
         List<WorkOrderExportVo> result = new ArrayList<>();
-        for (WorkOrderVo parent : queryList(bo)) {
-            List<WorkOrderDetail> details = workOrderDetailMapper.selectByWorkOrderId(parent.getId());
+        List<WorkOrderVo> parents = queryList(bo);
+        Map<Long, List<WorkOrderDetail>> detailsByWorkOrder = workOrderDetailMapper.selectByWorkOrderIds(
+            parents.stream().map(WorkOrderVo::getId).toList()
+        ).stream().collect(Collectors.groupingBy(WorkOrderDetail::getWorkOrderId));
+        for (WorkOrderVo parent : parents) {
+            List<WorkOrderDetail> details = detailsByWorkOrder.getOrDefault(parent.getId(), List.of());
             if (details.isEmpty()) {
                 result.add(toExportVo(parent, null));
             } else {
@@ -148,7 +151,8 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean insertByBo(WorkOrderBo bo) {
-        if (LoginHelper.getDeptId() == null) {
+        Long deptId = departmentAccessService.currentDeptId();
+        if (deptId == null) {
             throw new ServiceException("当前登录用户缺少部门信息，无法维护工单");
         }
         if (bo.getOccurDate() == null) {
@@ -156,10 +160,8 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         }
         WorkOrder entity = new WorkOrder();
         copyBo(bo, entity);
-        entity.setDeptId(LoginHelper.getDeptId());
+        entity.setDeptId(deptId);
         entity.setSourceType(SOURCE_MANUAL);
-        entity.setReviewStatus(REVIEW_CONFIRMED);
-        entity.setStatus(StringUtils.isBlank(bo.getStatus()) ? STATUS_OPEN : bo.getStatus());
         entity.setQuantity(bo.getQuantity() == null ? BigDecimal.ONE : bo.getQuantity());
         return workOrderMapper.insert(entity) > 0;
     }
@@ -169,19 +171,7 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     public Boolean updateByBo(WorkOrderBo bo) {
         WorkOrder entity = getAccessible(bo.getId());
         copyBo(bo, entity);
-        if (StringUtils.isNotBlank(bo.getReviewStatus())) {
-            entity.setReviewStatus(bo.getReviewStatus());
-        }
-        if (StringUtils.isBlank(entity.getReviewStatus())) {
-            entity.setReviewStatus(REVIEW_PENDING);
-        }
-        if (REVIEW_CONFIRMED.equals(entity.getReviewStatus()) && entity.getOccurDate() == null) {
-            throw new ServiceException("确认进入周报统计前必须填写发生年月");
-        }
         entity.setQuantity(bo.getQuantity() == null ? BigDecimal.ONE : bo.getQuantity());
-        if (StringUtils.isBlank(entity.getStatus())) {
-            entity.setStatus(STATUS_OPEN);
-        }
         return workOrderMapper.updateById(entity) > 0;
     }
 
@@ -200,7 +190,8 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public WorkOrderImportResultVo importPdf(MultipartFile file) {
-        if (LoginHelper.getDeptId() == null) {
+        Long deptId = departmentAccessService.currentDeptId();
+        if (deptId == null) {
             throw new ServiceException("当前登录用户缺少部门信息，无法导入工单");
         }
         if (file == null || file.isEmpty()) {
@@ -240,7 +231,7 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         List<WorkOrderPdfParser.ParsedRow> detailRows = parsed.getRows();
         WorkOrderPdfParser.ParsedRow firstRow = detailRows.get(0);
         WorkOrder entity = new WorkOrder();
-        entity.setDeptId(LoginHelper.getDeptId());
+        entity.setDeptId(deptId);
         entity.setTicketNo("PDF-" + batch.getId());
         // 数据库仍使用 date 类型，统一按该月份第一天保存；页面只展示 yyyy-MM。
         entity.setOccurDate(parsed.getPeriodStart());
@@ -263,15 +254,13 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
             .filter(Objects::nonNull)
             .reduce(BigDecimal.ZERO, BigDecimal::add));
         entity.setResponsiblePerson(commonValue(detailRows, WorkOrderPdfParser.ParsedRow::getProjectOwner, "多人（详见明细）"));
-        entity.setStatus(STATUS_OPEN);
-        entity.setReviewStatus(REVIEW_PENDING);
         entity.setSourceType(SOURCE_PDF);
         entity.setSourceBatchId(batch.getId());
         entity.setSourceFileName(originalName);
         entity.setSourcePage(firstRow.getPage());
         entity.setParseConfidence(averageConfidence(detailRows));
         entity.setParseMessage("PDF已生成1条人工单主记录，保留" + detailRows.size() + "条人工统计明细；" +
-            "请补充状态、故障类型和处理时长后再纳入周报");
+            "人工统计明细已保存，可在列表中打开明细维护完整字段");
         workOrderMapper.insert(entity);
 
         for (WorkOrderPdfParser.ParsedRow row : detailRows) {
@@ -296,30 +285,24 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
             workOrderDetailMapper.insert(detail);
         }
         batch.setParsedRecordCount(1);
-        batch.setPendingRecordCount(1);
+        batch.setPendingRecordCount(0);
         batch.setStatus("PARSED");
         importBatchMapper.updateById(batch);
 
         WorkOrderImportResultVo result = new WorkOrderImportResultVo();
         result.setBatch(toBatchVo(batch));
-        result.setMessage("PDF解析完成：识别 " + detailRows.size() + " 条人工统计明细，生成 1 条人工单主记录；请点击列表中的“人工统计明细”查看原始列内容");
+        result.setMessage("PDF解析完成：识别 " + detailRows.size() + " 条人工统计明细，生成 1 条人工单主记录；可点击列表中的“人工统计明细”查看和维护原始列内容");
         return result;
     }
 
     @Override
     public WorkOrderSummaryVo buildSummary(LocalDate beginDate, LocalDate endDate) {
-        return buildSummary(beginDate, endDate, false);
-    }
-
-    @Override
-    public WorkOrderSummaryVo buildSummary(LocalDate beginDate, LocalDate endDate, boolean includePending) {
         if (beginDate == null || endDate == null || endDate.isBefore(beginDate)) {
             throw new ServiceException("工单汇总日期范围不正确");
         }
-        List<WorkOrderVo> rows = workOrderMapper.selectForSummary(beginDate, endDate, scopeDeptId(), canViewAll(), includePending);
+        List<WorkOrderVo> rows = workOrderMapper.selectForSummary(beginDate, endDate, scopeDeptId(), canViewAll());
         WorkOrderSummaryVo summary = new WorkOrderSummaryVo();
         summary.setTotalCount(rows.size());
-        summary.setPendingReviewCount(workOrderMapper.countPending(beginDate, endDate, scopeDeptId(), canViewAll()));
         summary.setUnattributedCount(countUnattributed());
         BigDecimal totalQuantity = BigDecimal.ZERO;
         BigDecimal totalEngineeringQuantity = BigDecimal.ZERO;
@@ -339,13 +322,6 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
                 totalEngineeringQuantity = addFirstNumber(totalEngineeringQuantity, detail.getEngineeringQuantity());
                 totalChineseLabor = addFirstNumber(totalChineseLabor, detail.getChineseLabor());
                 totalIndonesiaLabor = addFirstNumber(totalIndonesiaLabor, detail.getIndonesiaLabor());
-            }
-            if (STATUS_RESOLVED.equals(row.getStatus()) || STATUS_CLOSED.equals(row.getStatus())) {
-                resolved++;
-                if (row.getResolutionMinutes() != null && row.getResolutionMinutes() >= 0) {
-                    durationTotal += row.getResolutionMinutes();
-                    durationCount++;
-                }
             }
             addDimension(systemMap, StringUtils.isBlank(row.getSystemName()) ? "未分类" : row.getSystemName(), row);
             addDimension(faultMap, StringUtils.isBlank(row.getFaultType()) ? "未分类" : row.getFaultType(), row);
@@ -386,7 +362,6 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         entity.setQuantity(bo.getQuantity());
         entity.setResponsiblePerson(bo.getResponsiblePerson());
         entity.setHandler(bo.getHandler());
-        entity.setStatus(bo.getStatus());
         entity.setResolutionMinutes(bo.getResolutionMinutes());
         entity.setFeedbackChannel(bo.getFeedbackChannel());
         entity.setRemark(bo.getRemark());
@@ -415,7 +390,6 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
 
     private int countUnattributed() {
         return workOrderMapper.selectList(Wrappers.<WorkOrder>lambdaQuery()
-            .eq(WorkOrder::getReviewStatus, REVIEW_CONFIRMED)
             .isNull(WorkOrder::getOccurDate)
             .eq(!canViewAll(), WorkOrder::getDeptId, scopeDeptId())).size();
     }
@@ -425,7 +399,7 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         if (entity == null) {
             throw new ServiceException("工单不存在");
         }
-        if (canViewAll() || Objects.equals(entity.getDeptId(), LoginHelper.getDeptId())) {
+        if (departmentAccessService.canViewEntityDept(entity.getDeptId(), DEPT_VIEW_PERMISSION)) {
             return entity;
         }
         throw new ServiceException("您没有访问该工单的权限");
@@ -453,10 +427,8 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         vo.setQuantity(entity.getQuantity());
         vo.setResponsiblePerson(entity.getResponsiblePerson());
         vo.setHandler(entity.getHandler());
-        vo.setStatus(entity.getStatus());
         vo.setResolutionMinutes(entity.getResolutionMinutes());
         vo.setFeedbackChannel(entity.getFeedbackChannel());
-        vo.setReviewStatus(entity.getReviewStatus());
         vo.setSourceType(entity.getSourceType());
         vo.setSourceBatchId(entity.getSourceBatchId());
         vo.setSourceFileName(entity.getSourceFileName());
@@ -490,10 +462,8 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         vo.setQuantity(detail == null ? parent.getQuantity() : detail.getQuantity());
         vo.setWorkCategory(parent.getWorkCategory());
         vo.setFaultType(parent.getFaultType());
-        vo.setStatus(parent.getStatus());
         vo.setResolutionMinutes(parent.getResolutionMinutes());
         vo.setFeedbackChannel(parent.getFeedbackChannel());
-        vo.setReviewStatus(parent.getReviewStatus());
         vo.setSourceType(parent.getSourceType());
         vo.setSourceFileName(parent.getSourceFileName());
         vo.setSourcePage(detail == null ? parent.getSourcePage() : detail.getSourcePage());
@@ -663,10 +633,10 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     }
 
     private boolean canViewAll() {
-        return LoginHelper.isSuperAdmin();
+        return false;
     }
 
     private Long scopeDeptId() {
-        return canViewAll() ? null : LoginHelper.getDeptId();
+        return canViewAll() ? null : departmentAccessService.scopeDeptId(DEPT_VIEW_PERMISSION);
     }
 }

@@ -1,6 +1,5 @@
 package org.dromara.department.service.impl;
 
-import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
@@ -9,19 +8,32 @@ import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.department.domain.PersonProfile;
+import org.dromara.department.domain.PersonProfileEvent;
 import org.dromara.department.domain.bo.PersonProfileBo;
+import org.dromara.department.domain.bo.PersonProfileEndBo;
 import org.dromara.department.domain.bo.PersonProfileQueryBo;
+import org.dromara.department.domain.bo.PersonUserOptionQueryBo;
 import org.dromara.department.domain.vo.PersonProfileVo;
 import org.dromara.department.domain.vo.PersonProfileImportVo;
+import org.dromara.department.domain.vo.PersonDepartmentContextVo;
 import org.dromara.department.domain.vo.PersonUserOptionVo;
+import org.dromara.department.domain.vo.DepartmentConfigVo;
+import org.dromara.department.mapper.DepartmentConfigMapper;
 import org.dromara.department.mapper.PersonProfileMapper;
+import org.dromara.department.mapper.PersonProfileEventMapper;
 import org.dromara.department.service.IPersonProfileService;
+import org.dromara.department.service.DepartmentAccessService;
+import org.dromara.department.service.DepartmentMembershipSyncService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * 人员档案业务实现。
@@ -33,11 +45,15 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
     private static final String DEPT_VIEW_PERMISSION = "department:person:viewDept";
 
     private final PersonProfileMapper personProfileMapper;
+    private final DepartmentConfigMapper departmentConfigMapper;
+    private final PersonProfileEventMapper personProfileEventMapper;
+    private final DepartmentAccessService departmentAccessService;
+    private final DepartmentMembershipSyncService membershipSyncService;
 
     @Override
     public PageResult<PersonProfileVo> queryPageList(PersonProfileQueryBo bo, PageQuery pageQuery) {
         Page<PersonProfileVo> page = pageQuery.build();
-        Page<PersonProfileVo> result = personProfileMapper.selectPageList(page, bo, LoginHelper.getUserId(), scopeDeptId(), canViewAll());
+        Page<PersonProfileVo> result = personProfileMapper.selectPageList(page, bo, LoginHelper.getUserId(), scopeDeptId(), canViewAll(), LocalDate.now());
         return PageResult.build(result.getRecords(), result.getTotal());
     }
 
@@ -47,60 +63,181 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         PersonProfileQueryBo bo = new PersonProfileQueryBo();
         bo.setId(id);
         Page<PersonProfileVo> page = new Page<>(1, 1);
-        Page<PersonProfileVo> result = personProfileMapper.selectPageList(page, bo, entity.getUserId(), entity.getCreateDept(), true);
+        bo.setIncludeHistory(true);
+        Page<PersonProfileVo> result = personProfileMapper.selectPageList(page, bo, entity.getUserId(), entity.getCreateDept(), true, LocalDate.now());
         return result.getRecords().isEmpty() ? null : result.getRecords().get(0);
     }
 
     @Override
     public List<PersonProfileVo> queryList(PersonProfileQueryBo bo) {
         Page<PersonProfileVo> page = new Page<>(1, Integer.MAX_VALUE);
-        return personProfileMapper.selectPageList(page, bo, LoginHelper.getUserId(), scopeDeptId(), canViewAll()).getRecords();
+        return personProfileMapper.selectPageList(page, bo, LoginHelper.getUserId(), scopeDeptId(), canViewAll(), LocalDate.now()).getRecords();
     }
 
     @Override
     public List<PersonUserOptionVo> queryUserOptions() {
-        return personProfileMapper.selectUserOptions(scopeDeptId(), canViewAll());
+        // 科室管理员可以把其他部门的协作人员纳入本部门日报，原所属部门仍保留在系统用户档案中。
+        return personProfileMapper.selectUserOptions(userOptionScopeDeptId(), canViewDepartment());
+    }
+
+    @Override
+    public PageResult<PersonUserOptionVo> queryUserOptionsPage(PersonUserOptionQueryBo bo, PageQuery pageQuery) {
+        Page<PersonUserOptionVo> page = pageQuery.build();
+        Page<PersonUserOptionVo> result = personProfileMapper.selectUserOptionsPage(
+            page,
+            bo,
+            requireTargetDept(),
+            userOptionScopeDeptId(),
+            canViewDepartment(),
+            LocalDate.now()
+        );
+        return PageResult.build(result.getRecords(), result.getTotal());
+    }
+
+    @Override
+    public List<PersonUserOptionVo> queryMemberUserOptions() {
+        return personProfileMapper.selectMemberUserOptions(requireTargetDept(), LocalDate.now());
+    }
+
+    @Override
+    public List<PersonDepartmentContextVo> queryMyDepartments() {
+        if (LoginHelper.isSuperAdmin()) {
+            return querySuperAdminDepartments();
+        }
+        membershipSyncService.syncMainDepartment(LoginHelper.getUserId(), LoginHelper.getMainDeptId());
+        List<PersonDepartmentContextVo> contexts = personProfileMapper.selectCurrentDepartmentContexts(LoginHelper.getUserId(), LocalDate.now());
+        Long currentDeptId = LoginHelper.getDeptId();
+        // 只有一个有效关系且系统主部门已失效时，可以安全自动切换；多个关系必须由用户明确选择。
+        if (contexts.size() == 1 && !Objects.equals(currentDeptId, contexts.get(0).getDeptId())) {
+            PersonDepartmentContextVo context = contexts.get(0);
+            LoginHelper.setActiveDept(context.getDeptId(), context.getDeptName(), context.getMemberType());
+            currentDeptId = context.getDeptId();
+        }
+        for (PersonDepartmentContextVo context : contexts) {
+            context.setCurrent(Objects.equals(currentDeptId, context.getDeptId()));
+        }
+        return contexts;
+    }
+
+    @Override
+    public PersonDepartmentContextVo switchMyDepartment(Long deptId) {
+        if (LoginHelper.isSuperAdmin()) {
+            PersonDepartmentContextVo target = querySuperAdminDepartments().stream()
+                .filter(item -> Objects.equals(item.getDeptId(), deptId))
+                .findFirst()
+                .orElseThrow(() -> new ServiceException("目标科室未启用或不存在，不能切换科室上下文"));
+            LoginHelper.setActiveDept(target.getDeptId(), target.getDeptName(), target.getMemberType());
+            target.setCurrent(true);
+            return target;
+        }
+        PersonDepartmentContextVo target = personProfileMapper.selectCurrentDepartmentContexts(LoginHelper.getUserId(), LocalDate.now())
+            .stream()
+            .filter(item -> Objects.equals(item.getDeptId(), deptId))
+            .findFirst()
+            .orElseThrow(() -> new ServiceException("您当前未纳入该科室，不能切换科室上下文"));
+        LoginHelper.setActiveDept(target.getDeptId(), target.getDeptName(), target.getMemberType());
+        target.setCurrent(true);
+        return target;
+    }
+
+    private List<PersonDepartmentContextVo> querySuperAdminDepartments() {
+        List<DepartmentConfigVo> departments = departmentConfigMapper.selectEnabledDepartments();
+        if (departments.isEmpty()) {
+            throw new ServiceException("当前尚未配置启用的业务科室，请先完成科室配置");
+        }
+        Long currentDeptId = LoginHelper.getDeptId();
+        boolean currentAvailable = false;
+        for (DepartmentConfigVo department : departments) {
+            if (Objects.equals(department.getDeptId(), currentDeptId)) {
+                currentAvailable = true;
+                break;
+            }
+        }
+        if (!currentAvailable) {
+            DepartmentConfigVo first = departments.get(0);
+            LoginHelper.setActiveDept(first.getDeptId(), first.getDeptName(), null);
+            currentDeptId = first.getDeptId();
+        }
+        Long selectedDeptId = currentDeptId;
+        return departments.stream().map(item -> {
+            PersonDepartmentContextVo context = new PersonDepartmentContextVo();
+            context.setDeptId(item.getDeptId());
+            context.setDeptName(item.getDeptName());
+            context.setCurrent(Objects.equals(item.getDeptId(), selectedDeptId));
+            return context;
+        }).toList();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean insertByBo(PersonProfileBo bo) {
-        PersonUserOptionVo user = findUserOption(bo.getUserId());
-        checkTargetDept(user.getDeptId());
-        long count = personProfileMapper.selectCount(Wrappers.<PersonProfile>lambdaQuery()
-            .eq(PersonProfile::getUserId, bo.getUserId()));
-        if (count > 0) {
-            throw new ServiceException("该系统用户已经存在人员档案");
+        LocalDate joinDate = bo.getJoinDate() == null ? LocalDate.now() : bo.getJoinDate();
+        validatePeriod(joinDate, bo.getLeaveDate());
+        findUserOption(bo.getUserId());
+        Long targetDeptId = requireTargetDept();
+        if (hasOverlappingMembership(bo.getUserId(), targetDeptId, joinDate, bo.getLeaveDate(), null)) {
+            throw new ServiceException("该用户已经纳入当前科室");
         }
         PersonProfile entity = new PersonProfile();
-        fillEntity(entity, bo);
-        return personProfileMapper.insert(entity) > 0;
+        entity.setCreateDept(targetDeptId);
+        entity.setMemberSource("MANUAL");
+        fillEntity(entity, bo, joinDate);
+        boolean success = personProfileMapper.insert(entity) > 0;
+        if (success) {
+            recordEvent(entity, "JOIN", joinDate, "人工纳入科室", LoginHelper.getUserId());
+        }
+        return success;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean updateByBo(PersonProfileBo bo) {
         PersonProfile entity = getAccessible(bo.getId());
-        PersonUserOptionVo user = findUserOption(bo.getUserId());
-        checkTargetDept(user.getDeptId());
-        if (!Objects.equals(entity.getUserId(), bo.getUserId())) {
-            long count = personProfileMapper.selectCount(Wrappers.<PersonProfile>lambdaQuery()
-                .eq(PersonProfile::getUserId, bo.getUserId()));
-            if (count > 0) {
-                throw new ServiceException("该系统用户已经存在人员档案");
-            }
+        String oldMemberType = entity.getMemberType();
+        LocalDate oldJoinDate = entity.getJoinDate();
+        LocalDate oldLeaveDate = entity.getLeaveDate();
+        String oldRemark = entity.getRemark();
+        LocalDate joinDate = bo.getJoinDate() == null ? entity.getJoinDate() : bo.getJoinDate();
+        validatePeriod(joinDate, bo.getLeaveDate());
+        findUserOption(bo.getUserId());
+        Long targetDeptId = entity.getCreateDept() == null ? requireTargetDept() : entity.getCreateDept();
+        if (hasOverlappingMembership(bo.getUserId(), targetDeptId, joinDate, bo.getLeaveDate(), bo.getId())) {
+            throw new ServiceException("该用户在当前科室存在重叠的服务关系");
         }
-        fillEntity(entity, bo);
-        return personProfileMapper.updateById(entity) > 0;
+        entity.setCreateDept(targetDeptId);
+        fillEntity(entity, bo, joinDate);
+        boolean success = personProfileMapper.updateById(entity) > 0;
+        if (success && (!Objects.equals(oldMemberType, entity.getMemberType())
+            || !Objects.equals(oldJoinDate, entity.getJoinDate())
+            || !Objects.equals(oldLeaveDate, entity.getLeaveDate())
+            || !Objects.equals(oldRemark, entity.getRemark()))) {
+            recordEvent(entity, "CHANGE", entity.getJoinDate(), "人工修改服务关系", LoginHelper.getUserId());
+        }
+        return success;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteWithValidByIds(Collection<Long> ids) {
         for (Long id : ids) {
-            getAccessible(id);
+            PersonProfile entity = getAccessible(id);
+            if (!"ENDED".equals(entity.getMemberStatus())) {
+                endMembershipInternal(entity, LocalDate.now(), "手动移出科室");
+            }
         }
-        return personProfileMapper.deleteByIds(ids) > 0;
+        return !ids.isEmpty();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean endMembership(Long id, PersonProfileEndBo bo) {
+        PersonProfile entity = getAccessible(id);
+        validatePeriod(entity.getJoinDate(), bo.getLeaveDate());
+        if ("ENDED".equals(entity.getMemberStatus()) && Objects.equals(entity.getLeaveDate(), bo.getLeaveDate())) {
+            return true;
+        }
+        endMembershipInternal(entity, bo.getLeaveDate(), bo.getReason());
+        return true;
     }
 
     @Override
@@ -111,60 +248,136 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         }
         int success = 0;
         int skipped = 0;
+        Long targetDeptId = requireTargetDept();
+        Map<String, PersonUserOptionVo> usersByName = new HashMap<>();
+        personProfileMapper.selectUserOptions(null, true).forEach(item -> usersByName.put(item.getUserName(), item));
         for (PersonProfileImportVo row : rows) {
             if (org.dromara.common.core.utils.StringUtils.isBlank(row.getUserName())) {
                 skipped++;
                 continue;
             }
-            PersonUserOptionVo user = personProfileMapper.selectUserOptions(null, true).stream()
-                .filter(item -> row.getUserName().equals(item.getUserName()))
-                .findFirst()
-                .orElseThrow(() -> new ServiceException("找不到有效系统用户：" + row.getUserName()));
-            checkTargetDept(user.getDeptId());
-            PersonProfile entity = personProfileMapper.selectOne(Wrappers.<PersonProfile>lambdaQuery()
-                .eq(PersonProfile::getUserId, user.getUserId()));
+            PersonUserOptionVo user = usersByName.get(row.getUserName());
+            if (user == null) {
+                throw new ServiceException("找不到有效系统用户：" + row.getUserName());
+            }
+            LocalDate joinDate = row.getJoinDate() == null ? LocalDate.now() : row.getJoinDate();
+            validatePeriod(joinDate, null);
+            String memberType = org.dromara.common.core.utils.StringUtils.isBlank(row.getMemberType()) ? "FULL" : row.getMemberType().trim().toUpperCase();
+            if (!List.of("FULL", "TEMP").contains(memberType)) {
+                throw new ServiceException("成员类型只能是正式成员或临时协作：" + row.getUserName());
+            }
+            PersonProfile entity = personProfileMapper.selectActiveMembership(user.getUserId(), targetDeptId, joinDate);
             if (entity == null) {
+                if (hasOverlappingMembership(user.getUserId(), targetDeptId, joinDate, null, null)) {
+                    throw new ServiceException("该用户在当前科室存在重叠的服务关系：" + row.getUserName());
+                }
                 entity = new PersonProfile();
                 entity.setUserId(user.getUserId());
-                fillEntity(entity, row);
+                entity.setCreateDept(targetDeptId);
+                entity.setJoinDate(joinDate);
+                entity.setMemberType(memberType);
+                entity.setMemberStatus("ACTIVE");
+                entity.setMemberSource("MANUAL");
                 personProfileMapper.insert(entity);
-            } else {
-                fillEntity(entity, row);
-                personProfileMapper.updateById(entity);
+                recordEvent(entity, "JOIN", joinDate, "人工导入科室", LoginHelper.getUserId());
             }
             success++;
         }
         return String.format("导入完成：成功 %d 条，跳过 %d 条", success, skipped);
     }
 
-    private void fillEntity(PersonProfile entity, PersonProfileBo bo) {
+    private void fillEntity(PersonProfile entity, PersonProfileBo bo, LocalDate joinDate) {
         entity.setUserId(bo.getUserId());
-        entity.setEmployeeNo(bo.getEmployeeNo());
-        entity.setJobTitle(bo.getJobTitle());
-        entity.setDailyReportEnabled(bo.getDailyReportEnabled() == null ? "1" : bo.getDailyReportEnabled());
-        entity.setReminderTime(bo.getReminderTime());
-        entity.setRemark(bo.getRemark());
+        entity.setJoinDate(joinDate);
+        entity.setLeaveDate(bo.getLeaveDate());
+        String memberType = org.dromara.common.core.utils.StringUtils.isBlank(bo.getMemberType()) ? "FULL" : bo.getMemberType().trim().toUpperCase();
+        if (!List.of("FULL", "TEMP").contains(memberType)) {
+            throw new ServiceException("成员类型只能是正式成员或临时协作");
+        }
+        entity.setMemberType(memberType);
+        entity.setRemark(org.dromara.common.core.utils.StringUtils.trim(bo.getRemark()));
+        entity.setMemberStatus(bo.getLeaveDate() != null && !bo.getLeaveDate().isAfter(LocalDate.now()) ? "ENDED" : "ACTIVE");
+        if (!"ENDED".equals(entity.getMemberStatus())) {
+            entity.setEndedAt(null);
+            entity.setEndedBy(null);
+            entity.setEndReason(null);
+        }
     }
 
-    private void fillEntity(PersonProfile entity, PersonProfileImportVo row) {
-        entity.setEmployeeNo(row.getEmployeeNo());
-        entity.setJobTitle(row.getJobTitle());
-        entity.setDailyReportEnabled(row.getDailyReportEnabled() == null ? "1" : row.getDailyReportEnabled());
-        entity.setReminderTime(row.getReminderTime());
-        entity.setRemark(row.getRemark());
+    private void endMembershipInternal(PersonProfile entity, LocalDate leaveDate, String reason) {
+        validatePeriod(entity.getJoinDate(), leaveDate);
+        entity.setLeaveDate(leaveDate);
+        entity.setEndReason(org.dromara.common.core.utils.StringUtils.trim(reason));
+        if (!leaveDate.isAfter(LocalDate.now())) {
+            entity.setMemberStatus("ENDED");
+            entity.setEndedAt(LocalDateTime.now());
+            entity.setEndedBy(LoginHelper.getUserId());
+        } else {
+            entity.setMemberStatus("ACTIVE");
+            entity.setEndedAt(null);
+            entity.setEndedBy(null);
+        }
+        if (personProfileMapper.updateById(entity) <= 0) {
+            throw new ServiceException("结束科室服务关系失败");
+        }
+        recordEvent(entity, "LEAVE", leaveDate, reason, LoginHelper.getUserId());
+    }
+
+    private void recordEvent(PersonProfile profile, String eventType, LocalDate effectiveDate,
+                             String reason, Long operatorId) {
+        PersonProfileEvent event = new PersonProfileEvent();
+        event.setProfileId(profile.getId());
+        event.setUserId(profile.getUserId());
+        event.setDeptId(profile.getCreateDept());
+        event.setEventType(eventType);
+        event.setEffectiveDate(effectiveDate);
+        event.setMemberType(profile.getMemberType());
+        event.setReason(org.dromara.common.core.utils.StringUtils.trim(reason));
+        event.setOperatorId(operatorId);
+        event.setCreateDept(profile.getCreateDept());
+        event.setCreateBy(operatorId);
+        event.setCreateTime(LocalDateTime.now());
+        personProfileEventMapper.insert(event);
+    }
+
+    private void validatePeriod(LocalDate joinDate, LocalDate leaveDate) {
+        if (joinDate == null) {
+            throw new ServiceException("加入日期不能为空");
+        }
+        if (leaveDate != null && leaveDate.isBefore(joinDate)) {
+            throw new ServiceException("离开生效日不能早于加入日期");
+        }
+    }
+
+    private boolean hasOverlappingMembership(Long userId, Long deptId, LocalDate joinDate, LocalDate leaveDate, Long excludeId) {
+        LocalDate newEndExclusive = leaveDate == null ? LocalDate.MAX : leaveDate;
+        return personProfileMapper.selectList(Wrappers.<PersonProfile>lambdaQuery()
+                .eq(PersonProfile::getUserId, userId)
+                .eq(PersonProfile::getCreateDept, deptId)
+                .eq(PersonProfile::getDelFlag, "0")
+                .ne(excludeId != null, PersonProfile::getId, excludeId))
+            .stream()
+            .anyMatch(item -> {
+                LocalDate oldStart = item.getJoinDate() == null ? LocalDate.MIN : item.getJoinDate();
+                LocalDate oldEndExclusive = item.getLeaveDate() == null ? LocalDate.MAX : item.getLeaveDate();
+                return joinDate.isBefore(oldEndExclusive) && oldStart.isBefore(newEndExclusive);
+            });
     }
 
     private PersonUserOptionVo findUserOption(Long userId) {
-        return personProfileMapper.selectUserOptions(null, true).stream()
-            .filter(item -> Objects.equals(item.getUserId(), userId))
-            .findFirst()
-            .orElseThrow(() -> new ServiceException("系统用户不存在或已停用"));
+        PersonUserOptionVo option = personProfileMapper.selectUserOptionById(userId);
+        if (option == null) {
+            throw new ServiceException("系统用户不存在或已停用");
+        }
+        return option;
     }
 
-    private void checkTargetDept(Long targetDeptId) {
-        if (!canViewAll() && !Objects.equals(targetDeptId, LoginHelper.getDeptId())) {
-            throw new ServiceException("只能维护本部门人员档案");
+    private Long requireTargetDept() {
+        Long deptId = departmentAccessService.currentDeptId();
+        if (deptId == null) {
+            throw new ServiceException("当前登录用户缺少科室信息");
         }
+        return deptId;
     }
 
     private PersonProfile getAccessible(Long id) {
@@ -175,7 +388,8 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         if (canViewAll()) {
             return entity;
         }
-        if (canViewDepartment() && Objects.equals(personProfileMapper.selectDeptIdByProfileId(id), LoginHelper.getDeptId())) {
+        if (departmentAccessService.canViewEntityDept(
+            personProfileMapper.selectDeptIdByProfileId(id), DEPT_VIEW_PERMISSION)) {
             return entity;
         }
         if (Objects.equals(entity.getUserId(), LoginHelper.getUserId())) {
@@ -185,14 +399,18 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
     }
 
     private Long scopeDeptId() {
-        return canViewDepartment() && !canViewAll() ? LoginHelper.getDeptId() : null;
+        return canViewAll() ? null : departmentAccessService.scopeDeptId(DEPT_VIEW_PERMISSION);
+    }
+
+    private Long userOptionScopeDeptId() {
+        return canViewDepartment() ? null : departmentAccessService.currentDeptId();
     }
 
     private boolean canViewAll() {
-        return LoginHelper.isSuperAdmin();
+        return false;
     }
 
     private boolean canViewDepartment() {
-        return canViewAll() || StpUtil.hasPermission(DEPT_VIEW_PERMISSION);
+        return departmentAccessService.canViewCurrentDepartment(DEPT_VIEW_PERMISSION);
     }
 }

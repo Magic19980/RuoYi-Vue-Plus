@@ -6,7 +6,8 @@ import org.apache.fesod.sheet.annotation.ExcelProperty;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.time.LocalTime;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * 人员档案视图对象。
@@ -38,12 +39,23 @@ public class PersonProfileVo implements Serializable {
     @ExcelProperty("岗位")
     private String jobTitle;
 
-    @ExcelProperty("纳入日报")
-    private String dailyReportEnabled;
-
-    @ExcelProperty("提醒时间")
-    private LocalTime reminderTime;
-
     @ExcelProperty("备注")
     private String remark;
+
+    @ExcelProperty("加入日期")
+    private LocalDate joinDate;
+
+    @ExcelProperty("离开生效日")
+    private LocalDate leaveDate;
+
+    @ExcelProperty("成员类型")
+    private String memberType;
+
+    @ExcelProperty("服务状态")
+    private String memberStatus;
+
+    @ExcelProperty("结束原因")
+    private String endReason;
+
+    private LocalDateTime endedAt;
 }

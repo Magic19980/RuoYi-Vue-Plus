@@ -20,6 +20,7 @@ public class FiveWhyVo implements Serializable {
     private Long deptId;
     private String companyDept;
     private String employeeNo;
+    private Long analystUserId;
     private String analystName;
     private LocalDate analysisDate;
     private String problemName;
@@ -34,6 +35,7 @@ public class FiveWhyVo implements Serializable {
     private String standardizationExecution;
     private String reviewStatus;
     private String reviewComment;
+    private Long reviewerUserId;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

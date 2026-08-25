@@ -47,6 +47,4 @@ public class WeeklyReportSummaryVo implements Serializable {
     /** 运维台账汇总：工作记录与系统在线率数据。 */
     private OperationSummaryVo operationSummary = new OperationSummaryVo();
 
-    /** 兼容历史快照，后续新数据分别使用 manualOrderSummary、operationSummary。 */
-    private WorkOrderSummaryVo workOrderSummary = new WorkOrderSummaryVo();
 }

@@ -39,12 +39,6 @@ public class OperationSystemVo implements Serializable {
     @ExcelProperty("负责人")
     private String responsiblePerson;
 
-    @ExcelProperty("服务器名称")
-    private String serverName;
-
-    @ExcelProperty("服务器IP")
-    private String serverIp;
-
     @ExcelProperty("在线时长(天)")
     private BigDecimal onlineDays;
 

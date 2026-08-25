@@ -73,17 +73,11 @@ public class WorkOrderVo implements Serializable {
     @ExcelProperty("处理人")
     private String handler;
 
-    @ExcelProperty("状态")
-    private String status;
-
     @ExcelProperty("处理时长(分钟)")
     private Integer resolutionMinutes;
 
     @ExcelProperty("反馈渠道")
     private String feedbackChannel;
-
-    @ExcelProperty("数据状态")
-    private String reviewStatus;
 
     @ExcelProperty("来源")
     private String sourceType;

@@ -47,6 +47,18 @@ public class SysDeptController extends BaseController {
     }
 
     /**
+     * 按父部门查询直属子部门，供部门管理页懒加载树节点。
+     *
+     * @param parentId 父部门ID，根节点传 0
+     * @return 直属子部门列表
+     */
+    @SaCheckPermission("system:dept:list")
+    @GetMapping("/children")
+    public R<List<SysDeptVo>> children(@RequestParam(defaultValue = "0") Long parentId) {
+        return R.ok(deptService.selectDeptChildren(parentId));
+    }
+
+    /**
      * 查询部门列表（排除节点）
      *
      * @param deptId 部门ID

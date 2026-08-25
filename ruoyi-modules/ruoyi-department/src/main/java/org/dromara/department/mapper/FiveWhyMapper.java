@@ -15,10 +15,10 @@ public interface FiveWhyMapper extends BaseMapperPlus<FiveWhy, FiveWhyVo> {
 
     @Select({
         "<script>",
-        "select f.id, f.dept_id, f.company_dept, f.employee_no, f.analyst_name, f.analysis_date,",
+        "select f.id, f.dept_id, f.company_dept, f.employee_no, f.analyst_user_id, f.analyst_name, f.analysis_date,",
         "f.problem_name, f.problem_description, f.impact_scope, f.whys_json, f.improvements_json,",
         "f.before_oss_id, f.after_oss_id, f.effect_verification, f.standardization_plan,",
-        "f.standardization_execution, f.review_status, f.review_comment, f.create_time, f.update_time",
+        "f.standardization_execution, f.review_status, f.review_comment, f.reviewer_user_id, f.create_time, f.update_time",
         "from dm_five_why f where f.del_flag = '0'",
         "<if test='bo.analystName != null and bo.analystName != \"\"'> and f.analyst_name like concat('%', #{bo.analystName}, '%') </if>",
         "<if test='bo.problemName != null and bo.problemName != \"\"'> and f.problem_name like concat('%', #{bo.problemName}, '%') </if>",

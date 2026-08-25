@@ -56,6 +56,12 @@ public class SysUserBo implements Serializable {
     private String nickName;
 
     /**
+     * 工号
+     */
+    @Size(max = 64, message = "工号长度不能超过{max}个字符")
+    private String employeeNo;
+
+    /**
      * 用户类型（sys_user系统用户）
      */
     private String userType;

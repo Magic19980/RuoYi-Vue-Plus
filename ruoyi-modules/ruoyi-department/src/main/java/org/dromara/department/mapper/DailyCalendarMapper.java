@@ -15,16 +15,19 @@ public interface DailyCalendarMapper {
 
     @Select({
         "<script>",
-        "select u.user_id, u.user_name, u.nick_name, p.job_title",
+        "select distinct u.user_id, u.user_name, u.nick_name, p.job_title, source_dept.dept_name as source_dept_name,",
+        "p.join_date, p.leave_date",
         "from sys_user u",
-        "left join dm_person_profile p on p.user_id = u.user_id and p.del_flag = '0'",
-        "where u.del_flag = '0' and u.status = '0' and u.dept_id = #{deptId}",
-        "and coalesce(p.daily_report_enabled, '1') = '1'",
+        "join dm_person_profile p on p.user_id = u.user_id and p.create_dept = #{deptId} and p.del_flag = '0'",
+        "left join sys_dept source_dept on source_dept.dept_id = u.dept_id and source_dept.del_flag = '0'",
+        "where u.del_flag = '0' and u.status = '0'",
+        "and p.join_date &lt;= #{endDate} and (p.leave_date is null or p.leave_date &gt; #{beginDate})",
         "<if test='userId != null'> and u.user_id = #{userId} </if>",
         "order by u.user_name, u.user_id",
         "</script>"
     })
-    List<DailyCalendarMemberVo> selectMembers(@Param("deptId") Long deptId, @Param("userId") Long userId);
+    List<DailyCalendarMemberVo> selectMembers(@Param("deptId") Long deptId, @Param("userId") Long userId,
+                                               @Param("beginDate") LocalDate beginDate, @Param("endDate") LocalDate endDate);
 
     @Select({
         "select r.id, r.report_date, r.user_id, r.dept_id, r.today_work, r.tomorrow_plan,",

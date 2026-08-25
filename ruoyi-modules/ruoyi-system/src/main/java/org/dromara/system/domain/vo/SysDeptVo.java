@@ -106,4 +106,9 @@ public class SysDeptVo implements Serializable {
      */
     private List<SysDeptVo> children = new ArrayList<>();
 
+    /**
+     * 是否存在直属子部门（懒加载部门树使用）
+     */
+    private Boolean hasChildren;
+
 }

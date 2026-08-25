@@ -9,6 +9,8 @@ import org.dromara.department.domain.DailyReport;
 import org.dromara.department.domain.bo.DailyReportQueryBo;
 import org.dromara.department.domain.vo.DailyReportVo;
 
+import java.time.LocalDate;
+
 /**
  * 日报数据层。
  */
@@ -51,4 +53,20 @@ public interface DailyReportMapper extends BaseMapperPlus<DailyReport, DailyRepo
 
     @Select("select dept_id from sys_user where del_flag = '0' and user_id = #{userId}")
     Long selectDeptIdByUserId(@Param("userId") Long userId);
+
+    /** 查询用户实际纳入日报的科室，未建人员档案时回退到系统用户主部门。 */
+    @Select("select coalesce((select p.create_dept from dm_person_profile p where p.user_id = u.user_id and p.del_flag = '0' and p.member_status = 'ACTIVE' "
+        + "and p.join_date <= current_date and (p.leave_date is null or p.leave_date > current_date) order by p.join_date desc, p.id desc limit 1), u.dept_id) "
+        + "from sys_user u where u.del_flag = '0' and u.user_id = #{userId}")
+    Long selectDailyReportDeptIdByUserId(@Param("userId") Long userId);
+
+    @Select("select count(1) from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' and u.status = '0' "
+        + "where p.user_id = #{userId} and p.create_dept = #{deptId} and p.del_flag = '0' and p.member_status = 'ACTIVE' "
+        + "and p.join_date <= current_date and (p.leave_date is null or p.leave_date > current_date)")
+    long countMemberInDept(@Param("userId") Long userId, @Param("deptId") Long deptId);
+
+    @Select("select count(1) from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' and u.status = '0' "
+        + "where p.user_id = #{userId} and p.create_dept = #{deptId} and p.del_flag = '0' "
+        + "and p.join_date <= #{date} and (p.leave_date is null or p.leave_date > #{date})")
+    long countMemberInDeptAt(@Param("userId") Long userId, @Param("deptId") Long deptId, @Param("date") LocalDate date);
 }

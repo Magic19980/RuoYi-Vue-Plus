@@ -45,10 +45,4 @@ public interface IWorkOrderService {
 
     WorkOrderSummaryVo buildSummary(LocalDate beginDate, LocalDate endDate);
 
-    /**
-     * 构建人工单汇总，可控制是否将待确认记录纳入当前页面指标。
-     * 周报调用默认方法，仅统计已确认记录；人工单页面调用 includePending=true，便于导入后核对原始数据。
-     */
-    WorkOrderSummaryVo buildSummary(LocalDate beginDate, LocalDate endDate, boolean includePending);
-
 }

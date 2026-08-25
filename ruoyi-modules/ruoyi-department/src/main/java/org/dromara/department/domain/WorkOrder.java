@@ -65,13 +65,9 @@ public class WorkOrder extends BaseEntity {
 
     private String handler;
 
-    private String status;
-
     private Integer resolutionMinutes;
 
     private String feedbackChannel;
-
-    private String reviewStatus;
 
     private String sourceType;
 
