@@ -48,6 +48,8 @@ public class DepartmentContextResolver {
             return first.getDeptId();
         }
 
+        boolean currentDeptEnabled = currentDeptId != null && departmentConfigMapper.countEnabled(currentDeptId) > 0;
+
         Long userId = LoginHelper.getUserId();
         if (userId == null) {
             throw new ServiceException("当前登录用户信息不存在");
@@ -58,7 +60,7 @@ public class DepartmentContextResolver {
         membershipSyncService.syncMainDepartment(userId, LoginHelper.getMainDeptId());
 
         LocalDate today = LocalDate.now();
-        if (currentDeptId != null && personProfileMapper.countMemberInDept(userId, currentDeptId) > 0) {
+        if (currentDeptEnabled && personProfileMapper.countMemberInDept(userId, currentDeptId) > 0) {
             return currentDeptId;
         }
 
@@ -74,7 +76,7 @@ public class DepartmentContextResolver {
 
         // 保留系统主部门作为最后兜底，让页面可以返回“未纳入人员档案”的明确空状态，
         // 而不是因为上下文为空直接报错。
-        if (currentDeptId != null) {
+        if (currentDeptEnabled) {
             return currentDeptId;
         }
         throw new ServiceException("当前登录用户尚未纳入任何科室");

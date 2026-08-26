@@ -15,8 +15,8 @@ import org.dromara.department.domain.bo.DailyReportQueryBo;
 import org.dromara.department.domain.vo.DailyReportImportVo;
 import org.dromara.department.domain.vo.DailyReportVo;
 import org.dromara.department.mapper.DailyReportMapper;
-import org.dromara.department.service.DepartmentContextResolver;
 import org.dromara.department.service.DepartmentAccessService;
+import org.dromara.department.service.DepartmentScope;
 import org.dromara.department.service.IDailyCalendarService;
 import org.dromara.department.service.IDailyReportService;
 import org.springframework.stereotype.Service;
@@ -34,23 +34,28 @@ import java.util.Objects;
 public class DailyReportServiceImpl implements IDailyReportService {
 
     private static final String DEPT_VIEW_PERMISSION = "department:dailyReport:viewDept";
+    private static final long MAX_EXPORT_ROWS = 50_000L;
 
     private final DailyReportMapper dailyReportMapper;
     private final IDailyCalendarService dailyCalendarService;
-    private final DepartmentContextResolver departmentContextResolver;
     private final DepartmentAccessService departmentAccessService;
 
     @Override
     public PageResult<DailyReportVo> queryPageList(DailyReportQueryBo bo, PageQuery pageQuery) {
         Page<DailyReportVo> page = pageQuery.build();
-        Page<DailyReportVo> result = dailyReportMapper.selectPageList(page, bo, LoginHelper.getUserId(), scopeDeptId(), canViewAll());
+        Page<DailyReportVo> result = dailyReportMapper.selectPageList(page, bo, LoginHelper.getUserId(), scope());
         return PageResult.build(result.getRecords(), result.getTotal());
     }
 
     @Override
     public List<DailyReportVo> queryList(DailyReportQueryBo bo) {
-        Page<DailyReportVo> page = new Page<>(1, Integer.MAX_VALUE);
-        return dailyReportMapper.selectPageList(page, bo, LoginHelper.getUserId(), scopeDeptId(), canViewAll()).getRecords();
+        Page<DailyReportVo> page = new Page<>(1, MAX_EXPORT_ROWS + 1);
+        List<DailyReportVo> records = dailyReportMapper.selectPageList(
+            page, bo, LoginHelper.getUserId(), scope()).getRecords();
+        if (records.size() > MAX_EXPORT_ROWS) {
+            throw new ServiceException("日报导出数据超过" + MAX_EXPORT_ROWS + "条，请缩小查询范围后再导出");
+        }
+        return records;
     }
 
     @Override
@@ -58,7 +63,7 @@ public class DailyReportServiceImpl implements IDailyReportService {
         DailyReportQueryBo bo = new DailyReportQueryBo();
         bo.setId(id);
         Page<DailyReportVo> page = new Page<>(1, 1);
-        List<DailyReportVo> rows = dailyReportMapper.selectPageList(page, bo, LoginHelper.getUserId(), scopeDeptId(), canViewAll()).getRecords();
+        List<DailyReportVo> rows = dailyReportMapper.selectPageList(page, bo, LoginHelper.getUserId(), scope()).getRecords();
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -113,6 +118,9 @@ public class DailyReportServiceImpl implements IDailyReportService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteWithValidByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
         for (Long id : ids) {
             DailyReport entity = getAccessible(id);
             if (!Objects.equals(entity.getUserId(), LoginHelper.getUserId())) {
@@ -132,14 +140,15 @@ public class DailyReportServiceImpl implements IDailyReportService {
         int skipped = 0;
         Long currentUserId = LoginHelper.getUserId();
         Long currentDeptId = currentDeptId();
+        boolean departmentViewer = canViewDepartment();
         for (DailyReportImportVo row : rows) {
-            if (row.getReportDate() == null || StringUtils.isBlank(row.getTodayWork())) {
+            if (row == null || row.getReportDate() == null || StringUtils.isBlank(row.getTodayWork())) {
                 skipped++;
                 continue;
             }
             Long targetUserId = currentUserId;
             if (StringUtils.isNotBlank(row.getUserName())) {
-                if (!canViewDepartment()) {
+                if (!departmentViewer) {
                     throw new ServiceException("普通用户导入时不能指定其他填报人");
                 }
                 targetUserId = dailyReportMapper.selectUserIdByName(row.getUserName());
@@ -151,7 +160,7 @@ public class DailyReportServiceImpl implements IDailyReportService {
             if (targetDeptId == null || dailyReportMapper.countMemberInDeptAt(targetUserId, targetDeptId, row.getReportDate()) == 0) {
                 throw new ServiceException("填报人尚未纳入当前科室人员档案");
             }
-            if (!canViewAll() && !Objects.equals(targetDeptId, currentDeptId)) {
+            if (!scope().isAll() && !Objects.equals(targetDeptId, currentDeptId)) {
                 throw new ServiceException("只能导入本部门人员的日报");
             }
             ensureWorkday(targetDeptId, targetUserId, row.getReportDate());
@@ -206,7 +215,7 @@ public class DailyReportServiceImpl implements IDailyReportService {
         if (entity == null) {
             throw new ServiceException("日报不存在");
         }
-        if (canViewAll()) {
+        if (scope().isAll()) {
             return entity;
         }
         if (departmentAccessService.canViewEntityDept(entity.getDeptId(), DEPT_VIEW_PERMISSION)) {
@@ -218,16 +227,12 @@ public class DailyReportServiceImpl implements IDailyReportService {
         throw new ServiceException("您没有访问该日报的权限");
     }
 
-    private Long scopeDeptId() {
-        return canViewAll() ? null : departmentAccessService.scopeDeptId(DEPT_VIEW_PERMISSION);
-    }
-
     private Long currentDeptId() {
-        return departmentContextResolver.resolveCurrentDeptId();
+        return departmentAccessService.currentDeptId();
     }
 
-    private boolean canViewAll() {
-        return false;
+    private DepartmentScope scope() {
+        return departmentAccessService.scope(DEPT_VIEW_PERMISSION);
     }
 
     private boolean canViewDepartment() {

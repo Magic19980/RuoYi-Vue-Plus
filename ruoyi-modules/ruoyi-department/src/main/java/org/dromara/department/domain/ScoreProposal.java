@@ -2,6 +2,7 @@ package org.dromara.department.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.Version;
@@ -34,6 +35,11 @@ public class ScoreProposal extends BaseEntity {
     private String teamMembers;
     private String employeeNo;
     private String proposerName;
+
+    /**
+     * 岗位由用户管理的 sys_user_post/sys_post 实时关联查询，不落入提案表。
+     */
+    @TableField(exist = false)
     private String proposerRole;
     private String proposerLevel;
     private String deptName;
@@ -42,6 +48,7 @@ public class ScoreProposal extends BaseEntity {
     private String problemDescription;
     private String improvementMeasure;
     private String implementerSupervisor;
+    private String implementerUserIds;
     private Long beforeOssId;
     private Long afterOssId;
     private LocalDate startDate;

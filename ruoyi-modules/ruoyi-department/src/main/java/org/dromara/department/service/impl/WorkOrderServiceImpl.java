@@ -25,10 +25,12 @@ import org.dromara.department.mapper.WorkOrderDetailMapper;
 import org.dromara.department.mapper.WorkOrderMapper;
 import org.dromara.department.service.IWorkOrderService;
 import org.dromara.department.service.DepartmentAccessService;
+import org.dromara.department.service.DepartmentScope;
 import org.dromara.system.domain.SysOssExt;
 import org.dromara.system.domain.vo.SysOssVo;
 import org.dromara.system.service.ISysOssService;
 import org.springframework.stereotype.Service;
+import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -55,6 +57,7 @@ import java.util.stream.Collectors;
 public class WorkOrderServiceImpl implements IWorkOrderService {
 
     private static final String DEPT_VIEW_PERMISSION = "department:workOrder:viewDept";
+    private static final long MAX_EXPORT_ROWS = 50_000L;
     private static final String SOURCE_PDF = "PDF";
     private static final String SOURCE_MANUAL = "MANUAL";
     private static final Pattern DETAIL_NUMBER = Pattern.compile("[-+]?\\d+(?:\\.\\d+)?");
@@ -70,15 +73,19 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     public PageResult<WorkOrderVo> queryPageList(WorkOrderQueryBo bo, PageQuery pageQuery) {
         WorkOrderQueryBo query = bo == null ? new WorkOrderQueryBo() : bo;
         Page<WorkOrderVo> page = pageQuery.build();
-        Page<WorkOrderVo> result = workOrderMapper.selectPageList(page, query, scopeDeptId(), canViewAll());
+        Page<WorkOrderVo> result = workOrderMapper.selectPageList(page, query, scope());
         return PageResult.build(result.getRecords(), result.getTotal());
     }
 
     @Override
     public List<WorkOrderVo> queryList(WorkOrderQueryBo bo) {
-        Page<WorkOrderVo> page = new Page<>(1, Integer.MAX_VALUE);
+        Page<WorkOrderVo> page = new Page<>(1, MAX_EXPORT_ROWS + 1);
         WorkOrderQueryBo query = bo == null ? new WorkOrderQueryBo() : bo;
-        return workOrderMapper.selectPageList(page, query, scopeDeptId(), canViewAll()).getRecords();
+        List<WorkOrderVo> records = workOrderMapper.selectPageList(page, query, scope()).getRecords();
+        if (records.size() > MAX_EXPORT_ROWS) {
+            throw new ServiceException("人工单导出数据超过" + MAX_EXPORT_ROWS + "条，请缩小查询范围后再导出");
+        }
+        return records;
     }
 
     @Override
@@ -91,9 +98,13 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         for (WorkOrderVo parent : parents) {
             List<WorkOrderDetail> details = detailsByWorkOrder.getOrDefault(parent.getId(), List.of());
             if (details.isEmpty()) {
+                ensureExportSize(result.size());
                 result.add(toExportVo(parent, null));
             } else {
-                details.forEach(detail -> result.add(toExportVo(parent, detail)));
+                for (WorkOrderDetail detail : details) {
+                    ensureExportSize(result.size());
+                    result.add(toExportVo(parent, detail));
+                }
             }
         }
         return result;
@@ -102,6 +113,19 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     @Override
     public WorkOrderVo queryById(Long id) {
         return toVo(getAccessible(id));
+    }
+
+    @Override
+    public ResponseEntity<byte[]> previewSourcePdf(Long workOrderId) {
+        WorkOrder workOrder = getAccessible(workOrderId);
+        if (!SOURCE_PDF.equalsIgnoreCase(workOrder.getSourceType()) || workOrder.getSourceBatchId() == null) {
+            throw new ServiceException("该人工单没有关联的PDF文件");
+        }
+        WorkOrderImportBatch batch = importBatchMapper.selectById(workOrder.getSourceBatchId());
+        if (batch == null || batch.getOssId() == null) {
+            throw new ServiceException("人工单关联的PDF文件不存在");
+        }
+        return ossService.preview(batch.getOssId());
     }
 
     @Override
@@ -132,6 +156,9 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteDetails(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
         Map<Long, WorkOrder> parents = new LinkedHashMap<>();
         for (Long id : ids) {
             WorkOrderDetail detail = workOrderDetailMapper.selectById(id);
@@ -178,6 +205,9 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteWithValidByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
         for (Long id : ids) {
             getAccessible(id);
         }
@@ -300,7 +330,7 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         if (beginDate == null || endDate == null || endDate.isBefore(beginDate)) {
             throw new ServiceException("工单汇总日期范围不正确");
         }
-        List<WorkOrderVo> rows = workOrderMapper.selectForSummary(beginDate, endDate, scopeDeptId(), canViewAll());
+        List<WorkOrderVo> rows = workOrderMapper.selectForSummary(beginDate, endDate, scope());
         WorkOrderSummaryVo summary = new WorkOrderSummaryVo();
         summary.setTotalCount(rows.size());
         summary.setUnattributedCount(countUnattributed());
@@ -389,9 +419,10 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     }
 
     private int countUnattributed() {
+        DepartmentScope scope = scope();
         return workOrderMapper.selectList(Wrappers.<WorkOrder>lambdaQuery()
             .isNull(WorkOrder::getOccurDate)
-            .eq(!canViewAll(), WorkOrder::getDeptId, scopeDeptId())).size();
+            .eq(!scope.isAll(), WorkOrder::getDeptId, scope.getDeptId())).size();
     }
 
     private WorkOrder getAccessible(Long id) {
@@ -439,6 +470,12 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         vo.setRemark(entity.getRemark());
         vo.setCreateTime(entity.getCreateTime());
         return vo;
+    }
+
+    private void ensureExportSize(int size) {
+        if (size >= MAX_EXPORT_ROWS) {
+            throw new ServiceException("人工单导出明细超过" + MAX_EXPORT_ROWS + "行，请缩小查询范围后再导出");
+        }
     }
 
     private WorkOrderExportVo toExportVo(WorkOrderVo parent, WorkOrderDetail detail) {
@@ -632,11 +669,7 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         return vo;
     }
 
-    private boolean canViewAll() {
-        return false;
-    }
-
-    private Long scopeDeptId() {
-        return canViewAll() ? null : departmentAccessService.scopeDeptId(DEPT_VIEW_PERMISSION);
+    private DepartmentScope scope() {
+        return departmentAccessService.scope(DEPT_VIEW_PERMISSION);
     }
 }

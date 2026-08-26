@@ -6,11 +6,13 @@ import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.department.domain.bo.ScoreProposalBo;
 import org.dromara.department.domain.bo.ScoreProposalQueryBo;
 import org.dromara.department.domain.bo.ScoreProposalReviewBo;
+import org.dromara.department.domain.vo.PersonUserOptionVo;
 import org.dromara.department.domain.vo.ScoreProposalVo;
 import org.dromara.system.domain.vo.SysOssVo;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Collection;
+import java.util.List;
 
 /** SCORE提案业务接口。 */
 public interface IScoreProposalService {
@@ -18,6 +20,8 @@ public interface IScoreProposalService {
     PageResult<ScoreProposalVo> queryPageList(ScoreProposalQueryBo bo, PageQuery pageQuery);
 
     ScoreProposalVo queryById(Long id);
+
+    List<PersonUserOptionVo> queryMemberOptions();
 
     Boolean insertByBo(ScoreProposalBo bo);
 

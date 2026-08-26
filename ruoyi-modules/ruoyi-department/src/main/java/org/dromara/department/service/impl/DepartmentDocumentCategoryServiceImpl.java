@@ -13,6 +13,7 @@ import org.dromara.department.domain.bo.DepartmentDocumentCategoryQueryBo;
 import org.dromara.department.domain.vo.DepartmentDocumentCategoryVo;
 import org.dromara.department.mapper.DepartmentDocumentCategoryMapper;
 import org.dromara.department.service.DepartmentAccessService;
+import org.dromara.department.service.DepartmentScope;
 import org.dromara.department.service.IDepartmentDocumentCategoryService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,7 +44,7 @@ public class DepartmentDocumentCategoryServiceImpl implements IDepartmentDocumen
     public PageResult<DepartmentDocumentCategoryVo> queryPageList(DepartmentDocumentCategoryQueryBo bo, PageQuery pageQuery) {
         Page<DepartmentDocumentCategoryVo> page = pageQuery.build();
         Page<DepartmentDocumentCategoryVo> result = categoryMapper.selectPageList(
-            page, bo == null ? new DepartmentDocumentCategoryQueryBo() : bo, scopeDeptId(), canViewAll());
+            page, bo == null ? new DepartmentDocumentCategoryQueryBo() : bo, scope());
         return PageResult.build(result.getRecords(), result.getTotal());
     }
 
@@ -55,12 +56,12 @@ public class DepartmentDocumentCategoryServiceImpl implements IDepartmentDocumen
     @Override
     public List<DepartmentDocumentCategoryVo> queryOptions() {
         requireDept("获取资料分类");
-        return buildTree(categoryMapper.selectOptions(departmentAccessService.currentDeptId(), false), null, true);
+        return buildTree(categoryMapper.selectOptions(DepartmentScope.current(departmentAccessService.currentDeptId())), null, true);
     }
 
     @Override
     public List<DepartmentDocumentCategoryVo> queryTreeList(DepartmentDocumentCategoryQueryBo bo) {
-        List<DepartmentDocumentCategoryVo> source = categoryMapper.selectTreeList(scopeDeptId(), canViewAll());
+        List<DepartmentDocumentCategoryVo> source = categoryMapper.selectTreeList(scope());
         return buildTree(source, bo, false);
     }
 
@@ -262,11 +263,7 @@ public class DepartmentDocumentCategoryServiceImpl implements IDepartmentDocumen
         }
     }
 
-    private Long scopeDeptId() {
-        return departmentAccessService.scopeDeptId("department:documentCategory:viewDept");
-    }
-
-    private boolean canViewAll() {
-        return false;
+    private DepartmentScope scope() {
+        return departmentAccessService.scope("department:documentCategory:viewDept");
     }
 }

@@ -56,10 +56,10 @@ public class SysPostBo implements Serializable {
     private String postName;
 
     /**
-     * 岗位类别编码
+     * 岗位印尼语名称
      */
-    @Size(min = 0, max = 100, message = "类别编码长度不能超过{max}个字符")
-    private String postCategory;
+    @Size(min = 0, max = 100, message = "岗位印尼语名称长度不能超过{max}个字符")
+    private String postIndonesianName;
 
     /**
      * 显示顺序

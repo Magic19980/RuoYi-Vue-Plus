@@ -43,19 +43,19 @@ public class DepartmentAccessService {
     }
 
     public boolean canViewCurrentDepartment(String permission) {
-        Long deptId = currentDeptId();
+        Long deptId = departmentContextResolver.resolveCurrentDeptId();
         return canViewDepartment(deptId, permission);
     }
 
     /**
-     * 返回列表查询使用的部门范围。返回 null 时由各模块继续按 userId 限制，
-     * 从而保证临时成员和未纳入人员档案的用户不会意外看到全科室数据。
+     * 解析当前登录用户的业务数据范围。超级管理员同样遵循当前科室上下文，
+     * 不在业务列表中隐式展开全部科室。
      */
-    public Long scopeDeptId(String permission) {
-        if (!canViewCurrentDepartment(permission)) {
-            return null;
-        }
-        return currentDeptId();
+    public DepartmentScope scope(String permission) {
+        Long deptId = departmentContextResolver.resolveCurrentDeptId();
+        return canViewDepartment(deptId, permission)
+            ? DepartmentScope.current(deptId)
+            : DepartmentScope.current(null);
     }
 
     public boolean isSuperAdmin() {
@@ -67,9 +67,9 @@ public class DepartmentAccessService {
             return false;
         }
         if (LoginHelper.isSuperAdmin()) {
-            return entityDeptId.equals(currentDeptId());
+            return entityDeptId.equals(departmentContextResolver.resolveCurrentDeptId());
         }
-        Long currentDeptId = currentDeptId();
+        Long currentDeptId = departmentContextResolver.resolveCurrentDeptId();
         return entityDeptId.equals(currentDeptId) && canViewDepartment(entityDeptId, permission);
     }
 

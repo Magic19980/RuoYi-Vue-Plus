@@ -39,8 +39,8 @@ public class PostDTO implements Serializable {
     private String postName;
 
     /**
-     * 岗位类别编码
+     * 岗位印尼语名称
      */
-    private String postCategory;
+    private String postIndonesianName;
 
 }

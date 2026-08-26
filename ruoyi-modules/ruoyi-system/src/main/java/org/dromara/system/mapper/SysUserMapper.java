@@ -75,6 +75,7 @@ public interface SysUserMapper extends BaseMapperPlus<SysUser, SysUserVo>, MPJBa
             .leftJoin(SysUser.class, "u1", SysUser::getUserId, SysDept::getLeader)
             .likeIfText("u", SysUser::getUserName, user.getUserName())
             .likeIfText("u", SysUser::getNickName, user.getNickName())
+            .likeIfText("u", SysUser::getIndonesianName, user.getIndonesianName())
             .eqIfText("u", SysUser::getStatus, user.getStatus())
             .likeIfText("u", SysUser::getPhoneNumber, user.getPhoneNumber())
             .betweenParams("u", SysUser::getCreateTime, user.getParams(), "beginTime", "endTime")

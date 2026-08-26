@@ -25,6 +25,7 @@ import org.dromara.department.domain.vo.WorkOrderVo;
 import org.dromara.department.service.IWorkOrderService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -63,6 +64,12 @@ public class WorkOrderController extends BaseController {
     @GetMapping("/{id}")
     public R<WorkOrderVo> getInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(workOrderService.queryById(id));
+    }
+
+    @SaCheckPermission("department:workOrder:query")
+    @GetMapping("/{id}/sourcePdf")
+    public ResponseEntity<byte[]> sourcePdf(@NotNull(message = "主键不能为空") @PathVariable Long id) {
+        return workOrderService.previewSourcePdf(id);
     }
 
     @SaCheckPermission("department:workOrder:query")

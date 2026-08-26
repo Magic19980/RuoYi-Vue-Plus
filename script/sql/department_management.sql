@@ -24,7 +24,6 @@ create table if not exists dm_person_profile (
     id                  bigint(20)      not null comment '主键',
     user_id             bigint(20)      not null comment '系统用户ID',
     employee_no         varchar(64)     default null comment '工号',
-    job_title           varchar(100)    default null comment '岗位',
     remark              varchar(500)    default null comment '备注',
     join_date           date            not null comment '加入目标科室日期',
     leave_date          date            default null comment '离开生效日期（不含当日）',
@@ -43,7 +42,8 @@ create table if not exists dm_person_profile (
     del_flag            char(1)         default '0' comment '删除标志（0存在 1删除）',
     primary key (id),
     key idx_dm_person_profile_create_dept (create_dept),
-    key idx_dm_person_profile_service_period (create_dept, member_status, join_date, leave_date)
+    key idx_dm_person_profile_service_period (create_dept, member_status, join_date, leave_date),
+    key idx_dm_person_profile_user_dept_period (user_id, create_dept, del_flag, join_date, leave_date)
 ) engine=innodb comment='科室人员扩展信息';
 
 -- 人员档案的 create_dept 是“纳入的目标科室”，sys_user.dept_id 仍表示系统主部门。
@@ -91,7 +91,8 @@ create table if not exists dm_daily_report (
     unique key uk_dm_daily_report_date_user_dept (report_date, user_id, dept_id, del_flag),
     key idx_dm_daily_report_dept_date (dept_id, report_date),
     key idx_dm_daily_report_status (status),
-    key idx_dm_daily_report_leave (leave_id)
+    key idx_dm_daily_report_leave (leave_id),
+    key idx_dm_daily_report_task_stat (dept_id, user_id, del_flag, report_date)
 ) engine=innodb comment='科室每日工作日报';
 
 create table if not exists dm_daily_calendar_override (
@@ -245,7 +246,7 @@ create table if not exists dm_weekly_report (
     update_time         datetime        default null comment '更新时间',
     del_flag            char(1)         default '0' comment '删除标志（0存在 1删除）',
     primary key (id),
-    unique key uk_dm_weekly_report_range (week_start, week_end),
+    unique key uk_dm_weekly_report_range (create_dept, week_start, week_end),
     key idx_dm_weekly_report_dept (create_dept, week_start)
 ) engine=innodb comment='科室周报数据快照';
 
@@ -466,6 +467,7 @@ create table if not exists dm_five_why (
     del_flag                    char(1)         default '0' comment '删除标志（0存在 1删除）',
     primary key (id),
     key idx_dm_five_why_dept_date (dept_id, analysis_date),
+    key idx_dm_five_why_task_stat (dept_id, analyst_user_id, del_flag, analysis_date),
     key idx_dm_five_why_review (review_status)
 ) engine=innodb comment='科室5WHY分析记录';
 
@@ -500,7 +502,6 @@ create table if not exists dm_score_proposal (
     team_members                text            comment '企业参与人员/部门EIT小组成员',
     employee_no                 varchar(64)     default null comment '提议人工号',
     proposer_name               varchar(100)    not null comment '提议者姓名',
-    proposer_role               varchar(100)    default null comment '提议者岗位',
     proposer_level              varchar(50)     default null comment '职位层级字典值（dm_score_job）',
     dept_name                   varchar(150)    default null comment '车间/部门',
     main_category               varchar(500)    default null comment '提案大类',
@@ -508,6 +509,7 @@ create table if not exists dm_score_proposal (
     problem_description         text            comment '问题描述',
     improvement_measure         text            comment '改进措施',
     implementer_supervisor      text            comment '实施人/监督人',
+    implementer_user_ids        longtext        comment '实施人/监督人用户ID JSON快照',
     before_oss_id               bigint(20)      default null comment '改进前图片OSS ID',
     after_oss_id                bigint(20)      default null comment '改进后图片OSS ID',
     start_date                  date            default null comment '开始日期',
@@ -529,7 +531,8 @@ create table if not exists dm_score_proposal (
     key idx_dm_score_dept_date (dept_id, start_date),
     key idx_dm_score_review (review_status),
     key idx_dm_score_category (main_category),
-    key idx_dm_score_category_id (main_category_id, sub_category_id)
+    key idx_dm_score_category_id (main_category_id, sub_category_id),
+    key idx_dm_score_task_stat (dept_id, proposer_user_id, del_flag, create_time)
 ) engine=innodb comment='科室SCORE提案记录';
 
 -- 审核规则：每个科室、每种业务维护一名主审核人和一名备用审核人。
@@ -603,7 +606,9 @@ create table if not exists dm_department_task_assignment (
     update_time                 datetime        default null comment '更新时间',
     del_flag                    char(1)         default '0' comment '删除标志（0存在 1删除）',
     primary key (id),
-    key idx_dm_task_assignment_user (dept_id, user_id, status)
+    unique key uk_dm_task_assignment_rule_user (rule_id, user_id, del_flag),
+    key idx_dm_task_assignment_user (dept_id, user_id, status),
+    key idx_dm_task_assignment_rule_status (rule_id, status, del_flag)
 ) engine=innodb comment='科室周期任务成员分配';
 
 -- 提醒去重记录，避免定时任务重复给同一成员发送相同周期提醒。

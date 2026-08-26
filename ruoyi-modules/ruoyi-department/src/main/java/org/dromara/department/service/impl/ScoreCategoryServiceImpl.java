@@ -79,6 +79,9 @@ public class ScoreCategoryServiceImpl implements IScoreCategoryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteWithValidByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
         for (Long id : ids) {
             ScoreCategory entity = getById(id);
             if (scoreCategoryMapper.countChildren(id) > 0) {

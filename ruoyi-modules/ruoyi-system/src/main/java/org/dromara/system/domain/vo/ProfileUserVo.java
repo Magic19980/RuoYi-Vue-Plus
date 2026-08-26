@@ -36,9 +36,14 @@ public class ProfileUserVo implements Serializable {
     private String userName;
 
     /**
-     * 用户昵称
+     * 用户姓名
      */
     private String nickName;
+
+    /**
+     * 印尼语姓名
+     */
+    private String indonesianName;
 
     /**
      * 用户类型（sys_user系统用户）

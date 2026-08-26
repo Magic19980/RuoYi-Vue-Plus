@@ -15,6 +15,7 @@ import org.dromara.department.domain.vo.DepartmentProjectVo;
 import org.dromara.department.mapper.DepartmentProjectMapper;
 import org.dromara.department.service.IDepartmentProjectService;
 import org.dromara.department.service.DepartmentAccessService;
+import org.dromara.department.service.DepartmentScope;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,7 +39,7 @@ public class DepartmentProjectServiceImpl implements IDepartmentProjectService {
     @Override
     public PageResult<DepartmentProjectVo> queryPageList(DepartmentProjectQueryBo bo, PageQuery pageQuery) {
         Page<DepartmentProjectVo> page = pageQuery.build();
-        Page<DepartmentProjectVo> result = departmentProjectMapper.selectPageList(page, bo == null ? new DepartmentProjectQueryBo() : bo, scopeDeptId(), canViewAll());
+        Page<DepartmentProjectVo> result = departmentProjectMapper.selectPageList(page, bo == null ? new DepartmentProjectQueryBo() : bo, scope());
         return PageResult.build(result.getRecords(), result.getTotal());
     }
 
@@ -50,7 +51,7 @@ public class DepartmentProjectServiceImpl implements IDepartmentProjectService {
 
     @Override
     public List<DepartmentProjectVo> queryOptions() {
-        return departmentProjectMapper.selectOptions(scopeDeptId(), canViewAll());
+        return departmentProjectMapper.selectOptions(scope());
     }
 
     @Override
@@ -76,6 +77,9 @@ public class DepartmentProjectServiceImpl implements IDepartmentProjectService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteWithValidByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
         for (Long id : ids) {
             getAccessible(id);
             if (departmentProjectMapper.countOperationRecords(id) > 0) {
@@ -141,12 +145,8 @@ public class DepartmentProjectServiceImpl implements IDepartmentProjectService {
         }
     }
 
-    private Long scopeDeptId() {
-        return canViewAll() ? null : departmentAccessService.scopeDeptId("department:project:viewDept");
-    }
-
-    private boolean canViewAll() {
-        return false;
+    private DepartmentScope scope() {
+        return departmentAccessService.scope("department:project:viewDept");
     }
 
 }

@@ -87,7 +87,7 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
 
         String workDays = DEFAULT_WORK_DAYS;
         Set<Integer> defaultWorkDays = parseWorkDays(workDays);
-        Map<Long, Set<Integer>> personalWorkDays = new HashMap<>();
+        Map<Long, List<TaskWorkPeriod>> taskWorkPeriods = new HashMap<>();
         List<DailyCalendarOverride> overrideRows = overrideMapper.selectList(Wrappers.<DailyCalendarOverride>lambdaQuery()
                 .eq(DailyCalendarOverride::getDeptId, deptId)
                 .between(DailyCalendarOverride::getCalendarDate, firstDay, lastDay)
@@ -102,15 +102,24 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
             .collect(Collectors.toSet());
         List<DailyCalendarDayVo> days = buildDays(firstDay, lastDay, workDays, globalRestOverrides);
 
-        List<DailyCalendarMemberVo> rawMembers = calendarMapper.selectMembers(deptId, userId, firstDay, lastDay);
+        // 日报日历只展示实际分配了日报任务的成员，避免把仅纳入人员档案但无需填报的成员显示成整月休息。
+        List<DepartmentTaskAssignment> dailyAssignments = assignmentMapper.selectDailyWorkDays(deptId, firstDay, lastDay);
+        Set<Long> assignedUserIds = dailyAssignments.stream()
+            .map(DepartmentTaskAssignment::getUserId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        List<DailyCalendarMemberVo> rawMembers = calendarMapper.selectMembers(deptId, userId, firstDay, lastDay).stream()
+            .filter(item -> assignedUserIds.contains(item.getUserId()))
+            .toList();
         Map<Long, List<ServicePeriod>> memberServicePeriods = new HashMap<>();
         List<DailyCalendarMemberVo> members = mergeCalendarMembers(rawMembers, memberServicePeriods);
-        assignmentMapper.selectDailyWorkDays(deptId, firstDay, lastDay).stream()
+        dailyAssignments.stream()
             .filter(item -> item.getUserId() != null)
-            .forEach(item -> personalWorkDays.computeIfAbsent(item.getUserId(), ignored -> new HashSet<>())
-                .addAll(StringUtils.isBlank(item.getWorkDays())
-                    ? defaultWorkDays
-                    : parseWorkDays(normalizeWorkDays(item.getWorkDays()))));
+            .forEach(item -> taskWorkPeriods.computeIfAbsent(item.getUserId(), ignored -> new ArrayList<>())
+                .add(new TaskWorkPeriod(item.getEffectiveStart(), item.getEffectiveEnd(),
+                    StringUtils.isBlank(item.getWorkDays())
+                        ? defaultWorkDays
+                        : parseWorkDays(normalizeWorkDays(item.getWorkDays())))));
         List<DailyReportVo> reports = calendarMapper.selectReports(deptId, firstDay, lastDay);
         Map<String, DailyReportVo> reportMap = reports.stream().collect(Collectors.toMap(
             report -> key(report.getUserId(), report.getReportDate()), report -> report, (left, right) -> right));
@@ -137,9 +146,14 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
                 cell.setDate(day.getDate());
                 boolean inServicePeriod = isInServicePeriod(
                     memberServicePeriods.get(member.getUserId()), day.getDate());
-                boolean hasTaskWorkDays = personalWorkDays.containsKey(member.getUserId());
-                Set<Integer> memberWorkDays = hasTaskWorkDays
-                    ? personalWorkDays.get(member.getUserId()) : Set.of();
+                List<TaskWorkPeriod> activeTaskPeriods = taskWorkPeriods
+                    .getOrDefault(member.getUserId(), List.of()).stream()
+                    .filter(period -> period.contains(day.getDate()))
+                    .toList();
+                boolean hasTaskWorkDays = !activeTaskPeriods.isEmpty();
+                Set<Integer> memberWorkDays = activeTaskPeriods.stream()
+                    .flatMap(period -> period.workDays().stream())
+                    .collect(Collectors.toSet());
                 boolean personalWorkday = hasTaskWorkDays
                     && userWorkdayOverrides.contains(key(member.getUserId(), day.getDate()));
                 boolean memberBaseWorkday = !Boolean.TRUE.equals(day.getDepartmentRest())
@@ -160,7 +174,9 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
                 cell.setLeaveType(leave == null ? null : leave.getLeaveType());
                 boolean leaveAuto = hasTaskWorkDays && leave != null
                     && (report == null || LEAVE_SOURCE.equals(report.getSourceType()));
-                if (leaveAuto) {
+                if (!inServicePeriod) {
+                    cell.setState("UNAVAILABLE");
+                } else if (leaveAuto) {
                     cell.setState("LEAVE");
                     if (memberWorkday) {
                         leaveCount++;
@@ -267,6 +283,15 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
     private record ServicePeriod(LocalDate joinDate, LocalDate leaveDate) {
     }
 
+    private record TaskWorkPeriod(LocalDate effectiveStart, LocalDate effectiveEnd, Set<Integer> workDays) {
+
+        private boolean contains(LocalDate date) {
+            LocalDate start = effectiveStart == null ? LocalDate.MIN : effectiveStart;
+            LocalDate end = effectiveEnd == null ? LocalDate.MAX : effectiveEnd;
+            return date != null && !date.isBefore(start) && !date.isAfter(end);
+        }
+    }
+
     @Override
     public List<DailyCalendarOverrideVo> queryOverrides(LocalDate beginDate, LocalDate endDate) {
         Long deptId = requireDeptId();
@@ -338,12 +363,17 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteOverrides(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
+        Long currentDeptId = requireDeptId();
+        boolean departmentViewer = canViewDepartment();
         for (Long id : ids) {
             DailyCalendarOverride entity = overrideMapper.selectById(id);
-            if (entity != null && !Objects.equals(entity.getDeptId(), requireDeptId())) {
+            if (entity != null && !Objects.equals(entity.getDeptId(), currentDeptId)) {
                 throw new ServiceException("不能删除其他科室的日期规则");
             }
-            if (entity != null && !canViewDepartment()
+            if (entity != null && !departmentViewer
                 && !Objects.equals(entity.getUserId(), LoginHelper.getUserId())) {
                 throw new ServiceException("只能删除本人的调休上班安排");
             }
@@ -396,6 +426,9 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteLeaves(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
         for (Long id : ids) {
             getLeaveAccessible(id);
         }

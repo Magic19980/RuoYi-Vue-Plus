@@ -44,6 +44,12 @@ public class SysDeptBo implements Serializable {
     private String deptName;
 
     /**
+     * 部门印尼语名称
+     */
+    @Size(min = 0, max = 100, message = "部门印尼语名称长度不能超过{max}个字符")
+    private String indonesianName;
+
+    /**
      * 部门类别编码
      */
     @Size(min = 0, max = 100, message = "部门类别编码长度不能超过{max}个字符")

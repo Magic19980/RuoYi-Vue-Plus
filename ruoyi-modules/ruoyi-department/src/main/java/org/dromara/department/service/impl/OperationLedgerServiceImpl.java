@@ -22,6 +22,7 @@ import org.dromara.department.mapper.OperationSystemMapper;
 import org.dromara.department.mapper.DepartmentProjectMapper;
 import org.dromara.department.service.IOperationLedgerService;
 import org.dromara.department.service.DepartmentAccessService;
+import org.dromara.department.service.DepartmentScope;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +47,7 @@ import java.util.Objects;
 public class OperationLedgerServiceImpl implements IOperationLedgerService {
 
     private static final String DEPT_VIEW_PERMISSION = "department:operationLedger:viewDept";
+    private static final long MAX_EXPORT_ROWS = 50_000L;
     private static final String SOURCE_MANUAL = "MANUAL";
     private static final String SOURCE_EXCEL = "EXCEL";
     private static final String STATUS_PROCESSING = "PROCESSING";
@@ -61,15 +63,17 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
     public PageResult<OperationRecordVo> queryRecordPageList(OperationRecordQueryBo bo, PageQuery pageQuery) {
         OperationRecordQueryBo query = bo == null ? new OperationRecordQueryBo() : bo;
         Page<OperationRecordVo> page = pageQuery.build();
-        Page<OperationRecordVo> result = operationRecordMapper.selectPageList(page, query, scopeDeptId(), canViewAll());
+        Page<OperationRecordVo> result = operationRecordMapper.selectPageList(page, query, scope());
         return PageResult.build(result.getRecords(), result.getTotal());
     }
 
     @Override
     public List<OperationRecordVo> queryRecordList(OperationRecordQueryBo bo) {
-        Page<OperationRecordVo> page = new Page<>(1, Integer.MAX_VALUE);
+        Page<OperationRecordVo> page = new Page<>(1, MAX_EXPORT_ROWS + 1);
         OperationRecordQueryBo query = bo == null ? new OperationRecordQueryBo() : bo;
-        return operationRecordMapper.selectPageList(page, query, scopeDeptId(), canViewAll()).getRecords();
+        List<OperationRecordVo> records = operationRecordMapper.selectPageList(page, query, scope()).getRecords();
+        ensureExportSize(records.size(), "运维工作记录");
+        return records;
     }
 
     @Override
@@ -105,6 +109,9 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteRecords(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
         for (Long id : ids) {
             getAccessibleRecord(id);
         }
@@ -158,14 +165,17 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
     @Override
     public PageResult<OperationSystemVo> querySystemPageList(LocalDate beginDate, LocalDate endDate, String systemName, PageQuery pageQuery) {
         Page<OperationSystemVo> page = pageQuery.build();
-        Page<OperationSystemVo> result = operationSystemMapper.selectPageList(page, beginDate, endDate, systemName, scopeDeptId(), canViewAll());
+        Page<OperationSystemVo> result = operationSystemMapper.selectPageList(page, beginDate, endDate, systemName, scope());
         return PageResult.build(result.getRecords(), result.getTotal());
     }
 
     @Override
     public List<OperationSystemVo> querySystemList(LocalDate beginDate, LocalDate endDate, String systemName) {
-        Page<OperationSystemVo> page = new Page<>(1, Integer.MAX_VALUE);
-        return operationSystemMapper.selectPageList(page, beginDate, endDate, systemName, scopeDeptId(), canViewAll()).getRecords();
+        Page<OperationSystemVo> page = new Page<>(1, MAX_EXPORT_ROWS + 1);
+        List<OperationSystemVo> records = operationSystemMapper.selectPageList(
+            page, beginDate, endDate, systemName, scope()).getRecords();
+        ensureExportSize(records.size(), "系统在线率");
+        return records;
     }
 
     @Override
@@ -197,6 +207,9 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteSystems(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
         for (Long id : ids) {
             getAccessibleSystem(id);
         }
@@ -247,8 +260,8 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
         if (beginDate == null || endDate == null || endDate.isBefore(beginDate)) {
             throw new ServiceException("运维汇总日期范围不正确");
         }
-        List<OperationRecordVo> records = operationRecordMapper.selectForSummary(beginDate, endDate, scopeDeptId(), canViewAll());
-        List<OperationSystemVo> systems = operationSystemMapper.selectForSummary(beginDate, endDate, scopeDeptId(), canViewAll());
+        List<OperationRecordVo> records = operationRecordMapper.selectForSummary(beginDate, endDate, scope());
+        List<OperationSystemVo> systems = operationSystemMapper.selectForSummary(beginDate, endDate, scope());
         OperationSummaryVo summary = new OperationSummaryVo();
         summary.setTotalCount(records.size());
         int resolved = 0;
@@ -410,7 +423,7 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
         }
         DepartmentProject project = departmentProjectMapper.selectById(projectId);
         if (project == null || !Objects.equals(project.getDelFlag(), "0")
-            || (!canViewAll() && !Objects.equals(project.getDeptId(), entity.getDeptId()))) {
+            || (!scope().isAll() && !Objects.equals(project.getDeptId(), entity.getDeptId()))) {
             throw new ServiceException("项目不存在或无权访问");
         }
         entity.setProjectId(project.getId());
@@ -423,7 +436,7 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
         }
         DepartmentProject project = departmentProjectMapper.selectById(projectId);
         if (project == null || !Objects.equals(project.getDelFlag(), "0")
-            || (!canViewAll() && !Objects.equals(project.getDeptId(), entity.getDeptId()))) {
+            || (!scope().isAll() && !Objects.equals(project.getDeptId(), entity.getDeptId()))) {
             throw new ServiceException("项目不存在或无权访问");
         }
         entity.setProjectId(project.getId());
@@ -547,15 +560,17 @@ public class OperationLedgerServiceImpl implements IOperationLedgerService {
         }
     }
 
-    private boolean canViewAll() {
-        return false;
-    }
-
     private boolean canViewDepartment() {
         return departmentAccessService.canViewCurrentDepartment(DEPT_VIEW_PERMISSION);
     }
 
-    private Long scopeDeptId() {
-        return canViewAll() ? null : departmentAccessService.scopeDeptId(DEPT_VIEW_PERMISSION);
+    private DepartmentScope scope() {
+        return departmentAccessService.scope(DEPT_VIEW_PERMISSION);
+    }
+
+    private void ensureExportSize(int size, String name) {
+        if (size > MAX_EXPORT_ROWS) {
+            throw new ServiceException(name + "导出数据超过" + MAX_EXPORT_ROWS + "条，请缩小查询范围后再导出");
+        }
     }
 }

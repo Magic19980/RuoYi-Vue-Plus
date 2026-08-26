@@ -2,6 +2,7 @@ package org.dromara.department.controller;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.annotation.SaCheckLogin;
+import cn.hutool.core.lang.tree.Tree;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,9 +19,12 @@ import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.web.core.BaseController;
 import org.dromara.department.domain.bo.DailyLeaveBo;
 import org.dromara.department.domain.bo.PersonProfileBo;
+import org.dromara.department.domain.bo.PersonProfileBatchBo;
 import org.dromara.department.domain.bo.PersonProfileEndBo;
 import org.dromara.department.domain.bo.PersonProfileQueryBo;
 import org.dromara.department.domain.bo.PersonUserOptionQueryBo;
+import org.dromara.system.domain.bo.SysDeptBo;
+import org.dromara.system.service.ISysDeptService;
 import org.dromara.department.domain.vo.PersonProfileVo;
 import org.dromara.department.domain.vo.PersonProfileImportVo;
 import org.dromara.department.domain.vo.PersonDepartmentContextVo;
@@ -57,6 +61,7 @@ public class PersonProfileController extends BaseController {
 
     private final IPersonProfileService personProfileService;
     private final IDailyCalendarService dailyCalendarService;
+    private final ISysDeptService sysDeptService;
 
     @SaCheckPermission("department:person:list")
     @GetMapping("/list")
@@ -74,6 +79,13 @@ public class PersonProfileController extends BaseController {
     @GetMapping("/userOptions/page")
     public R<PageResult<PersonUserOptionVo>> userOptionsPage(PersonUserOptionQueryBo bo, PageQuery pageQuery) {
         return R.ok(personProfileService.queryUserOptionsPage(bo, pageQuery));
+    }
+
+    /** 用户选择器使用的系统部门树，使用人员档案权限避免依赖系统用户权限。 */
+    @SaCheckPermission("department:person:query")
+    @GetMapping("/userOptions/deptTree")
+    public R<List<Tree<Long>>> userOptionDeptTree() {
+        return R.ok(sysDeptService.selectDeptTreeList(new SysDeptBo()));
     }
 
     @SaCheckPermission("department:person:query")
@@ -140,6 +152,13 @@ public class PersonProfileController extends BaseController {
     @PostMapping()
     public R<Void> add(@Validated(AddGroup.class) @RequestBody PersonProfileBo bo) {
         return toAjax(personProfileService.insertByBo(bo));
+    }
+
+    @SaCheckPermission("department:person:add")
+    @Log(title = "科室人员档案", businessType = BusinessType.INSERT)
+    @PostMapping("/batch")
+    public R<Void> addBatch(@Validated(AddGroup.class) @RequestBody PersonProfileBatchBo bo) {
+        return toAjax(personProfileService.insertBatch(bo));
     }
 
     @SaCheckPermission("department:person:edit")

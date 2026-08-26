@@ -10,6 +10,7 @@ import org.dromara.department.domain.vo.WorkOrderDetailVo;
 import org.dromara.department.domain.vo.WorkOrderExportVo;
 import org.dromara.department.domain.vo.WorkOrderSummaryVo;
 import org.dromara.department.domain.vo.WorkOrderVo;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
@@ -28,6 +29,8 @@ public interface IWorkOrderService {
     List<WorkOrderExportVo> queryExportList(WorkOrderQueryBo bo);
 
     WorkOrderVo queryById(Long id);
+
+    ResponseEntity<byte[]> previewSourcePdf(Long workOrderId);
 
     List<WorkOrderDetailVo> queryDetails(Long workOrderId);
 

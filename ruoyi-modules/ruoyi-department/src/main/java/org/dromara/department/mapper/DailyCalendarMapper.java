@@ -15,7 +15,10 @@ public interface DailyCalendarMapper {
 
     @Select({
         "<script>",
-        "select distinct u.user_id, u.user_name, u.nick_name, p.job_title, source_dept.dept_name as source_dept_name,",
+        "select distinct u.user_id, u.user_name, u.nick_name, "
+            + "(select group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') "
+            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
+            + "where sup.user_id = u.user_id) as job_title, source_dept.dept_name as source_dept_name,",
         "p.join_date, p.leave_date",
         "from sys_user u",
         "join dm_person_profile p on p.user_id = u.user_id and p.create_dept = #{deptId} and p.del_flag = '0'",

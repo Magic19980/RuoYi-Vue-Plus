@@ -9,6 +9,7 @@ import org.dromara.department.domain.DepartmentTaskAssignment;
 import org.dromara.department.domain.vo.DepartmentTaskAssignmentVo;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 /** 周期任务成员分配数据层。 */
@@ -39,6 +40,21 @@ public interface DepartmentTaskAssignmentMapper extends BaseMapperPlus<Departmen
             .and(wrapper -> wrapper.isNull(DepartmentTaskAssignment::getEffectiveStart).or().le(DepartmentTaskAssignment::getEffectiveStart, date))
             .and(wrapper -> wrapper.isNull(DepartmentTaskAssignment::getEffectiveEnd).or().ge(DepartmentTaskAssignment::getEffectiveEnd, date)));
     }
+
+    @Select({
+        "<script>",
+        "select id, rule_id, dept_id, user_id, effective_start, effective_end, work_days, reminder_time, status, remark",
+        "from dm_department_task_assignment",
+        "where del_flag = '0' and status = 'ENABLED'",
+        "and (effective_start is null or effective_start &lt;= #{date})",
+        "and (effective_end is null or effective_end &gt;= #{date})",
+        "and rule_id in",
+        "<foreach collection='ruleIds' item='ruleId' open='(' separator=',' close=')'>#{ruleId}</foreach>",
+        "order by rule_id asc, id desc",
+        "</script>"
+    })
+    List<DepartmentTaskAssignment> selectEnabledByRuleIds(@Param("ruleIds") Collection<Long> ruleIds,
+                                                            @Param("date") LocalDate date);
 
     @Select("select count(1) from sys_user u join dm_person_profile p on p.user_id = u.user_id and p.del_flag = '0' and p.create_dept = #{deptId} "
         + "and p.member_status = 'ACTIVE' and p.join_date <= current_date and (p.leave_date is null or p.leave_date > current_date) "

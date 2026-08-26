@@ -19,6 +19,7 @@ import org.dromara.department.mapper.DepartmentDocumentCategoryMapper;
 import org.dromara.department.mapper.DepartmentDocumentVersionMapper;
 import org.dromara.department.mapper.DepartmentProjectMapper;
 import org.dromara.department.service.DepartmentAccessService;
+import org.dromara.department.service.DepartmentScope;
 import org.dromara.department.service.IDepartmentDocumentService;
 import org.dromara.system.domain.SysOssExt;
 import org.dromara.system.domain.vo.SysOssVo;
@@ -60,13 +61,13 @@ public class DepartmentDocumentServiceImpl implements IDepartmentDocumentService
     @Override
     public PageResult<DepartmentDocumentVo> queryPageList(DepartmentDocumentQueryBo bo, PageQuery pageQuery) {
         DepartmentDocumentQueryBo query = bo == null ? new DepartmentDocumentQueryBo() : bo;
-        return pageResult(documentMapper.selectPageList(pageQuery.build(), query, scopeDeptId(), canViewAll()));
+        return pageResult(documentMapper.selectPageList(pageQuery.build(), query, scope()));
     }
 
     @Override
     public PageResult<DepartmentDocumentVo> queryRecyclePageList(DepartmentDocumentQueryBo bo, PageQuery pageQuery) {
         DepartmentDocumentQueryBo query = bo == null ? new DepartmentDocumentQueryBo() : bo;
-        return pageResult(documentMapper.selectRecyclePageList(pageQuery.build(), query, scopeDeptId(), canViewAll()));
+        return pageResult(documentMapper.selectRecyclePageList(pageQuery.build(), query, scope()));
     }
 
     @Override
@@ -314,11 +315,7 @@ public class DepartmentDocumentServiceImpl implements IDepartmentDocumentService
         }
     }
 
-    private Long scopeDeptId() {
-        return departmentAccessService.scopeDeptId("department:document:viewDept");
-    }
-
-    private boolean canViewAll() {
-        return false;
+    private DepartmentScope scope() {
+        return departmentAccessService.scope("department:document:viewDept");
     }
 }

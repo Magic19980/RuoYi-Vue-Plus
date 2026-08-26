@@ -194,8 +194,8 @@ create table sys_post (
   post_id           number(20)      not null,
   dept_id           number(20)      not null,
   post_code         varchar2(64)    not null,
-  post_category     varchar2(64)    default null,
   post_name         varchar2(50)    not null,
+  post_indonesian_name varchar2(100) default null,
   post_sort         number(4)       not null,
   status            char(1)         not null,
   del_flag          char(1)         default '0',
@@ -215,8 +215,8 @@ comment on table  sys_post              is '岗位信息表';
 comment on column sys_post.post_id      is '岗位ID';
 comment on column sys_post.dept_id      is '部门id';
 comment on column sys_post.post_code    is '岗位编码';
-comment on column sys_post.post_category is '岗位类别编码';
 comment on column sys_post.post_name    is '岗位名称';
+comment on column sys_post.post_indonesian_name is '岗位印尼语名称';
 comment on column sys_post.post_sort    is '显示顺序';
 comment on column sys_post.status       is '状态（0正常 1停用）';
 comment on column sys_post.del_flag     is '删除标志（0代表存在 1代表删除）';
@@ -230,10 +230,10 @@ comment on column sys_post.remark       is '备注';
 -- ----------------------------
 -- 初始化-岗位信息表数据
 -- ----------------------------
-insert into sys_post values(1761200000000000001, 1761000000000000103, 'ceo', null, '董事长', 1, '0', '0', 1761000000000000103, 1761100000000000001, sysdate, NULL, null, '');
-insert into sys_post values(1761200000000000002, 1761000000000000100, 'se', null, '项目经理', 2, '0', '0', 1761000000000000103, 1761100000000000001, sysdate, NULL, null, '');
-insert into sys_post values(1761200000000000003, 1761000000000000100, 'hr', null, '人力资源', 3, '0', '0', 1761000000000000103, 1761100000000000001, sysdate, NULL, null, '');
-insert into sys_post values(1761200000000000004, 1761000000000000100, 'user', null, '普通员工', 4, '0', '0', 1761000000000000103, 1761100000000000001, sysdate, NULL, null, '');
+insert into sys_post values(1761200000000000001, 1761000000000000103, 'ceo', '董事长', null, 1, '0', '0', 1761000000000000103, 1761100000000000001, sysdate, NULL, null, '');
+insert into sys_post values(1761200000000000002, 1761000000000000100, 'se', '项目经理', null, 2, '0', '0', 1761000000000000103, 1761100000000000001, sysdate, NULL, null, '');
+insert into sys_post values(1761200000000000003, 1761000000000000100, 'hr', '人力资源', null, 3, '0', '0', 1761000000000000103, 1761100000000000001, sysdate, NULL, null, '');
+insert into sys_post values(1761200000000000004, 1761000000000000100, 'user', '普通员工', null, 4, '0', '0', 1761000000000000103, 1761100000000000001, sysdate, NULL, null, '');
 
 
 -- ----------------------------

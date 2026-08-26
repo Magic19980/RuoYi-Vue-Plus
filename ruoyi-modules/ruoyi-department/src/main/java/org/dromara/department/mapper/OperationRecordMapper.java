@@ -8,6 +8,7 @@ import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.department.domain.OperationRecord;
 import org.dromara.department.domain.bo.OperationRecordQueryBo;
 import org.dromara.department.domain.vo.OperationRecordVo;
+import org.dromara.department.service.DepartmentScope;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -34,16 +35,15 @@ public interface OperationRecordMapper extends BaseMapperPlus<OperationRecord, O
         "<if test='bo.processMethod != null and bo.processMethod != \"\"'> and o.process_method = #{bo.processMethod} </if>",
         "<if test='bo.keyword != null and bo.keyword != \"\"'> and (o.request_person like concat('%', #{bo.keyword}, '%') or o.handler like concat('%', #{bo.keyword}, '%') or o.business_description like concat('%', #{bo.keyword}, '%') or o.solution like concat('%', #{bo.keyword}, '%')) </if>",
         "<choose>",
-        "<when test='all == true'></when>",
-        "<otherwise> and o.dept_id = #{deptId} </otherwise>",
+        "<when test='scope.all'></when>",
+        "<otherwise> and o.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
         "order by o.request_time desc, o.id desc",
         "</script>"
     })
     Page<OperationRecordVo> selectPageList(Page<OperationRecordVo> page,
                                             @Param("bo") OperationRecordQueryBo bo,
-                                            @Param("deptId") Long deptId,
-                                            @Param("all") boolean all);
+                                            @Param("scope") DepartmentScope scope);
 
     @Select({
         "<script>",
@@ -55,14 +55,13 @@ public interface OperationRecordMapper extends BaseMapperPlus<OperationRecord, O
         "and o.request_time &gt;= concat(#{beginDate}, ' 00:00:00')",
         "and o.request_time &lt; concat(date_add(#{endDate}, interval 1 day), ' 00:00:00')",
         "<choose>",
-        "<when test='all == true'></when>",
-        "<otherwise> and o.dept_id = #{deptId} </otherwise>",
+        "<when test='scope.all'></when>",
+        "<otherwise> and o.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
         "order by o.request_time asc, o.id asc",
         "</script>"
     })
     List<OperationRecordVo> selectForSummary(@Param("beginDate") LocalDate beginDate,
                                              @Param("endDate") LocalDate endDate,
-                                             @Param("deptId") Long deptId,
-                                             @Param("all") boolean all);
+                                             @Param("scope") DepartmentScope scope);
 }

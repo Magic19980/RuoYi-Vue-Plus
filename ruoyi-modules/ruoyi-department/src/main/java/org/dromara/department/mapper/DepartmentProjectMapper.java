@@ -8,6 +8,7 @@ import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.department.domain.DepartmentProject;
 import org.dromara.department.domain.bo.DepartmentProjectQueryBo;
 import org.dromara.department.domain.vo.DepartmentProjectVo;
+import org.dromara.department.service.DepartmentScope;
 
 import java.util.List;
 
@@ -28,16 +29,15 @@ public interface DepartmentProjectMapper extends BaseMapperPlus<DepartmentProjec
         "<if test='bo.projectType != null and bo.projectType != \"\"'> and p.project_type = #{bo.projectType} </if>",
         "<if test='bo.status != null and bo.status != \"\"'> and p.status = #{bo.status} </if>",
         "<choose>",
-        "<when test='all == true'></when>",
-        "<otherwise> and p.dept_id = #{deptId} </otherwise>",
+        "<when test='scope.all'></when>",
+        "<otherwise> and p.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
         "order by p.sort_num asc, p.id asc",
         "</script>"
     })
     Page<DepartmentProjectVo> selectPageList(Page<DepartmentProjectVo> page,
                                               @Param("bo") DepartmentProjectQueryBo bo,
-                                              @Param("deptId") Long deptId,
-                                              @Param("all") boolean all);
+                                              @Param("scope") DepartmentScope scope);
 
     @Select({
         "<script>",
@@ -45,13 +45,13 @@ public interface DepartmentProjectMapper extends BaseMapperPlus<DepartmentProjec
         "p.status, p.sort_num, p.remark, p.create_time",
         "from dm_department_project p where p.del_flag = '0' and p.status = 'ENABLED'",
         "<choose>",
-        "<when test='all == true'></when>",
-        "<otherwise> and p.dept_id = #{deptId} </otherwise>",
+        "<when test='scope.all'></when>",
+        "<otherwise> and p.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
         "order by p.sort_num asc, p.project_name asc, p.id asc",
         "</script>"
     })
-    List<DepartmentProjectVo> selectOptions(@Param("deptId") Long deptId, @Param("all") boolean all);
+    List<DepartmentProjectVo> selectOptions(@Param("scope") DepartmentScope scope);
 
     @Select("select id from dm_department_project where del_flag = '0' and dept_id = #{deptId} and project_name = #{projectName} limit 1")
     Long selectIdByName(@Param("deptId") Long deptId, @Param("projectName") String projectName);

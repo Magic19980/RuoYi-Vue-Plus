@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Select;
 import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.department.domain.OperationSystem;
 import org.dromara.department.domain.vo.OperationSystemVo;
+import org.dromara.department.service.DepartmentScope;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -26,8 +27,8 @@ public interface OperationSystemMapper extends BaseMapperPlus<OperationSystem, O
         "<if test='endDate != null'> and s.stat_date &lt;= #{endDate} </if>",
         "<if test='systemName != null and systemName != \"\"'> and s.system_name like concat('%', #{systemName}, '%') </if>",
         "<choose>",
-        "<when test='all == true'></when>",
-        "<otherwise> and s.dept_id = #{deptId} </otherwise>",
+        "<when test='scope.all'></when>",
+        "<otherwise> and s.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
         "order by s.stat_date desc, s.id desc",
         "</script>"
@@ -36,8 +37,7 @@ public interface OperationSystemMapper extends BaseMapperPlus<OperationSystem, O
                                             @Param("beginDate") LocalDate beginDate,
                                             @Param("endDate") LocalDate endDate,
                                             @Param("systemName") String systemName,
-                                            @Param("deptId") Long deptId,
-                                            @Param("all") boolean all);
+                                            @Param("scope") DepartmentScope scope);
 
     @Select({
         "<script>",
@@ -46,14 +46,13 @@ public interface OperationSystemMapper extends BaseMapperPlus<OperationSystem, O
         "from dm_operation_system s left join dm_department_project p on p.id = s.project_id where s.del_flag = '0'",
         "and s.stat_date &gt;= #{beginDate} and s.stat_date &lt;= #{endDate}",
         "<choose>",
-        "<when test='all == true'></when>",
-        "<otherwise> and s.dept_id = #{deptId} </otherwise>",
+        "<when test='scope.all'></when>",
+        "<otherwise> and s.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
         "order by s.stat_date asc, s.id asc",
         "</script>"
     })
     List<OperationSystemVo> selectForSummary(@Param("beginDate") LocalDate beginDate,
                                               @Param("endDate") LocalDate endDate,
-                                              @Param("deptId") Long deptId,
-                                              @Param("all") boolean all);
+                                              @Param("scope") DepartmentScope scope);
 }

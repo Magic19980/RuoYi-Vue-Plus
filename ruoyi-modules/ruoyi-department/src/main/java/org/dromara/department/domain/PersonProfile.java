@@ -31,8 +31,6 @@ public class PersonProfile extends BaseEntity {
 
     private String employeeNo;
 
-    private String jobTitle;
-
     private String remark;
 
     /** 纳入目标科室的生效日期。 */

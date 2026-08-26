@@ -38,9 +38,14 @@ public class SysUser extends BaseEntity {
     private String userName;
 
     /**
-     * 用户昵称
+     * 用户姓名
      */
     private String nickName;
+
+    /**
+     * 印尼语姓名
+     */
+    private String indonesianName;
 
     /**
      * 工号

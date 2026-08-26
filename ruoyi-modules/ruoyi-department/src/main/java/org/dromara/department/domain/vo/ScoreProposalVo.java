@@ -6,6 +6,7 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /** SCORE提案列表和详情视图。 */
 @Data
@@ -31,6 +32,7 @@ public class ScoreProposalVo implements Serializable {
     private String problemDescription;
     private String improvementMeasure;
     private String implementerSupervisor;
+    private List<Long> implementerUserIds;
     private Long beforeOssId;
     private Long afterOssId;
     private LocalDate startDate;

@@ -73,7 +73,8 @@ public class SysTaskAssigneeServiceImpl implements TaskAssigneeService {
     public TaskAssigneeDTO selectPostsByTaskAssigneeList(TaskAssigneeBody taskQuery) {
         PageQuery pageQuery = new PageQuery(taskQuery.getPageSize(), taskQuery.getPageNum());
         SysPostBo bo = new SysPostBo();
-        bo.setPostCategory(taskQuery.getHandlerCode());
+        // 岗位类别编码已取消，工作流岗位筛选改用稳定的岗位编码。
+        bo.setPostCode(taskQuery.getHandlerCode());
         bo.setPostName(taskQuery.getHandlerName());
         bo.setStatus(SystemConstants.NORMAL);
         Map<String, Object> params = bo.getParams();
@@ -83,7 +84,7 @@ public class SysTaskAssigneeServiceImpl implements TaskAssigneeService {
         PageResult<SysPostVo> page = postService.selectPagePostList(bo, pageQuery);
         // 使用封装的字段映射方法进行转换
         List<TaskAssigneeDTO.TaskHandler> handlers = TaskAssigneeDTO.convertToHandlerList(page.getRows(),
-            item -> Convert.toStr(item.getPostId()), SysPostVo::getPostCategory, SysPostVo::getPostName, item -> Convert.toStr(item.getDeptId()), SysPostVo::getCreateTime);
+            item -> Convert.toStr(item.getPostId()), SysPostVo::getPostCode, SysPostVo::getPostName, item -> Convert.toStr(item.getDeptId()), SysPostVo::getCreateTime);
         return new TaskAssigneeDTO(page.getTotal(), handlers);
     }
 

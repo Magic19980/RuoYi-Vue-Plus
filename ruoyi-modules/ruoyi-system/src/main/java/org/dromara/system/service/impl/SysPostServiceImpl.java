@@ -85,8 +85,8 @@ public class SysPostServiceImpl implements ISysPostService, PostService {
         Map<String, Object> params = bo.getParams();
         var wrapper = postMapper.lambda()
             .likeIfText(SysPost::getPostCode, bo.getPostCode())
-            .likeIfText(SysPost::getPostCategory, bo.getPostCategory())
             .likeIfText(SysPost::getPostName, bo.getPostName())
+            .likeIfText(SysPost::getPostIndonesianName, bo.getPostIndonesianName())
             .eqIfText(SysPost::getStatus, bo.getStatus())
             .betweenParams(SysPost::getCreateTime, params, "beginTime", "endTime")
             .orderByAsc(SysPost::getPostSort);

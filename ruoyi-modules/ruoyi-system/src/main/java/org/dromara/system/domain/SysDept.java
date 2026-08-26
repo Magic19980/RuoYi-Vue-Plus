@@ -43,6 +43,11 @@ public class SysDept extends BaseEntity {
     private String deptName;
 
     /**
+     * 部门印尼语名称
+     */
+    private String indonesianName;
+
+    /**
      * 部门类别编码
      */
     private String deptCategory;

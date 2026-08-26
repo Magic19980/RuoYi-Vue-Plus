@@ -26,6 +26,7 @@ import org.dromara.department.service.IDepartmentMetricService;
 import org.dromara.department.service.IPersonProfileService;
 import org.dromara.department.service.IWeeklyReportService;
 import org.dromara.department.service.DepartmentAccessService;
+import org.dromara.department.service.DepartmentScope;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,6 +76,9 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
 
     @Override
     public WeeklyReportSummaryVo buildSummary(WeeklyReportBo bo) {
+        if (bo == null) {
+            throw new ServiceException("周报参数不能为空");
+        }
         LocalDate weekStart = requireWeekStart(bo.getWeekStart());
         LocalDate weekEnd = normalizeWeekEnd(weekStart, bo.getWeekEnd());
         DailyReportQueryBo query = new DailyReportQueryBo();
@@ -141,15 +145,18 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public WeeklyReportVo generate(WeeklyReportBo bo) {
+        Long deptId = departmentAccessService.currentDeptId();
         WeeklyReportSummaryVo summary = buildSummary(bo);
         String title = StringUtils.isBlank(bo.getTitle())
             ? "科室周报 " + summary.getWeekStart() + " 至 " + summary.getWeekEnd()
             : bo.getTitle().trim();
         WeeklyReport entity = weeklyReportMapper.selectOne(Wrappers.<WeeklyReport>lambdaQuery()
+            .eq(WeeklyReport::getCreateDept, deptId)
             .eq(WeeklyReport::getWeekStart, summary.getWeekStart())
             .eq(WeeklyReport::getWeekEnd, summary.getWeekEnd()));
         if (entity == null) {
             entity = new WeeklyReport();
+            entity.setCreateDept(deptId);
             entity.setWeekStart(summary.getWeekStart());
             entity.setWeekEnd(summary.getWeekEnd());
         }
@@ -207,7 +214,7 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
         if (entity == null) {
             throw new ServiceException("周报不存在");
         }
-        if (canViewAll()) {
+        if (scope().isAll()) {
             return entity;
         }
         if (departmentAccessService.canViewEntityDept(entity.getCreateDept(), DEPT_VIEW_PERMISSION)) {
@@ -226,11 +233,12 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
                 .le(bo.getEndDate() != null, WeeklyReport::getWeekStart, bo.getEndDate())
                 .eq(StringUtils.isNotBlank(bo.getStatus()), WeeklyReport::getStatus, bo.getStatus());
         }
-        if (canViewAll()) {
+        if (scope().isAll()) {
             return wrapper.orderByDesc(WeeklyReport::getWeekStart);
         }
-        if (canViewDepartment()) {
-            return wrapper.eq(WeeklyReport::getCreateDept, departmentAccessService.currentDeptId())
+        Long currentDeptId = departmentAccessService.currentDeptId();
+        if (departmentAccessService.canViewDepartment(currentDeptId, DEPT_VIEW_PERMISSION)) {
+            return wrapper.eq(WeeklyReport::getCreateDept, currentDeptId)
                 .orderByDesc(WeeklyReport::getWeekStart);
         }
         return wrapper.eq(WeeklyReport::getCreateBy, LoginHelper.getUserId()).orderByDesc(WeeklyReport::getWeekStart);
@@ -255,11 +263,8 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
         return StringUtils.isNotBlank(nickName) ? nickName : userName;
     }
 
-    private boolean canViewAll() {
-        return false;
+    private DepartmentScope scope() {
+        return departmentAccessService.scope(DEPT_VIEW_PERMISSION);
     }
 
-    private boolean canViewDepartment() {
-        return departmentAccessService.canViewCurrentDepartment(DEPT_VIEW_PERMISSION);
-    }
 }

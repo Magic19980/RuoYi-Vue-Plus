@@ -20,6 +20,8 @@ import org.dromara.common.core.utils.*;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.mybatis.core.query.QueryBuilder;
 import org.dromara.common.satoken.utils.LoginHelper;
+import org.dromara.department.api.DepartmentMembershipService;
+import org.dromara.department.api.domain.DepartmentMembershipDTO;
 import org.dromara.system.api.UserService;
 import org.dromara.system.api.domain.UserDTO;
 import org.dromara.system.domain.SysUser;
@@ -34,6 +36,7 @@ import org.dromara.system.mapper.*;
 import org.dromara.system.service.ISysUserService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,6 +58,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     private final SysPostMapper postMapper;
     private final SysUserRoleMapper userRoleMapper;
     private final SysUserPostMapper userPostMapper;
+    private final ObjectProvider<DepartmentMembershipService> departmentMembershipServiceProvider;
 
     /**
      * 分页查询用户列表。
@@ -95,6 +99,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
             .in(StringUtils.isNotBlank(user.getUserIds()), SysUser::getUserId, StringUtils.splitTo(user.getUserIds(), Convert::toLong))
             .likeIfText(SysUser::getUserName, user.getUserName())
             .likeIfText(SysUser::getNickName, user.getNickName())
+            .likeIfText(SysUser::getIndonesianName, user.getIndonesianName())
             .eqIfText(SysUser::getStatus, user.getStatus())
             .likeIfText(SysUser::getPhoneNumber, user.getPhoneNumber())
             .betweenParams(SysUser::getCreateTime, params, "beginTime", "endTime")
@@ -397,6 +402,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     public int updateUserProfile(SysUserBo user) {
         return userMapper.lambda()
             .setIfPresent(SysUser::getNickName, user.getNickName())
+            .setIfPresent(SysUser::getIndonesianName, user.getIndonesianName())
             .setIfPresent(SysUser::getAvatar, user.getAvatar())
             .setIfPresent(SysUser::getPhoneNumber, user.getPhoneNumber())
             .setIfPresent(SysUser::getEmail, user.getEmail())
@@ -518,6 +524,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int deleteUserById(Long userId) {
+        checkDepartmentMemberships(new Long[]{userId});
         // 删除用户与角色关联
         userRoleMapper.lambda().eq(SysUserRole::getUserId, userId).delete();
         // 删除用户与岗位表
@@ -543,6 +550,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
             checkUserAllowed(userId);
             checkUserDataScope(userId);
         }
+        checkDepartmentMemberships(userIds);
         List<Long> ids = List.of(userIds);
         // 删除用户与角色关联
         userRoleMapper.lambda().in(SysUserRole::getUserId, ids).delete();
@@ -554,6 +562,42 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
             throw new ServiceException("删除用户失败!");
         }
         return flag;
+    }
+
+    /**
+     * 删除系统用户前校验科室服务关系，避免科室人员档案留下无主关联。
+     */
+    private void checkDepartmentMemberships(Long[] userIds) {
+        if (ArrayUtil.isEmpty(userIds)) {
+            return;
+        }
+        DepartmentMembershipService membershipService = departmentMembershipServiceProvider.getIfAvailable();
+        if (membershipService == null) {
+            return;
+        }
+        List<DepartmentMembershipDTO> memberships = membershipService.selectActiveMemberships(Arrays.asList(userIds));
+        if (CollUtil.isEmpty(memberships)) {
+            return;
+        }
+
+        Map<Long, String> userLabels = new LinkedHashMap<>();
+        Map<Long, LinkedHashSet<String>> departmentNames = new LinkedHashMap<>();
+        for (DepartmentMembershipDTO membership : memberships) {
+            Long membershipUserId = membership.getUserId();
+            String userLabel = StringUtils.isNotBlank(membership.getUserName())
+                ? membership.getUserName()
+                : "用户#" + membershipUserId;
+            userLabels.putIfAbsent(membershipUserId, userLabel);
+            departmentNames.computeIfAbsent(membershipUserId, ignored -> new LinkedHashSet<>())
+                .add(StringUtils.isNotBlank(membership.getDeptName())
+                    ? membership.getDeptName()
+                    : "未知科室");
+        }
+
+        String details = departmentNames.entrySet().stream()
+            .map(entry -> userLabels.get(entry.getKey()) + "【" + String.join("、", entry.getValue()) + "】")
+            .collect(java.util.stream.Collectors.joining("；"));
+        throw new ServiceException("用户" + details + "仍存在科室服务关系，请先在“人员档案”中结束服务关系后再删除。");
     }
 
     /**
@@ -660,7 +704,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     public UserDTO selectById(Long userId) {
         SysUserVo vo = userMapper.lambda()
             .select(SysUser::getUserId, SysUser::getDeptId, SysUser::getUserName,
-                SysUser::getNickName, SysUser::getUserType, SysUser::getEmail,
+                SysUser::getNickName, SysUser::getIndonesianName, SysUser::getUserType, SysUser::getEmail,
                 SysUser::getPhoneNumber, SysUser::getGender, SysUser::getStatus,
                 SysUser::getCreateTime)
             .eq(SysUser::getStatus, SystemConstants.NORMAL)
@@ -682,7 +726,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
         }
         List<SysUserVo> list = userMapper.lambda()
             .select(SysUser::getUserId, SysUser::getDeptId, SysUser::getUserName,
-                SysUser::getNickName, SysUser::getUserType, SysUser::getEmail,
+                SysUser::getNickName, SysUser::getIndonesianName, SysUser::getUserType, SysUser::getEmail,
                 SysUser::getPhoneNumber, SysUser::getGender, SysUser::getStatus,
                 SysUser::getCreateTime)
             .eq(SysUser::getStatus, SystemConstants.NORMAL)
@@ -739,7 +783,8 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
             return List.of();
         }
         List<SysUserVo> list = userMapper.lambda()
-            .select(SysUser::getUserId, SysUser::getUserName, SysUser::getNickName, SysUser::getEmail, SysUser::getPhoneNumber)
+            .select(SysUser::getUserId, SysUser::getUserName, SysUser::getNickName, SysUser::getIndonesianName,
+                SysUser::getEmail, SysUser::getPhoneNumber)
             .eq(SysUser::getStatus, SystemConstants.NORMAL)
             .in(SysUser::getDeptId, deptIds)
             .voList();

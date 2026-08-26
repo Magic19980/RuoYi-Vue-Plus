@@ -27,11 +27,18 @@ public class SysUserProfileBo implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 用户昵称
+     * 用户姓名
      */
-    @Xss(message = "用户昵称不能包含脚本字符")
-    @Size(min = 0, max = 30, message = "用户昵称长度不能超过{max}个字符")
+    @Xss(message = "用户姓名不能包含脚本字符")
+    @Size(min = 0, max = 30, message = "用户姓名长度不能超过{max}个字符")
     private String nickName;
+
+    /**
+     * 印尼语姓名
+     */
+    @Xss(message = "印尼语姓名不能包含脚本字符")
+    @Size(max = 100, message = "印尼语姓名长度不能超过{max}个字符")
+    private String indonesianName;
 
     /**
      * 用户邮箱

@@ -28,12 +28,12 @@ import org.dromara.department.mapper.DepartmentTaskMapper;
 import org.dromara.department.mapper.DepartmentTaskRuleMapper;
 import org.dromara.department.mapper.PersonProfileMapper;
 import org.dromara.department.service.DepartmentAccessService;
-import org.dromara.department.service.DepartmentContextResolver;
 import org.dromara.department.service.IDepartmentTaskService;
 import org.dromara.department.service.IDailyCalendarService;
 import org.dromara.system.api.MessageService;
 import org.dromara.system.api.domain.PushPayloadDTO;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,7 +75,6 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     private final PersonProfileMapper personProfileMapper;
     private final IDailyCalendarService dailyCalendarService;
     private final MessageService messageService;
-    private final DepartmentContextResolver departmentContextResolver;
     private final DepartmentAccessService departmentAccessService;
 
     @Override
@@ -97,11 +96,11 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean saveRule(DepartmentTaskRuleBo bo) {
-        requireDept();
+        Long deptId = requireDept();
         validateRule(bo);
         DepartmentTaskRule entity = bo.getId() == null ? new DepartmentTaskRule() : getRule(bo.getId());
         if (entity.getId() == null) {
-            entity.setDeptId(currentDeptId());
+            entity.setDeptId(deptId);
         }
         boolean daily = DAILY.equals(bo.getTaskType());
         entity.setTaskName(StringUtils.trim(bo.getTaskName()));
@@ -131,7 +130,7 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     @Override
     public List<DepartmentTaskAssignmentVo> queryAssignments(Long ruleId) {
         DepartmentTaskRule rule = getRule(ruleId);
-        Map<Long, PersonUserOptionVo> users = userMap();
+        Map<Long, PersonUserOptionVo> users = userMapForDept(rule.getDeptId());
         return assignmentMapper.selectByRuleId(rule.getId()).stream().map(item -> {
             DepartmentTaskAssignmentVo vo = new DepartmentTaskAssignmentVo();
             vo.setId(item.getId());
@@ -197,7 +196,11 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         }
         entity.setStatus(StringUtils.isBlank(bo.getStatus()) ? ENABLED : bo.getStatus());
         entity.setRemark(bo.getRemark());
-        return entity.getId() == null ? assignmentMapper.insert(entity) > 0 : assignmentMapper.updateById(entity) > 0;
+        try {
+            return entity.getId() == null ? assignmentMapper.insert(entity) > 0 : assignmentMapper.updateById(entity) > 0;
+        } catch (DuplicateKeyException ex) {
+            throw new ServiceException("该成员已经分配过此任务，请勿重复分配");
+        }
     }
 
     @Override
@@ -210,9 +213,9 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     public List<DepartmentTaskProgressVo> queryMyTasks() {
         Long userId = LoginHelper.getUserId();
         LocalDate today = LocalDate.now();
-        Map<Long, PersonUserOptionVo> users = userMap();
         List<DepartmentTaskProgressVo> result = new ArrayList<>();
         Long deptId = currentDeptId();
+        Map<Long, PersonUserOptionVo> users = userMapForDept(deptId);
         Set<Long> activeMemberIds = new HashSet<>(assignmentMapper.selectActiveUserIdsInDept(deptId));
         List<DepartmentTaskAssignment> assignments = assignmentMapper.selectActiveByUserId(userId, deptId, today);
         Set<Long> ruleIds = assignments.stream().map(DepartmentTaskAssignment::getRuleId).filter(Objects::nonNull).collect(Collectors.toSet());
@@ -251,29 +254,30 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
 
     @Override
     public List<DepartmentReviewRuleVo> queryReviewRuleList() {
+        Long deptId = currentDeptId();
         List<DepartmentReviewRule> rules = reviewRuleMapper.selectList(Wrappers.<DepartmentReviewRule>lambdaQuery()
-            .eq(DepartmentReviewRule::getDeptId, currentDeptId())
+            .eq(DepartmentReviewRule::getDeptId, deptId)
             .eq(DepartmentReviewRule::getDelFlag, "0")
             .orderByAsc(DepartmentReviewRule::getTaskType));
-        Map<Long, PersonUserOptionVo> users = userMap();
+        Map<Long, PersonUserOptionVo> users = userMapForDept(deptId);
         return rules.stream().map(item -> toReviewVo(item, users)).toList();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean saveReviewRule(DepartmentReviewRuleBo bo) {
-        requireDept();
+        Long deptId = requireDept();
         if (!SCORE.equals(bo.getTaskType()) && !FIVE_WHY.equals(bo.getTaskType())) {
             throw new ServiceException("不支持的审核业务类型");
         }
-        if (bo.getReviewerUserId() == null || assignmentMapper.countUserInDept(bo.getReviewerUserId(), currentDeptId()) == 0) {
+        if (bo.getReviewerUserId() == null || assignmentMapper.countUserInDept(bo.getReviewerUserId(), deptId) == 0) {
             throw new ServiceException("主审核人不能为空且必须是当前科室有效成员");
         }
-        if (bo.getBackupReviewerUserId() != null && assignmentMapper.countUserInDept(bo.getBackupReviewerUserId(), currentDeptId()) == 0) {
+        if (bo.getBackupReviewerUserId() != null && assignmentMapper.countUserInDept(bo.getBackupReviewerUserId(), deptId) == 0) {
             throw new ServiceException("备用审核人必须是当前科室有效成员");
         }
         DepartmentReviewRule entity = bo.getId() == null ? new DepartmentReviewRule() : getReviewRule(bo.getId());
-        if (entity.getId() == null) entity.setDeptId(currentDeptId());
+        if (entity.getId() == null) entity.setDeptId(deptId);
         entity.setTaskType(bo.getTaskType());
         entity.setReviewerUserId(bo.getReviewerUserId());
         entity.setBackupReviewerUserId(bo.getBackupReviewerUserId());
@@ -311,17 +315,25 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     @Scheduled(cron = "0 0/30 * * * ?")
     public void remindTasks() {
         LocalDate today = LocalDate.now();
-        Map<Long, PersonUserOptionVo> users = userMap();
+        List<DepartmentTaskRule> rules = taskRuleMapper.selectEnabledRules();
+        List<Long> ruleIds = rules.stream().map(DepartmentTaskRule::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<DepartmentTaskAssignment>> assignmentsByRule = ruleIds.isEmpty()
+            ? Map.of()
+            : assignmentMapper.selectEnabledByRuleIds(ruleIds, today).stream()
+                .collect(Collectors.groupingBy(DepartmentTaskAssignment::getRuleId));
+        Set<Long> assignmentUserIds = assignmentsByRule.values().stream()
+            .flatMap(Collection::stream)
+            .map(DepartmentTaskAssignment::getUserId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        Map<Long, PersonUserOptionVo> users = userMap(assignmentUserIds);
         Map<Long, Set<Long>> activeMemberIdsByDept = new HashMap<>();
-        for (DepartmentTaskRule rule : taskRuleMapper.selectEnabledRules()) {
+        for (DepartmentTaskRule rule : rules) {
             if (!isRuleEffective(rule, today)) continue;
             Set<Long> activeMemberIds = activeMemberIdsByDept.computeIfAbsent(
                 rule.getDeptId(), deptId -> new HashSet<>(assignmentMapper.selectActiveUserIdsInDept(deptId))
             );
-            for (DepartmentTaskAssignment assignment : assignmentMapper.selectList(Wrappers.<DepartmentTaskAssignment>lambdaQuery()
-                .eq(DepartmentTaskAssignment::getRuleId, rule.getId())
-                .eq(DepartmentTaskAssignment::getStatus, ENABLED)
-                .eq(DepartmentTaskAssignment::getDelFlag, "0"))) {
+            for (DepartmentTaskAssignment assignment : assignmentsByRule.getOrDefault(rule.getId(), List.of())) {
                 if (!isAssignmentEffective(assignment, today)) continue;
                 if (!Objects.equals(assignment.getDeptId(), rule.getDeptId())
                     || !activeMemberIds.contains(assignment.getUserId())) continue;
@@ -487,8 +499,17 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         return StringUtils.isBlank(user.getNickName()) ? user.getUserName() : user.getNickName() + "（" + user.getUserName() + "）";
     }
 
-    private Map<Long, PersonUserOptionVo> userMap() {
-        List<PersonUserOptionVo> users = personProfileMapper.selectUserOptions(null, true);
+    private Map<Long, PersonUserOptionVo> userMapForDept(Long deptId) {
+        List<PersonUserOptionVo> users = personProfileMapper.selectMemberUserOptions(deptId, LocalDate.now());
+        if (CollUtil.isEmpty(users)) return Collections.emptyMap();
+        Map<Long, PersonUserOptionVo> map = new HashMap<>();
+        users.forEach(item -> map.put(item.getUserId(), item));
+        return map;
+    }
+
+    private Map<Long, PersonUserOptionVo> userMap(Collection<Long> userIds) {
+        if (CollUtil.isEmpty(userIds)) return Collections.emptyMap();
+        List<PersonUserOptionVo> users = personProfileMapper.selectUserOptionsByIds(userIds);
         if (CollUtil.isEmpty(users)) return Collections.emptyMap();
         Map<Long, PersonUserOptionVo> map = new HashMap<>();
         users.forEach(item -> map.put(item.getUserId(), item));
@@ -554,8 +575,12 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         if (bo.getDeadlineDay() != null && bo.getDeadlineDay() < 0) throw new ServiceException("截止日序号不能小于0");
     }
 
-    private void requireDept() {
-        currentDeptId();
+    private Long requireDept() {
+        Long deptId = currentDeptId();
+        if (deptId == null) {
+            throw new ServiceException("当前登录用户缺少部门信息，无法维护任务配置");
+        }
+        return deptId;
     }
 
     private Long currentDeptId() {

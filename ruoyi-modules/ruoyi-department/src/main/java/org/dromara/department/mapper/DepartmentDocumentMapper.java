@@ -9,6 +9,7 @@ import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.department.domain.DepartmentDocument;
 import org.dromara.department.domain.bo.DepartmentDocumentQueryBo;
 import org.dromara.department.domain.vo.DepartmentDocumentVo;
+import org.dromara.department.service.DepartmentScope;
 
 import java.util.Collection;
 
@@ -35,16 +36,15 @@ public interface DepartmentDocumentMapper extends BaseMapperPlus<DepartmentDocum
         "<if test='bo.fileSuffix != null and bo.fileSuffix != \"\"'> and d.current_file_suffix = #{bo.fileSuffix} </if>",
         "<if test='bo.status != null and bo.status != \"\"'> and d.status = #{bo.status} </if>",
         "<choose>",
-        "<when test='all == true'></when>",
-        "<otherwise> and d.dept_id = #{deptId} </otherwise>",
+        "<when test='scope.all'></when>",
+        "<otherwise> and d.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
         "order by d.update_time desc, d.id desc",
         "</script>"
     })
     Page<DepartmentDocumentVo> selectPageList(Page<DepartmentDocumentVo> page,
                                                @Param("bo") DepartmentDocumentQueryBo bo,
-                                               @Param("deptId") Long deptId,
-                                               @Param("all") boolean all);
+                                               @Param("scope") DepartmentScope scope);
 
     @Select({
         "<script>",
@@ -62,16 +62,15 @@ public interface DepartmentDocumentMapper extends BaseMapperPlus<DepartmentDocum
         "<if test='bo.projectId != null'> and d.project_id = #{bo.projectId} </if>",
         "<if test='bo.fileSuffix != null and bo.fileSuffix != \"\"'> and d.current_file_suffix = #{bo.fileSuffix} </if>",
         "<choose>",
-        "<when test='all == true'></when>",
-        "<otherwise> and d.dept_id = #{deptId} </otherwise>",
+        "<when test='scope.all'></when>",
+        "<otherwise> and d.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
         "order by d.update_time desc, d.id desc",
         "</script>"
     })
     Page<DepartmentDocumentVo> selectRecyclePageList(Page<DepartmentDocumentVo> page,
                                                       @Param("bo") DepartmentDocumentQueryBo bo,
-                                                      @Param("deptId") Long deptId,
-                                                      @Param("all") boolean all);
+                                                      @Param("scope") DepartmentScope scope);
 
     @Select({
         "select d.id, d.dept_id, d.project_id, p.project_name, d.category_id, c.category_name, d.title, d.description, d.tags,",

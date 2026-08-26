@@ -8,6 +8,7 @@ import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.department.domain.WorkOrder;
 import org.dromara.department.domain.bo.WorkOrderQueryBo;
 import org.dromara.department.domain.vo.WorkOrderVo;
+import org.dromara.department.service.DepartmentScope;
 
 import java.util.List;
 
@@ -36,16 +37,15 @@ public interface WorkOrderMapper extends BaseMapperPlus<WorkOrder, WorkOrderVo> 
         "<if test='bo.sourceType != null and bo.sourceType != \"\"'> and w.source_type = #{bo.sourceType} </if>",
         "<if test='bo.keyword != null and bo.keyword != \"\"'> and (w.title like concat('%', #{bo.keyword}, '%') or w.work_content like concat('%', #{bo.keyword}, '%') or w.handler like concat('%', #{bo.keyword}, '%')) </if>",
         "<choose>",
-        "<when test='all == true'></when>",
-        "<otherwise> and w.dept_id = #{deptId} </otherwise>",
+        "<when test='scope.all'></when>",
+        "<otherwise> and w.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
         "order by w.occur_date desc, w.id desc",
         "</script>"
     })
     Page<WorkOrderVo> selectPageList(Page<WorkOrderVo> page,
                                       @Param("bo") WorkOrderQueryBo bo,
-                                      @Param("deptId") Long deptId,
-                                      @Param("all") boolean all);
+                                      @Param("scope") DepartmentScope scope);
 
     @Select({
         "<script>",
@@ -59,14 +59,13 @@ public interface WorkOrderMapper extends BaseMapperPlus<WorkOrder, WorkOrderVo> 
         "where w.del_flag = '0' and w.occur_date is not null",
         "and w.occur_date &lt;= #{endDate} and last_day(w.occur_date) &gt;= #{beginDate}",
         "<choose>",
-        "<when test='all == true'></when>",
-        "<otherwise> and w.dept_id = #{deptId} </otherwise>",
+        "<when test='scope.all'></when>",
+        "<otherwise> and w.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
         "order by w.occur_date asc, w.id asc",
         "</script>"
     })
     List<WorkOrderVo> selectForSummary(@Param("beginDate") java.time.LocalDate beginDate,
                                        @Param("endDate") java.time.LocalDate endDate,
-                                       @Param("deptId") Long deptId,
-                                       @Param("all") boolean all);
+                                       @Param("scope") DepartmentScope scope);
 }

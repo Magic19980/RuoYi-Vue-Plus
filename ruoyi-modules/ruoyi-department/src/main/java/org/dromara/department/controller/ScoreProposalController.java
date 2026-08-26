@@ -16,6 +16,7 @@ import org.dromara.common.web.core.BaseController;
 import org.dromara.department.domain.bo.ScoreProposalBo;
 import org.dromara.department.domain.bo.ScoreProposalQueryBo;
 import org.dromara.department.domain.bo.ScoreProposalReviewBo;
+import org.dromara.department.domain.vo.PersonUserOptionVo;
 import org.dromara.department.domain.vo.ScoreProposalVo;
 import org.dromara.department.service.IScoreProposalService;
 import org.dromara.system.domain.vo.SysOssVo;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Arrays;
+import java.util.List;
 
 /** SCORE提案接口。 */
 @Validated
@@ -47,6 +49,13 @@ public class ScoreProposalController extends BaseController {
     @GetMapping("/list")
     public R<PageResult<ScoreProposalVo>> list(ScoreProposalQueryBo bo, PageQuery pageQuery) {
         return R.ok(scoreProposalService.queryPageList(bo, pageQuery));
+    }
+
+    /** 提案人员选择只展示当前业务科室人员档案中的有效成员。 */
+    @SaCheckPermission("department:scoreProposal:query")
+    @GetMapping("/memberOptions")
+    public R<List<PersonUserOptionVo>> memberOptions() {
+        return R.ok(scoreProposalService.queryMemberOptions());
     }
 
     @SaCheckPermission("department:scoreProposal:query")

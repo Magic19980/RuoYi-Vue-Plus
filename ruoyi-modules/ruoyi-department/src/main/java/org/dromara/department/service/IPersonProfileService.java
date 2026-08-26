@@ -3,6 +3,7 @@ package org.dromara.department.service;
 import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.department.domain.bo.PersonProfileBo;
+import org.dromara.department.domain.bo.PersonProfileBatchBo;
 import org.dromara.department.domain.bo.PersonProfileEndBo;
 import org.dromara.department.domain.bo.PersonProfileQueryBo;
 import org.dromara.department.domain.bo.PersonUserOptionQueryBo;
@@ -39,6 +40,8 @@ public interface IPersonProfileService {
     PersonDepartmentContextVo switchMyDepartment(Long deptId);
 
     Boolean insertByBo(PersonProfileBo bo);
+
+    Boolean insertBatch(PersonProfileBatchBo bo);
 
     Boolean updateByBo(PersonProfileBo bo);
 

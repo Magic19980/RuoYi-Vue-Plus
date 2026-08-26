@@ -21,6 +21,7 @@ import org.dromara.department.mapper.FiveWhyMapper;
 import org.dromara.department.service.IFiveWhyService;
 import org.dromara.department.service.IDepartmentTaskService;
 import org.dromara.department.service.DepartmentAccessService;
+import org.dromara.department.service.DepartmentScope;
 import org.dromara.system.domain.SysOssExt;
 import org.dromara.system.domain.vo.SysOssVo;
 import org.dromara.system.service.ISysOssService;
@@ -52,7 +53,7 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
     public PageResult<FiveWhyVo> queryPageList(FiveWhyQueryBo bo, PageQuery pageQuery) {
         FiveWhyQueryBo query = bo == null ? new FiveWhyQueryBo() : bo;
         Page<FiveWhy> page = pageQuery.build();
-        Page<FiveWhy> result = fiveWhyMapper.selectPageList(page, query, scopeDeptId(), canViewAll());
+        Page<FiveWhy> result = fiveWhyMapper.selectPageList(page, query, scope());
         return PageResult.build(result.getRecords().stream().map(this::toVo).toList(), result.getTotal());
     }
 
@@ -90,6 +91,9 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteWithValidByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return false;
+        }
         for (Long id : ids) {
             getAccessible(id);
         }
@@ -214,11 +218,7 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
         }
     }
 
-    private boolean canViewAll() {
-        return false;
-    }
-
-    private Long scopeDeptId() {
-        return canViewAll() ? null : departmentAccessService.scopeDeptId("department:fiveWhy:viewDept");
+    private DepartmentScope scope() {
+        return departmentAccessService.scope("department:fiveWhy:viewDept");
     }
 }

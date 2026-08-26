@@ -8,6 +8,7 @@ import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.department.domain.FiveWhy;
 import org.dromara.department.domain.bo.FiveWhyQueryBo;
 import org.dromara.department.domain.vo.FiveWhyVo;
+import org.dromara.department.service.DepartmentScope;
 
 /** 5WHY分析数据层。 */
 @Mapper
@@ -26,14 +27,13 @@ public interface FiveWhyMapper extends BaseMapperPlus<FiveWhy, FiveWhyVo> {
         "<if test='bo.beginDate != null'> and f.analysis_date &gt;= #{bo.beginDate} </if>",
         "<if test='bo.endDate != null'> and f.analysis_date &lt;= #{bo.endDate} </if>",
         "<choose>",
-        "<when test='all == true'></when>",
-        "<otherwise> and f.dept_id = #{deptId} </otherwise>",
+        "<when test='scope.all'></when>",
+        "<otherwise> and f.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
         "order by f.analysis_date desc, f.id desc",
         "</script>"
     })
     Page<FiveWhy> selectPageList(Page<FiveWhy> page,
                                     @Param("bo") FiveWhyQueryBo bo,
-                                    @Param("deptId") Long deptId,
-                                    @Param("all") boolean all);
+                                    @Param("scope") DepartmentScope scope);
 }

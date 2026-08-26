@@ -46,10 +46,16 @@ public class SysUserImportVo implements Serializable {
     private String userName;
 
     /**
-     * 用户昵称
+     * 用户姓名
      */
-    @ExcelProperty(value = "用户昵称")
+    @ExcelProperty(value = "用户姓名")
     private String nickName;
+
+    /**
+     * 印尼语姓名
+     */
+    @ExcelProperty(value = "印尼语姓名")
+    private String indonesianName;
 
     /**
      * 工号

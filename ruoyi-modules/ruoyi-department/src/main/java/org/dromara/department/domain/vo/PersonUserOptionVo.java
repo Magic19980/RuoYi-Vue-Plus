@@ -25,4 +25,7 @@ public class PersonUserOptionVo implements Serializable {
     private String deptName;
 
     private String employeeNo;
+
+    /** 当前科室人员档案中的岗位。 */
+    private String jobTitle;
 }

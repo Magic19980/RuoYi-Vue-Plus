@@ -10,6 +10,7 @@ import org.dromara.common.core.validate.EditGroup;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.List;
 
 /** SCORE提案新增、修改参数。 */
 @Data
@@ -33,9 +34,6 @@ public class ScoreProposalBo implements Serializable {
     @Size(max = 100, message = "提议者姓名不能超过100个字符")
     private String proposerName;
 
-    @Size(max = 100, message = "提议者岗位不能超过100个字符")
-    private String proposerRole;
-
     @Size(max = 50, message = "职位层级不能超过50个字符")
     private String proposerLevel;
 
@@ -46,6 +44,7 @@ public class ScoreProposalBo implements Serializable {
 
     private Long subCategoryId;
 
+    @NotNull(message = "提议人不能为空", groups = {AddGroup.class, EditGroup.class})
     private Long proposerUserId;
 
     @Size(max = 255, message = "提案大类不能超过255个字符")
@@ -57,6 +56,7 @@ public class ScoreProposalBo implements Serializable {
     private String problemDescription;
     private String improvementMeasure;
     private String implementerSupervisor;
+    private List<Long> implementerUserIds;
     private Long beforeOssId;
     private Long afterOssId;
     private LocalDate startDate;

@@ -52,10 +52,10 @@ public class SysPostVo implements Serializable {
     private String postName;
 
     /**
-     * 岗位类别编码
+     * 岗位印尼语名称
      */
-    @ExcelProperty(value = "类别编码")
-    private String postCategory;
+    @ExcelProperty(value = "岗位印尼语名称")
+    private String postIndonesianName;
 
     /**
      * 显示顺序

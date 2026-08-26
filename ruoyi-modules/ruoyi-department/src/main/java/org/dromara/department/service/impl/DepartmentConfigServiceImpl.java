@@ -13,6 +13,7 @@ import org.dromara.department.domain.vo.DepartmentConfigVo;
 import org.dromara.department.mapper.DepartmentConfigMapper;
 import org.dromara.department.service.DepartmentAccessService;
 import org.dromara.department.service.DepartmentMembershipSyncService;
+import org.dromara.department.service.DepartmentScope;
 import org.dromara.department.service.IDepartmentConfigService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,10 +36,11 @@ public class DepartmentConfigServiceImpl implements IDepartmentConfigService {
 
     @Override
     public PageResult<DepartmentConfigVo> queryPageList(DepartmentConfigQueryBo bo, org.dromara.common.mybatis.core.page.PageQuery pageQuery) {
-        boolean all = LoginHelper.isSuperAdmin();
-        Long deptId = all ? null : departmentAccessService.currentDeptId();
+        DepartmentScope scope = LoginHelper.isSuperAdmin()
+            ? DepartmentScope.all()
+            : DepartmentScope.current(departmentAccessService.currentDeptId());
         Page<DepartmentConfigVo> page = departmentConfigMapper.selectPageList(
-            pageQuery.build(), bo == null ? new DepartmentConfigQueryBo() : bo, deptId, all);
+            pageQuery.build(), bo == null ? new DepartmentConfigQueryBo() : bo, scope);
         return PageResult.build(page.getRecords(), page.getTotal());
     }
 

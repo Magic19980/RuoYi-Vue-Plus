@@ -16,4 +16,7 @@ public class PersonUserOptionQueryBo implements Serializable {
 
     /** 账号、姓名、工号或部门名称关键字。 */
     private String keyword;
+
+    /** 系统部门筛选条件。 */
+    private Long deptId;
 }
