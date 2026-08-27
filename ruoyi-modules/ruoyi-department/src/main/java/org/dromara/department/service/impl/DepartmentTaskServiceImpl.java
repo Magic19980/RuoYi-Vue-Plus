@@ -19,6 +19,7 @@ import org.dromara.department.domain.vo.DepartmentReviewRuleVo;
 import org.dromara.department.domain.vo.DepartmentTaskAssignmentVo;
 import org.dromara.department.domain.vo.DepartmentTaskProgressVo;
 import org.dromara.department.domain.vo.DepartmentTaskRuleVo;
+import org.dromara.department.domain.vo.ScoreProposalReviewTaskVo;
 import org.dromara.department.domain.vo.PersonUserOptionVo;
 import org.dromara.department.mapper.DepartmentReviewRuleMapper;
 import org.dromara.department.mapper.DepartmentTaskAssignmentMapper;
@@ -76,6 +77,7 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     private final IDailyCalendarService dailyCalendarService;
     private final MessageService messageService;
     private final DepartmentAccessService departmentAccessService;
+    private final org.dromara.department.service.IScoreProposalReviewTaskService scoreProposalReviewTaskService;
 
     @Override
     public List<DepartmentTaskRuleVo> queryRuleList() {
@@ -241,6 +243,11 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     }
 
     @Override
+    public List<ScoreProposalReviewTaskVo> queryMyScoreProposalReviewTasks() {
+        return scoreProposalReviewTaskService.queryMyPendingTasks();
+    }
+
+    @Override
     public List<Long> queryDailyReportUserIds(LocalDate beginDate, LocalDate endDate) {
         if (beginDate == null || endDate == null || beginDate.isAfter(endDate)) {
             return Collections.emptyList();
@@ -311,6 +318,18 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         }
     }
 
+    @Override
+    public List<Long> getReviewerUserIds(String taskType, Long deptId) {
+        DepartmentReviewRule rule = reviewRuleMapper.selectEnabledRule(deptId, taskType);
+        if (rule == null || rule.getReviewerUserId() == null) {
+            throw new ServiceException("当前科室尚未配置" + taskTypeLabel(taskType) + "审核人");
+        }
+        List<Long> userIds = new ArrayList<>();
+        userIds.add(rule.getReviewerUserId());
+        if (rule.getBackupReviewerUserId() != null) userIds.add(rule.getBackupReviewerUserId());
+        return userIds.stream().filter(Objects::nonNull).distinct().toList();
+    }
+
     /** 每30分钟检查一次到期前/逾期任务，消息会存入成员消息盒子并推送给在线用户。 */
     @Scheduled(cron = "0 0/30 * * * ?")
     public void remindTasks() {
@@ -377,7 +396,9 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         instance.setCompletedCount(completed);
         String status = completed >= required ? "COMPLETED" : LocalDateTime.now().isAfter(deadline) ? "OVERDUE" : completed > 0 ? "IN_PROGRESS" : "NOT_STARTED";
         instance.setStatus(status);
-        instance.setCompletedAt("COMPLETED".equals(status) ? LocalDateTime.now() : null);
+        LocalDateTime completedAt = "COMPLETED".equals(status)
+            ? completionMapper.selectLatestCompletedAt(instance.getId()) : null;
+        instance.setCompletedAt(completedAt);
         instanceMapper.updateById(instance);
         DepartmentTaskProgressVo vo = new DepartmentTaskProgressVo();
         vo.setRuleId(rule.getId());
@@ -393,6 +414,7 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         vo.setDeadline(deadline);
         vo.setRequiredCount(required);
         vo.setCompletedCount(completed);
+        vo.setCompletedAt(completedAt);
         vo.setStatus(status);
         vo.setStatusLabel(switch (status) { case "COMPLETED" -> "已完成"; case "OVERDUE" -> "已逾期"; case "IN_PROGRESS" -> "进行中"; default -> "未开始"; });
         vo.setReminderText(daily ? "今日提醒 " + deadline.toLocalTime() : "截止 " + deadline.toLocalDate() + " " + deadline.toLocalTime());

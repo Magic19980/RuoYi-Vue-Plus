@@ -33,7 +33,6 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -96,13 +95,12 @@ public class DailyReportController extends BaseController {
     @Log(title = "科室日报", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(DailyReportQueryBo bo, HttpServletResponse response) {
-        List<DailyReportVo> list = dailyReportService.queryList(bo);
-        ExcelBuilder.of(list, DailyReportVo.class).sheetName("科室日报").toResponse(response);
+        dailyReportService.exportXlsx(bo, response);
     }
 
     @SaCheckPermission("department:dailyReport:import")
     @PostMapping("/importTemplate")
     public void importTemplate(HttpServletResponse response) {
-        ExcelBuilder.of(new ArrayList<>(), DailyReportImportVo.class).sheetName("日报导入模板").toResponse(response);
+        dailyReportService.exportTemplate(response);
     }
 }

@@ -18,6 +18,9 @@ public interface DepartmentTaskCompletionMapper extends BaseMapperPlus<Departmen
     @Select("select source_id from dm_department_task_completion where instance_id = #{instanceId} and del_flag = '0'")
     List<Long> selectSourceIds(@Param("instanceId") Long instanceId);
 
+    @Select("select max(completed_at) from dm_department_task_completion where instance_id = #{instanceId} and del_flag = '0'")
+    java.time.LocalDateTime selectLatestCompletedAt(@Param("instanceId") Long instanceId);
+
     @Insert("insert ignore into dm_department_task_completion (id, instance_id, task_type, source_id, completed_at, del_flag, create_time) values (#{id}, #{instanceId}, #{taskType}, #{sourceId}, now(), '0', now())")
     int insertIgnore(@Param("id") Long id, @Param("instanceId") Long instanceId,
                      @Param("taskType") String taskType, @Param("sourceId") Long sourceId);

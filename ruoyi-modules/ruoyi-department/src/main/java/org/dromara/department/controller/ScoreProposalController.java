@@ -13,10 +13,12 @@ import org.dromara.common.log.annotation.Log;
 import org.dromara.common.log.enums.BusinessType;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.web.core.BaseController;
+import org.dromara.department.domain.bo.PersonUserOptionQueryBo;
 import org.dromara.department.domain.bo.ScoreProposalBo;
 import org.dromara.department.domain.bo.ScoreProposalQueryBo;
 import org.dromara.department.domain.bo.ScoreProposalReviewBo;
 import org.dromara.department.domain.vo.PersonUserOptionVo;
+import org.dromara.department.domain.vo.ScoreProposalMetricVo;
 import org.dromara.department.domain.vo.ScoreProposalVo;
 import org.dromara.department.service.IScoreProposalService;
 import org.dromara.system.domain.vo.SysOssVo;
@@ -29,6 +31,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -56,6 +59,34 @@ public class ScoreProposalController extends BaseController {
     @GetMapping("/memberOptions")
     public R<List<PersonUserOptionVo>> memberOptions() {
         return R.ok(scoreProposalService.queryMemberOptions());
+    }
+
+    /** 企业参与人员可从用户管理中的全部有效用户选择。 */
+    @SaCheckPermission("department:scoreProposal:query")
+    @GetMapping("/userOptions")
+    public R<List<PersonUserOptionVo>> userOptions() {
+        return R.ok(scoreProposalService.queryUserOptions());
+    }
+
+    /** 企业参与人员弹窗按条件分页查询用户管理中的全部有效人员。 */
+    @SaCheckPermission("department:scoreProposal:query")
+    @GetMapping("/userOptions/page")
+    public R<PageResult<PersonUserOptionVo>> userOptionsPage(PersonUserOptionQueryBo bo, PageQuery pageQuery) {
+        return R.ok(scoreProposalService.queryUserOptionsPage(bo, pageQuery));
+    }
+
+    /** 回显已选择的企业参与人员，避免打开弹窗时加载全部用户。 */
+    @SaCheckPermission("department:scoreProposal:query")
+    @GetMapping("/userOptions/selected")
+    public R<List<PersonUserOptionVo>> selectedUserOptions(@RequestParam("ids") List<Long> ids) {
+        return R.ok(scoreProposalService.queryUserOptionsByIds(ids));
+    }
+
+    /** 查询当前科室指定月份的精益提案指标。 */
+    @SaCheckPermission("department:scoreProposal:query")
+    @GetMapping("/metric")
+    public R<ScoreProposalMetricVo> metric(@RequestParam(value = "month", required = false) String month) {
+        return R.ok(scoreProposalService.queryMetric(month));
     }
 
     @SaCheckPermission("department:scoreProposal:query")
@@ -103,5 +134,12 @@ public class ScoreProposalController extends BaseController {
     @PostMapping("/export/{id}")
     public void export(@NotNull(message = "主键不能为空") @PathVariable Long id, HttpServletResponse response) throws Exception {
         scoreProposalService.exportXlsx(id, response);
+    }
+
+    /** 在线预览提交审核时固化的 XLSX 内容，预览不允许修改原文件。 */
+    @SaCheckPermission("department:scoreProposal:query")
+    @GetMapping(value = "/preview/{id}", produces = MediaType.TEXT_HTML_VALUE)
+    public String preview(@NotNull(message = "主键不能为空") @PathVariable Long id) throws Exception {
+        return scoreProposalService.previewXlsx(id);
     }
 }

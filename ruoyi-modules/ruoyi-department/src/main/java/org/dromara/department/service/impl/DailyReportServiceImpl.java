@@ -2,6 +2,7 @@ package org.dromara.department.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.core.exception.ServiceException;
@@ -39,6 +40,7 @@ public class DailyReportServiceImpl implements IDailyReportService {
     private final DailyReportMapper dailyReportMapper;
     private final IDailyCalendarService dailyCalendarService;
     private final DepartmentAccessService departmentAccessService;
+    private final DailyReportXlsxService dailyReportXlsxService;
 
     @Override
     public PageResult<DailyReportVo> queryPageList(DailyReportQueryBo bo, PageQuery pageQuery) {
@@ -56,6 +58,16 @@ public class DailyReportServiceImpl implements IDailyReportService {
             throw new ServiceException("日报导出数据超过" + MAX_EXPORT_ROWS + "条，请缩小查询范围后再导出");
         }
         return records;
+    }
+
+    @Override
+    public void exportXlsx(DailyReportQueryBo bo, HttpServletResponse response) {
+        dailyReportXlsxService.export(queryList(bo), response);
+    }
+
+    @Override
+    public void exportTemplate(HttpServletResponse response) {
+        dailyReportXlsxService.exportTemplate(response);
     }
 
     @Override

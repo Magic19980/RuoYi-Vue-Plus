@@ -22,10 +22,19 @@ public class PersonUserOptionVo implements Serializable {
 
     private String nickName;
 
+    /** 用户管理中的印尼语姓名。 */
+    private String indonesianName;
+
     private String deptName;
+
+    /** 用户所属部门的印尼语名称。 */
+    private String deptIndonesianName;
 
     private String employeeNo;
 
-    /** 当前科室人员档案中的岗位。 */
+    /** 用户管理中的当前岗位。 */
     private String jobTitle;
+
+    /** 用户当前岗位的印尼语名称。 */
+    private String jobTitleIndonesianName;
 }

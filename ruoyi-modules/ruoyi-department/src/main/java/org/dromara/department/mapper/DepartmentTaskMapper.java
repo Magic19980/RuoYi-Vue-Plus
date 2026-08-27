@@ -15,8 +15,8 @@ public interface DepartmentTaskMapper {
     @Select({
         "<script>",
         "select count(1) from dm_score_proposal s where s.del_flag = '0' and s.dept_id = #{deptId}",
-        "and s.proposer_user_id = #{userId} and s.create_time &gt;= #{startDate} and s.create_time &lt; date_add(#{endDate}, interval 1 day)",
-        "<if test='approved'> and s.review_status = 'APPROVED' </if>",
+        "and s.proposer_user_id = #{userId} and s.submitted_at &gt;= #{startDate} and s.submitted_at &lt; date_add(#{endDate}, interval 1 day)",
+        "<if test='approved'> and s.review_status = 'APPROVED' </if><if test='!approved'> and s.review_status &lt;&gt; 'DRAFT' </if>",
         "</script>"
     })
     int countScore(@Param("deptId") Long deptId, @Param("userId") Long userId,
@@ -26,8 +26,8 @@ public interface DepartmentTaskMapper {
     @Select({
         "<script>",
         "select s.id from dm_score_proposal s where s.del_flag = '0' and s.dept_id = #{deptId}",
-        "and s.proposer_user_id = #{userId} and s.create_time &gt;= #{startDate} and s.create_time &lt; date_add(#{endDate}, interval 1 day)",
-        "<if test='approved'> and s.review_status = 'APPROVED' </if>",
+        "and s.proposer_user_id = #{userId} and s.submitted_at &gt;= #{startDate} and s.submitted_at &lt; date_add(#{endDate}, interval 1 day)",
+        "<if test='approved'> and s.review_status = 'APPROVED' </if><if test='!approved'> and s.review_status &lt;&gt; 'DRAFT' </if>",
         "</script>"
     })
     List<Long> selectScoreIds(@Param("deptId") Long deptId, @Param("userId") Long userId,

@@ -6,7 +6,9 @@ import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.department.domain.bo.ScoreProposalBo;
 import org.dromara.department.domain.bo.ScoreProposalQueryBo;
 import org.dromara.department.domain.bo.ScoreProposalReviewBo;
+import org.dromara.department.domain.bo.PersonUserOptionQueryBo;
 import org.dromara.department.domain.vo.PersonUserOptionVo;
+import org.dromara.department.domain.vo.ScoreProposalMetricVo;
 import org.dromara.department.domain.vo.ScoreProposalVo;
 import org.dromara.system.domain.vo.SysOssVo;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,6 +25,14 @@ public interface IScoreProposalService {
 
     List<PersonUserOptionVo> queryMemberOptions();
 
+    List<PersonUserOptionVo> queryUserOptions();
+
+    PageResult<PersonUserOptionVo> queryUserOptionsPage(PersonUserOptionQueryBo bo, PageQuery pageQuery);
+
+    List<PersonUserOptionVo> queryUserOptionsByIds(Collection<Long> userIds);
+
+    ScoreProposalMetricVo queryMetric(String month);
+
     Boolean insertByBo(ScoreProposalBo bo);
 
     Boolean updateByBo(ScoreProposalBo bo);
@@ -34,4 +44,6 @@ public interface IScoreProposalService {
     SysOssVo uploadImage(MultipartFile file);
 
     void exportXlsx(Long id, HttpServletResponse response) throws Exception;
+
+    String previewXlsx(Long id) throws Exception;
 }

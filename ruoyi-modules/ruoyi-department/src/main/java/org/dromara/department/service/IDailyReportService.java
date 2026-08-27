@@ -1,5 +1,6 @@
 package org.dromara.department.service;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.department.domain.bo.DailyReportBo;
@@ -18,6 +19,10 @@ public interface IDailyReportService {
     PageResult<DailyReportVo> queryPageList(DailyReportQueryBo bo, PageQuery pageQuery);
 
     List<DailyReportVo> queryList(DailyReportQueryBo bo);
+
+    void exportXlsx(DailyReportQueryBo bo, HttpServletResponse response);
+
+    void exportTemplate(HttpServletResponse response);
 
     DailyReportVo queryById(Long id);
 

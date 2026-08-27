@@ -25,7 +25,8 @@ public class ScoreProposalBo implements Serializable {
     @Size(max = 255, message = "企业名称不能超过255个字符")
     private String companyName;
 
-    private String teamMembers;
+    /** 企业参与人员，仅提交用户管理中的用户ID。 */
+    private List<Long> teamMemberUserIds;
 
     @Size(max = 64, message = "工号不能超过64个字符")
     private String employeeNo;
@@ -69,4 +70,7 @@ public class ScoreProposalBo implements Serializable {
 
     private String reviewStatus;
     private String reviewComment;
+
+    /** 保存动作：DRAFT 暂存，SUBMIT 提交审核。 */
+    private String saveMode;
 }

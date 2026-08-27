@@ -18,8 +18,8 @@ public class ScoreProposalReviewBo implements Serializable {
     @NotNull(message = "主键不能为空")
     private Long id;
 
-    @NotBlank(message = "审核结果不能为空")
-    private String reviewStatus;
+    @NotBlank(message = "审核动作不能为空")
+    private String action;
 
     @Size(max = 1000, message = "审核意见不能超过1000个字符")
     private String reviewComment;

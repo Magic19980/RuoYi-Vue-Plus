@@ -7,6 +7,7 @@ import org.dromara.department.domain.vo.DepartmentReviewRuleVo;
 import org.dromara.department.domain.vo.DepartmentTaskAssignmentVo;
 import org.dromara.department.domain.vo.DepartmentTaskProgressVo;
 import org.dromara.department.domain.vo.DepartmentTaskRuleVo;
+import org.dromara.department.domain.vo.ScoreProposalReviewTaskVo;
 
 import java.util.List;
 import java.time.LocalDate;
@@ -30,6 +31,9 @@ public interface IDepartmentTaskService {
 
     List<DepartmentTaskProgressVo> queryMyTasks();
 
+    /** 查询当前登录人的SCORE提案审核/现场确认任务。 */
+    List<ScoreProposalReviewTaskVo> queryMyScoreProposalReviewTasks();
+
     /** 查询时间范围内被分配日报任务的成员，周报缺报统计只使用这些成员。 */
     List<Long> queryDailyReportUserIds(LocalDate beginDate, LocalDate endDate);
 
@@ -41,4 +45,7 @@ public interface IDepartmentTaskService {
 
     /** 校验当前登录人是否为指定业务的配置审核人。 */
     void checkReviewer(String taskType, Long deptId);
+
+    /** 获取当前生效的主/备用审核人，用于提交时创建事件型审核任务。 */
+    List<Long> getReviewerUserIds(String taskType, Long deptId);
 }

@@ -19,4 +19,7 @@ public class PersonUserOptionQueryBo implements Serializable {
 
     /** 系统部门筛选条件。 */
     private Long deptId;
+
+    /** 用户岗位筛选条件。 */
+    private String jobTitle;
 }

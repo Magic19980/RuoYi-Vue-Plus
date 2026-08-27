@@ -12,6 +12,7 @@ import org.dromara.common.mybatis.core.domain.BaseEntity;
 
 import java.io.Serial;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * SCORE提案记录对象 dm_score_proposal。
@@ -32,7 +33,8 @@ public class ScoreProposal extends BaseEntity {
     private Long subCategoryId;
     private Long proposerUserId;
     private String companyName;
-    private String teamMembers;
+    /** 企业参与人员用户ID JSON，姓名从用户管理实时读取。 */
+    private String teamMemberUserIds;
     private String employeeNo;
     private String proposerName;
 
@@ -59,6 +61,15 @@ public class ScoreProposal extends BaseEntity {
     private String reviewStatus;
     private String reviewComment;
     private Long reviewerUserId;
+    private LocalDateTime reviewedAt;
+    private Long reviewFileOssId;
+    private String reviewFileName;
+    private Integer revisionNo;
+    private LocalDateTime submittedAt;
+    private Long submittedBy;
+    private String confirmComment;
+    private Long confirmerUserId;
+    private LocalDateTime confirmedAt;
 
     @Version
     private Long version;

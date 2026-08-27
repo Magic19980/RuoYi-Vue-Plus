@@ -16,6 +16,7 @@ import org.dromara.department.domain.vo.DepartmentReviewRuleVo;
 import org.dromara.department.domain.vo.DepartmentTaskAssignmentVo;
 import org.dromara.department.domain.vo.DepartmentTaskProgressVo;
 import org.dromara.department.domain.vo.DepartmentTaskRuleVo;
+import org.dromara.department.domain.vo.ScoreProposalReviewTaskVo;
 import org.dromara.department.service.IDepartmentTaskService;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -102,6 +103,12 @@ public class DepartmentTaskController extends BaseController {
     @GetMapping("/my")
     public R<List<DepartmentTaskProgressVo>> myTasks() {
         return R.ok(taskService.queryMyTasks());
+    }
+
+    @SaCheckPermission("department:task:list")
+    @GetMapping("/scoreProposal/review-my")
+    public R<List<ScoreProposalReviewTaskVo>> myScoreProposalReviewTasks() {
+        return R.ok(taskService.queryMyScoreProposalReviewTasks());
     }
 
     @SaCheckPermission("department:task:list")

@@ -18,7 +18,7 @@ public class ScoreProposalVo implements Serializable {
     private Long id;
     private Long deptId;
     private String companyName;
-    private String teamMembers;
+    private List<Long> teamMemberUserIds;
     private String employeeNo;
     private String proposerName;
     private String proposerRole;
@@ -43,6 +43,15 @@ public class ScoreProposalVo implements Serializable {
     private String reviewStatus;
     private String reviewComment;
     private Long reviewerUserId;
+    private LocalDateTime reviewedAt;
+    private Long reviewFileOssId;
+    private String reviewFileName;
+    private Integer revisionNo;
+    private LocalDateTime submittedAt;
+    private Long submittedBy;
+    private String confirmComment;
+    private Long confirmerUserId;
+    private LocalDateTime confirmedAt;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

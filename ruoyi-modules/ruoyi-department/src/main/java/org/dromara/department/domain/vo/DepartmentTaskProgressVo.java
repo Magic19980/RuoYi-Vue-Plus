@@ -27,6 +27,7 @@ public class DepartmentTaskProgressVo implements Serializable {
     private LocalDateTime deadline;
     private Integer requiredCount;
     private Integer completedCount;
+    private LocalDateTime completedAt;
     private String status;
     private String statusLabel;
     private String reminderText;
