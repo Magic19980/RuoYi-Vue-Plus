@@ -28,22 +28,21 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
     @Select({
         "<script>",
         "select p.id, p.user_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name,",
-        "d.indonesian_name as dept_indonesian_name, u.employee_no, (select group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') "
-            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
-            + "where sup.user_id = p.user_id) as job_title, (select group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) "
-            + "order by sp.post_sort, sp.post_id separator '、') from sys_user_post sup join sys_post sp "
-            + "on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' where sup.user_id = p.user_id) as job_title_indonesian_name, "
-            + "p.remark, p.join_date, p.leave_date,",
+        "d.indonesian_name as dept_indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name,",
+        "p.remark, p.join_date, p.leave_date,",
         "p.member_type, p.member_status, p.end_reason, p.ended_at",
         "from dm_person_profile p",
         "left join sys_user u on u.user_id = p.user_id and u.del_flag = '0'",
         "left join sys_dept d on d.dept_id = p.create_dept and d.del_flag = '0'",
+        "left join (select sup.user_id, group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') as job_title, "
+            + "group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) order by sp.post_sort, sp.post_id separator '、') as job_title_indonesian_name "
+            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
+            + "group by sup.user_id) post on post.user_id = p.user_id",
         "where p.del_flag = '0'",
         "<if test='bo.id != null'> and p.id = #{bo.id} </if>",
         "<if test='bo.userName != null and bo.userName != \"\"'> and (u.user_name like concat('%', #{bo.userName}, '%') or u.nick_name like concat('%', #{bo.userName}, '%')) </if>",
-        "<if test='bo.jobTitle != null and bo.jobTitle != \"\"'> and exists (select 1 from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id "
-            + "and sp.status = '0' and sp.del_flag = '0' where sup.user_id = p.user_id "
-            + "and sp.post_name like concat('%', #{bo.jobTitle}, '%')) </if>",
+        "<if test='bo.jobTitle != null and bo.jobTitle != \"\"'> and (post.job_title like concat('%', #{bo.jobTitle}, '%') "
+            + "or post.job_title_indonesian_name like concat('%', #{bo.jobTitle}, '%')) </if>",
         "<if test='bo.includeHistory != true'> and p.member_status = 'ACTIVE' and p.join_date &lt;= #{today} and (p.leave_date is null or p.leave_date &gt; #{today}) </if>",
         "<choose>",
         "<when test='scope.all'>",
@@ -62,13 +61,12 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
 
     @Select({
         "<script>",
-        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name, u.employee_no, "
-            + "(select group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') "
-            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
-            + "where sup.user_id = u.user_id) as job_title, (select group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) "
-            + "order by sp.post_sort, sp.post_id separator '、') from sys_user_post sup join sys_post sp "
-            + "on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' where sup.user_id = u.user_id) as job_title_indonesian_name",
+        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name",
         "from sys_user u left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0'",
+        "left join (select sup.user_id, group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') as job_title, "
+            + "group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) order by sp.post_sort, sp.post_id separator '、') as job_title_indonesian_name "
+            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
+            + "group by sup.user_id) post on post.user_id = u.user_id",
         "where u.del_flag = '0' and u.status = '0'",
         "<if test='!scope.all and scope.deptId != null'> and u.dept_id = #{scope.deptId} </if>",
         "order by u.user_name",
@@ -78,13 +76,12 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
 
     @Select({
         "<script>",
-        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name, u.employee_no, "
-            + "(select group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') "
-            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
-            + "where sup.user_id = u.user_id) as job_title, (select group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) "
-            + "order by sp.post_sort, sp.post_id separator '、') from sys_user_post sup join sys_post sp "
-            + "on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' where sup.user_id = u.user_id) as job_title_indonesian_name",
+        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name",
         "from sys_user u left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0'",
+        "left join (select sup.user_id, group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') as job_title, "
+            + "group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) order by sp.post_sort, sp.post_id separator '、') as job_title_indonesian_name "
+            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
+            + "group by sup.user_id) post on post.user_id = u.user_id",
         "where u.del_flag = '0' and u.status = '0' and u.user_name in",
         "<foreach collection='userNames' item='userName' open='(' separator=',' close=')'>#{userName}</foreach>",
         "order by u.user_name",
@@ -94,13 +91,12 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
 
     @Select({
         "<script>",
-        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name, u.employee_no, "
-            + "(select group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') "
-            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
-            + "where sup.user_id = u.user_id) as job_title, (select group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) "
-            + "order by sp.post_sort, sp.post_id separator '、') from sys_user_post sup join sys_post sp "
-            + "on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' where sup.user_id = u.user_id) as job_title_indonesian_name",
+        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name",
         "from sys_user u left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0'",
+        "left join (select sup.user_id, group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') as job_title, "
+            + "group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) order by sp.post_sort, sp.post_id separator '、') as job_title_indonesian_name "
+            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
+            + "group by sup.user_id) post on post.user_id = u.user_id",
         "where u.del_flag = '0' and u.status = '0' and u.user_id in",
         "<foreach collection='userIds' item='userId' open='(' separator=',' close=')'>#{userId}</foreach>",
         "order by u.user_name",
@@ -108,27 +104,25 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
     })
     List<PersonUserOptionVo> selectUserOptionsByIds(@Param("userIds") Collection<Long> userIds);
 
-    @Select("select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, u.employee_no, "
-        + "(select group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') "
-        + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
-        + "where sup.user_id = u.user_id) as job_title, (select group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) "
-        + "order by sp.post_sort, sp.post_id separator '、') from sys_user_post sup join sys_post sp "
-        + "on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' where sup.user_id = u.user_id) as job_title_indonesian_name, "
+    @Select("select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name, "
         + "d.dept_name, d.indonesian_name as dept_indonesian_name "
         + "from sys_user u left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0' "
+        + "left join (select sup.user_id, group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') as job_title, "
+        + "group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) order by sp.post_sort, sp.post_id separator '、') as job_title_indonesian_name "
+        + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
+        + "group by sup.user_id) post on post.user_id = u.user_id "
         + "where u.user_id = #{userId} and u.del_flag = '0' and u.status = '0'")
     PersonUserOptionVo selectUserOptionById(@Param("userId") Long userId);
 
     @Select({
         "<script>",
-        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, u.employee_no, "
-            + "(select group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') "
-            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
-            + "where sup.user_id = u.user_id) as job_title, (select group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) "
-            + "order by sp.post_sort, sp.post_id separator '、') from sys_user_post sup join sys_post sp "
-            + "on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' where sup.user_id = u.user_id) as job_title_indonesian_name, "
+        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name, "
             + "d.dept_name, d.indonesian_name as dept_indonesian_name",
         "from sys_user u left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0'",
+        "left join (select sup.user_id, group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') as job_title, "
+            + "group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) order by sp.post_sort, sp.post_id separator '、') as job_title_indonesian_name "
+            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
+            + "group by sup.user_id) post on post.user_id = u.user_id",
         "where u.del_flag = '0' and u.status = '0'",
         "and not exists (select 1 from dm_person_profile p where p.user_id = u.user_id and p.create_dept = #{targetDeptId} and p.del_flag = '0'",
         "and p.member_status = 'ACTIVE' and p.join_date &lt;= #{today} and (p.leave_date is null or p.leave_date &gt; #{today}))",
@@ -152,13 +146,12 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
     /** SCORE提案企业参与人员选择器使用的全部有效系统用户分页查询，不排除当前科室已有成员。 */
     @Select({
         "<script>",
-        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name, u.employee_no, "
-            + "(select group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') "
-            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
-            + "where sup.user_id = u.user_id) as job_title, (select group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) "
-            + "order by sp.post_sort, sp.post_id separator '、') from sys_user_post sup join sys_post sp "
-            + "on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' where sup.user_id = u.user_id) as job_title_indonesian_name",
+        "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name",
         "from sys_user u left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0'",
+        "left join (select sup.user_id, group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') as job_title, "
+            + "group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) order by sp.post_sort, sp.post_id separator '、') as job_title_indonesian_name "
+            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
+            + "group by sup.user_id) post on post.user_id = u.user_id",
         "where u.del_flag = '0' and u.status = '0'",
         "<if test='!scope.all and scope.deptId != null'> and u.dept_id = #{scope.deptId} </if>",
         "<if test='bo.deptId != null'> and u.dept_id = #{bo.deptId} </if>",
@@ -168,9 +161,8 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
         "or u.employee_no like concat('%', #{bo.keyword}, '%'))",
         "</if>",
         "<if test='bo.jobTitle != null and bo.jobTitle != \"\"'>",
-        "and exists (select 1 from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id "
-            + "and sp.status = '0' and sp.del_flag = '0' where sup.user_id = u.user_id "
-            + "and (sp.post_name like concat('%', #{bo.jobTitle}, '%') or sp.post_indonesian_name like concat('%', #{bo.jobTitle}, '%')))",
+        "and (post.job_title like concat('%', #{bo.jobTitle}, '%') "
+            + "or post.job_title_indonesian_name like concat('%', #{bo.jobTitle}, '%'))",
         "</if>",
         "order by u.user_name",
         "</script>"
@@ -180,27 +172,17 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
                                                         @Param("scope") DepartmentScope scope);
 
     @Select("select distinct u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, u.employee_no, "
-        + "(select group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') "
-        + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
-        + "where sup.user_id = p.user_id) as job_title, (select group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) "
-        + "order by sp.post_sort, sp.post_id separator '、') from sys_user_post sup join sys_post sp "
-        + "on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' where sup.user_id = p.user_id) as job_title_indonesian_name, "
-        + "d.dept_name, d.indonesian_name as dept_indonesian_name "
+        + "post.job_title, post.job_title_indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name "
         + "from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' "
+        + "left join (select sup.user_id, group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') as job_title, "
+        + "group_concat(distinct coalesce(nullif(sp.post_indonesian_name, ''), sp.post_name) order by sp.post_sort, sp.post_id separator '、') as job_title_indonesian_name "
+        + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
+        + "group by sup.user_id) post on post.user_id = u.user_id "
         + "left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0' "
         + "where p.create_dept = #{deptId} and p.del_flag = '0' and p.member_status = 'ACTIVE' "
         + "and p.join_date <= #{today} and (p.leave_date is null or p.leave_date > #{today}) "
         + "and u.status = '0' order by u.user_name")
     List<PersonUserOptionVo> selectMemberUserOptions(@Param("deptId") Long deptId, @Param("today") LocalDate today);
-
-    /** 统计指定月份内与科室存在有效服务关系的去重人员数。 */
-    @Select("select count(distinct p.user_id) from dm_person_profile p "
-        + "join sys_user u on u.user_id = p.user_id and u.del_flag = '0' and u.status = '0' "
-        + "where p.create_dept = #{deptId} and p.del_flag = '0' "
-        + "and p.join_date <= #{monthEnd} and (p.leave_date is null or p.leave_date > #{monthStart})")
-    int countMembersInMonth(@Param("deptId") Long deptId,
-                            @Param("monthStart") LocalDate monthStart,
-                            @Param("monthEnd") LocalDate monthEnd);
 
     @Select({
         "<script>",

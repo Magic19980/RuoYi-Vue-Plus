@@ -10,8 +10,11 @@ import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.department.domain.DepartmentReviewRule;
 import org.dromara.department.domain.PersonProfile;
 import org.dromara.department.domain.DepartmentTaskAssignment;
+import org.dromara.department.domain.DepartmentEntityStatus;
 import org.dromara.department.domain.DepartmentTaskInstance;
 import org.dromara.department.domain.DepartmentTaskRule;
+import org.dromara.department.domain.DepartmentTaskStatus;
+import org.dromara.department.domain.DepartmentTaskType;
 import org.dromara.department.domain.bo.DepartmentReviewRuleBo;
 import org.dromara.department.domain.bo.DepartmentTaskAssignmentBo;
 import org.dromara.department.domain.bo.DepartmentTaskRuleBo;
@@ -61,12 +64,6 @@ import java.util.stream.Collectors;
 @Service
 public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
 
-    private static final String ENABLED = "ENABLED";
-    private static final String DISABLED = "DISABLED";
-    private static final String SCORE = "SCORE_PROPOSAL";
-    private static final String FIVE_WHY = "FIVE_WHY";
-    private static final String DAILY = "DAILY_REPORT";
-
     private final DepartmentReviewRuleMapper reviewRuleMapper;
     private final DepartmentTaskRuleMapper taskRuleMapper;
     private final DepartmentTaskAssignmentMapper assignmentMapper;
@@ -104,7 +101,7 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         if (entity.getId() == null) {
             entity.setDeptId(deptId);
         }
-        boolean daily = DAILY.equals(bo.getTaskType());
+        boolean daily = DepartmentTaskType.DAILY_REPORT.equals(bo.getTaskType());
         entity.setTaskName(StringUtils.trim(bo.getTaskName()));
         entity.setTaskType(bo.getTaskType());
         entity.setCycleType(daily ? "DAY" : bo.getCycleType());
@@ -115,7 +112,7 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         entity.setRemindHours(daily ? 0 : (bo.getRemindHours() == null ? 24 : Math.max(0, bo.getRemindHours())));
         entity.setEffectiveStart(bo.getEffectiveStart());
         entity.setEffectiveEnd(bo.getEffectiveEnd());
-        entity.setStatus(StringUtils.isBlank(bo.getStatus()) ? ENABLED : bo.getStatus());
+        entity.setStatus(StringUtils.isBlank(bo.getStatus()) ? DepartmentEntityStatus.ENABLED : bo.getStatus());
         entity.setRemark(bo.getRemark());
         return entity.getId() == null ? taskRuleMapper.insert(entity) > 0 : taskRuleMapper.updateById(entity) > 0;
     }
@@ -189,14 +186,14 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         entity.setUserId(bo.getUserId());
         entity.setEffectiveStart(effectiveStart);
         entity.setEffectiveEnd(effectiveEnd);
-        if (DAILY.equals(rule.getTaskType())) {
+        if (DepartmentTaskType.DAILY_REPORT.equals(rule.getTaskType())) {
             entity.setWorkDays(normalizeWorkDays(bo.getWorkDays()));
             entity.setReminderTime(bo.getReminderTime() == null ? LocalTime.of(18, 0) : bo.getReminderTime());
         } else {
             entity.setWorkDays(null);
             entity.setReminderTime(null);
         }
-        entity.setStatus(StringUtils.isBlank(bo.getStatus()) ? ENABLED : bo.getStatus());
+        entity.setStatus(StringUtils.isBlank(bo.getStatus()) ? DepartmentEntityStatus.ENABLED : bo.getStatus());
         entity.setRemark(bo.getRemark());
         try {
             return entity.getId() == null ? assignmentMapper.insert(entity) > 0 : assignmentMapper.updateById(entity) > 0;
@@ -215,29 +212,61 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     public List<DepartmentTaskProgressVo> queryMyTasks() {
         Long userId = LoginHelper.getUserId();
         LocalDate today = LocalDate.now();
+        LocalDate monthStart = today.with(TemporalAdjusters.firstDayOfMonth());
         List<DepartmentTaskProgressVo> result = new ArrayList<>();
         Long deptId = currentDeptId();
-        Map<Long, PersonUserOptionVo> users = userMapForDept(deptId);
-        Set<Long> activeMemberIds = new HashSet<>(assignmentMapper.selectActiveUserIdsInDept(deptId));
-        List<DepartmentTaskAssignment> assignments = assignmentMapper.selectActiveByUserId(userId, deptId, today);
+        // 首页只查询当前登录人的任务，日报还要回溯本月已过期但未提交的工作日。
+        // 查询时间范围内曾经有效的分配，具体某一天是否需要填报仍由 isWorkday 按当天规则判断。
+        List<DepartmentTaskAssignment> assignments = assignmentMapper.selectByUserIdInPeriod(
+            userId, deptId, monthStart, today);
+        if (assignments.isEmpty()) {
+            return result;
+        }
+        PersonUserOptionVo currentUser = personProfileMapper.selectUserOptionById(userId);
         Set<Long> ruleIds = assignments.stream().map(DepartmentTaskAssignment::getRuleId).filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, DepartmentTaskRule> rules = ruleIds.isEmpty() ? Map.of() : taskRuleMapper.selectBatchIds(ruleIds).stream()
             .collect(Collectors.toMap(DepartmentTaskRule::getId, item -> item, (left, right) -> left));
         for (DepartmentTaskAssignment assignment : assignments) {
-            if (assignment.getDeptId() == null || !activeMemberIds.contains(userId)) {
+            if (assignment.getDeptId() == null || !Objects.equals(assignment.getDeptId(), deptId)) {
                 continue;
             }
             DepartmentTaskRule rule = rules.get(assignment.getRuleId());
-            if (rule == null || !ENABLED.equals(rule.getStatus())) {
+            if (rule == null || !DepartmentEntityStatus.ENABLED.equals(rule.getStatus())) {
                 continue;
             }
-            if (!isRuleEffective(rule, today)) {
+            if (DepartmentTaskType.DAILY_REPORT.equals(rule.getTaskType())) {
+                LocalDate start = monthStart;
+                if (rule.getEffectiveStart() != null && rule.getEffectiveStart().isAfter(start)) {
+                    start = rule.getEffectiveStart();
+                }
+                if (assignment.getEffectiveStart() != null && assignment.getEffectiveStart().isAfter(start)) {
+                    start = assignment.getEffectiveStart();
+                }
+                LocalDate end = today;
+                if (rule.getEffectiveEnd() != null && rule.getEffectiveEnd().isBefore(end)) {
+                    end = rule.getEffectiveEnd();
+                }
+                if (assignment.getEffectiveEnd() != null && assignment.getEffectiveEnd().isBefore(end)) {
+                    end = assignment.getEffectiveEnd();
+                }
+                for (LocalDate taskDate = start; !taskDate.isAfter(end); taskDate = taskDate.plusDays(1)) {
+                    if (!isRuleEffective(rule, taskDate) || !isAssignmentEffective(assignment, taskDate)
+                        || !dailyCalendarService.isWorkday(rule.getDeptId(), userId, taskDate)) {
+                        continue;
+                    }
+                    DepartmentTaskProgressVo progress = buildProgress(
+                        rule, assignment, userId, currentUser, taskDate, false);
+                    // 今天的任务继续展示；历史日报只保留未完成的逾期任务，避免把整月已完成日报堆进“我的任务”。
+                    if (taskDate.equals(today) || DepartmentTaskStatus.OVERDUE.equals(progress.getStatus())) {
+                        result.add(progress);
+                    }
+                }
                 continue;
             }
-            if (DAILY.equals(rule.getTaskType()) && !dailyCalendarService.isWorkday(rule.getDeptId(), userId, today)) {
+            if (!isRuleEffective(rule, today) || !isAssignmentEffective(assignment, today)) {
                 continue;
             }
-            result.add(buildProgress(rule, assignment, userId, users.get(userId), today));
+            result.add(buildProgress(rule, assignment, userId, currentUser, today, false));
         }
         return result;
     }
@@ -274,7 +303,8 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     @Transactional(rollbackFor = Exception.class)
     public Boolean saveReviewRule(DepartmentReviewRuleBo bo) {
         Long deptId = requireDept();
-        if (!SCORE.equals(bo.getTaskType()) && !FIVE_WHY.equals(bo.getTaskType())) {
+        if (!DepartmentTaskType.SCORE_PROPOSAL.equals(bo.getTaskType())
+            && !DepartmentTaskType.FIVE_WHY.equals(bo.getTaskType())) {
             throw new ServiceException("不支持的审核业务类型");
         }
         if (bo.getReviewerUserId() == null || assignmentMapper.countUserInDept(bo.getReviewerUserId(), deptId) == 0) {
@@ -290,7 +320,7 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         entity.setBackupReviewerUserId(bo.getBackupReviewerUserId());
         entity.setEffectiveStart(bo.getEffectiveStart());
         entity.setEffectiveEnd(bo.getEffectiveEnd());
-        entity.setStatus(StringUtils.isBlank(bo.getStatus()) ? ENABLED : bo.getStatus());
+        entity.setStatus(StringUtils.isBlank(bo.getStatus()) ? DepartmentEntityStatus.ENABLED : bo.getStatus());
         entity.setRemark(bo.getRemark());
         try {
             return entity.getId() == null ? reviewRuleMapper.insert(entity) > 0 : reviewRuleMapper.updateById(entity) > 0;
@@ -356,11 +386,12 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
                 if (!isAssignmentEffective(assignment, today)) continue;
                 if (!Objects.equals(assignment.getDeptId(), rule.getDeptId())
                     || !activeMemberIds.contains(assignment.getUserId())) continue;
-                if (DAILY.equals(rule.getTaskType()) && !dailyCalendarService.isWorkday(rule.getDeptId(), assignment.getUserId(), today)) continue;
-                DepartmentTaskProgressVo progress = buildProgress(rule, assignment, assignment.getUserId(), users.get(assignment.getUserId()), today);
-                if ("COMPLETED".equals(progress.getStatus())) continue;
+                if (DepartmentTaskType.DAILY_REPORT.equals(rule.getTaskType())
+                    && !dailyCalendarService.isWorkday(rule.getDeptId(), assignment.getUserId(), today)) continue;
+                DepartmentTaskProgressVo progress = buildProgress(rule, assignment, assignment.getUserId(), users.get(assignment.getUserId()), today, true);
+                if (DepartmentTaskStatus.COMPLETED.equals(progress.getStatus())) continue;
                 LocalDateTime now = LocalDateTime.now();
-                LocalDateTime remindAt = DAILY.equals(rule.getTaskType())
+                LocalDateTime remindAt = DepartmentTaskType.DAILY_REPORT.equals(rule.getTaskType())
                     ? progress.getDeadline()
                     : progress.getDeadline().minusHours(rule.getRemindHours() == null ? 24 : rule.getRemindHours());
                 String type = now.isAfter(progress.getDeadline()) ? "OVERDUE" : "BEFORE";
@@ -368,7 +399,7 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
                     continue;
                 }
                 String name = users.get(assignment.getUserId()) == null ? "您" : users.get(assignment.getUserId()).getNickName();
-                String message = DAILY.equals(rule.getTaskType())
+                String message = DepartmentTaskType.DAILY_REPORT.equals(rule.getTaskType())
                     ? name + "，请填写今日日报。" + ("OVERDUE".equals(type) ? "已超过今日提醒时间，请尽快补填。" : "请按时完成。")
                     : name + "，" + rule.getTaskName() + "本周期要求完成" + rule.getRequiredCount() + "次，当前完成" + progress.getCompletedCount() + "次。" + ("OVERDUE".equals(type) ? "已超过截止时间，请尽快补齐。" : "请按时完成。 ");
                 PushPayloadDTO payload = PushPayloadDTO.of("MESSAGE", "BACKEND", message, null);
@@ -378,8 +409,16 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         }
     }
 
-    private DepartmentTaskProgressVo buildProgress(DepartmentTaskRule rule, DepartmentTaskAssignment assignment, Long userId, PersonUserOptionVo user, LocalDate today) {
-        boolean daily = DAILY.equals(rule.getTaskType());
+    /**
+     * 组装任务进度。
+     *
+     * <p>用户查询只计算实时进度，不创建实例、不同步完成明细；定时提醒才执行
+     * 实例和完成明细的持久化对账，避免普通页面查询产生写放大。</p>
+     */
+    private DepartmentTaskProgressVo buildProgress(DepartmentTaskRule rule, DepartmentTaskAssignment assignment,
+                                                   Long userId, PersonUserOptionVo user, LocalDate today,
+                                                   boolean synchronize) {
+        boolean daily = DepartmentTaskType.DAILY_REPORT.equals(rule.getTaskType());
         Period period = daily ? new Period(today, today) : periodOf(rule.getCycleType(), today);
         int required = daily ? 1 : (rule.getRequiredCount() == null ? 1 : rule.getRequiredCount());
         LocalDate deadlineDate = daily ? today : (rule.getDeadlineDay() == null || rule.getDeadlineDay() <= 0
@@ -389,20 +428,28 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
             ? (assignment.getReminderTime() == null ? LocalTime.of(18, 0) : assignment.getReminderTime())
             : (rule.getDeadlineTime() == null ? LocalTime.of(18, 0) : rule.getDeadlineTime());
         LocalDateTime deadline = LocalDateTime.of(deadlineDate, deadlineTime);
-        DepartmentTaskInstance instance = ensureInstance(rule, assignment, userId, period, deadline, required);
+        DepartmentTaskInstance instance = synchronize
+            ? ensureInstance(rule, assignment, userId, period, deadline, required)
+            : instanceMapper.selectActive(rule.getId(), userId, period.start());
         List<Long> sourceIds = sourceIds(rule, userId, period, today);
-        syncCompletions(instance, rule.getTaskType(), sourceIds);
+        if (synchronize && instance != null) {
+            syncCompletions(instance, rule.getTaskType(), sourceIds);
+        }
         int completed = sourceIds.size();
-        instance.setCompletedCount(completed);
-        String status = completed >= required ? "COMPLETED" : LocalDateTime.now().isAfter(deadline) ? "OVERDUE" : completed > 0 ? "IN_PROGRESS" : "NOT_STARTED";
-        instance.setStatus(status);
-        LocalDateTime completedAt = "COMPLETED".equals(status)
+        String status = completed >= required ? DepartmentTaskStatus.COMPLETED
+            : LocalDateTime.now().isAfter(deadline) ? DepartmentTaskStatus.OVERDUE
+            : completed > 0 ? DepartmentTaskStatus.IN_PROGRESS : DepartmentTaskStatus.NOT_STARTED;
+        LocalDateTime completedAt = instance != null && DepartmentTaskStatus.COMPLETED.equals(status)
             ? completionMapper.selectLatestCompletedAt(instance.getId()) : null;
-        instance.setCompletedAt(completedAt);
-        instanceMapper.updateById(instance);
+        if (synchronize && instance != null) {
+            instance.setCompletedCount(completed);
+            instance.setStatus(status);
+            instance.setCompletedAt(completedAt);
+            instanceMapper.updateById(instance);
+        }
         DepartmentTaskProgressVo vo = new DepartmentTaskProgressVo();
         vo.setRuleId(rule.getId());
-        vo.setInstanceId(instance.getId());
+        vo.setInstanceId(instance == null ? null : instance.getId());
         vo.setAssignmentId(assignment.getId());
         vo.setUserId(userId);
         vo.setUserName(user == null ? String.valueOf(userId) : (StringUtils.isBlank(user.getNickName()) ? user.getUserName() : user.getNickName()));
@@ -416,7 +463,12 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         vo.setCompletedCount(completed);
         vo.setCompletedAt(completedAt);
         vo.setStatus(status);
-        vo.setStatusLabel(switch (status) { case "COMPLETED" -> "已完成"; case "OVERDUE" -> "已逾期"; case "IN_PROGRESS" -> "进行中"; default -> "未开始"; });
+        vo.setStatusLabel(switch (status) {
+            case DepartmentTaskStatus.COMPLETED -> "已完成";
+            case DepartmentTaskStatus.OVERDUE -> "已逾期";
+            case DepartmentTaskStatus.IN_PROGRESS -> "进行中";
+            default -> "未开始";
+        });
         vo.setReminderText(daily ? "今日提醒 " + deadline.toLocalTime() : "截止 " + deadline.toLocalDate() + " " + deadline.toLocalTime());
         return vo;
     }
@@ -439,7 +491,7 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
         instance.setDeadline(deadline);
         instance.setRequiredCount(required);
         instance.setCompletedCount(0);
-        instance.setStatus("NOT_STARTED");
+        instance.setStatus(DepartmentTaskStatus.NOT_STARTED);
         instance.setGeneratedAt(LocalDateTime.now());
         try {
             instanceMapper.insert(instance);
@@ -452,11 +504,11 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
 
     private List<Long> sourceIds(DepartmentTaskRule rule, Long userId, Period period, LocalDate today) {
         LocalDate end = period.end().isAfter(today) ? today : period.end();
-        boolean approved = "APPROVED".equals(rule.getCountMode());
+        boolean approved = org.dromara.department.domain.ScoreProposalStatus.APPROVED.equals(rule.getCountMode());
         return switch (rule.getTaskType()) {
-            case SCORE -> taskMapper.selectScoreIds(rule.getDeptId(), userId, period.start(), end, approved);
-            case FIVE_WHY -> taskMapper.selectFiveWhyIds(rule.getDeptId(), userId, period.start(), end, approved);
-            case DAILY -> taskMapper.selectDailyReportIds(rule.getDeptId(), userId, period.start(), end);
+            case DepartmentTaskType.SCORE_PROPOSAL -> taskMapper.selectScoreIds(rule.getDeptId(), userId, period.start(), end, approved);
+            case DepartmentTaskType.FIVE_WHY -> taskMapper.selectFiveWhyIds(rule.getDeptId(), userId, period.start(), end, approved);
+            case DepartmentTaskType.DAILY_REPORT -> taskMapper.selectDailyReportIds(rule.getDeptId(), userId, period.start(), end);
             default -> List.of();
         };
     }
@@ -585,8 +637,8 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     }
 
     private void validateRule(DepartmentTaskRuleBo bo) {
-        if (!List.of(SCORE, FIVE_WHY, DAILY).contains(bo.getTaskType())) throw new ServiceException("不支持的任务类型");
-        if (DAILY.equals(bo.getTaskType())) {
+        if (!List.of(DepartmentTaskType.SCORE_PROPOSAL, DepartmentTaskType.FIVE_WHY, DepartmentTaskType.DAILY_REPORT).contains(bo.getTaskType())) throw new ServiceException("不支持的任务类型");
+        if (DepartmentTaskType.DAILY_REPORT.equals(bo.getTaskType())) {
             if (bo.getCycleType() != null && !List.of("DAY", "MONTH").contains(bo.getCycleType())) {
                 throw new ServiceException("日报任务只能按工作日逐日执行");
             }
@@ -598,11 +650,7 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     }
 
     private Long requireDept() {
-        Long deptId = currentDeptId();
-        if (deptId == null) {
-            throw new ServiceException("当前登录用户缺少部门信息，无法维护任务配置");
-        }
-        return deptId;
+        return departmentAccessService.requireCurrentDept("当前登录用户缺少部门信息，无法维护任务配置");
     }
 
     private Long currentDeptId() {
@@ -610,7 +658,8 @@ public class DepartmentTaskServiceImpl implements IDepartmentTaskService {
     }
 
     private String taskTypeLabel(String type) {
-        return SCORE.equals(type) ? "SCORE提案" : FIVE_WHY.equals(type) ? "5WHY" : type;
+        return DepartmentTaskType.SCORE_PROPOSAL.equals(type) ? "SCORE提案"
+            : DepartmentTaskType.FIVE_WHY.equals(type) ? "5WHY" : type;
     }
 
     private record Period(LocalDate start, LocalDate end) { }

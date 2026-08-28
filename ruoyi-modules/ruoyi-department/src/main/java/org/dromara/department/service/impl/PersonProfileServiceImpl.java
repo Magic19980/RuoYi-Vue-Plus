@@ -8,6 +8,7 @@ import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.department.domain.PersonProfile;
 import org.dromara.department.domain.PersonProfileEvent;
+import org.dromara.department.domain.DepartmentMemberStatus;
 import org.dromara.department.domain.bo.PersonProfileBo;
 import org.dromara.department.domain.bo.PersonProfileBatchBo;
 import org.dromara.department.domain.bo.PersonProfileEndBo;
@@ -48,6 +49,7 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
 
     private static final String DEPT_VIEW_PERMISSION = "department:person:viewDept";
     private static final long MAX_EXPORT_ROWS = 50_000L;
+    private static final long MAX_USER_OPTION_PAGE_SIZE = 100L;
 
     private final PersonProfileMapper personProfileMapper;
     private final DepartmentConfigMapper departmentConfigMapper;
@@ -91,6 +93,7 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
     @Override
     public PageResult<PersonUserOptionVo> queryUserOptionsPage(PersonUserOptionQueryBo bo, PageQuery pageQuery) {
         Page<PersonUserOptionVo> page = pageQuery.build();
+        page.setSize(normalizeUserOptionPageSize(page.getSize()));
         Page<PersonUserOptionVo> result = personProfileMapper.selectUserOptionsPage(
             page,
             bo,
@@ -99,6 +102,11 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
             LocalDate.now()
         );
         return PageResult.build(result.getRecords(), result.getTotal());
+    }
+
+    /** 人员选择器最多返回一页 100 条，防止漏传分页参数时退化为全量查询。 */
+    private long normalizeUserOptionPageSize(long pageSize) {
+        return pageSize <= 0 ? MAX_USER_OPTION_PAGE_SIZE : Math.min(pageSize, MAX_USER_OPTION_PAGE_SIZE);
     }
 
     @Override
@@ -111,13 +119,14 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         if (LoginHelper.isSuperAdmin()) {
             return querySuperAdminDepartments();
         }
-        membershipSyncService.syncMainDepartment(LoginHelper.getUserId(), LoginHelper.getMainDeptId());
+        membershipSyncService.syncMainDepartmentIfNeeded(LoginHelper.getUserId(), LoginHelper.getMainDeptId());
         List<PersonDepartmentContextVo> contexts = personProfileMapper.selectCurrentDepartmentContexts(LoginHelper.getUserId(), LocalDate.now());
         Long currentDeptId = LoginHelper.getDeptId();
         // 只有一个有效关系且系统主部门已失效时，可以安全自动切换；多个关系必须由用户明确选择。
         if (contexts.size() == 1 && !Objects.equals(currentDeptId, contexts.get(0).getDeptId())) {
             PersonDepartmentContextVo context = contexts.get(0);
             LoginHelper.setActiveDept(context.getDeptId(), context.getDeptName(), context.getMemberType());
+            departmentAccessService.clearRequestCache();
             currentDeptId = context.getDeptId();
         }
         for (PersonDepartmentContextVo context : contexts) {
@@ -134,6 +143,7 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
                 .findFirst()
                 .orElseThrow(() -> new ServiceException("目标科室未启用或不存在，不能切换科室上下文"));
             LoginHelper.setActiveDept(target.getDeptId(), target.getDeptName(), target.getMemberType());
+            departmentAccessService.clearRequestCache();
             target.setCurrent(true);
             return target;
         }
@@ -143,6 +153,7 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
             .findFirst()
             .orElseThrow(() -> new ServiceException("您当前未纳入该科室，不能切换科室上下文"));
         LoginHelper.setActiveDept(target.getDeptId(), target.getDeptName(), target.getMemberType());
+        departmentAccessService.clearRequestCache();
         target.setCurrent(true);
         return target;
     }
@@ -163,6 +174,7 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         if (!currentAvailable) {
             DepartmentConfigVo first = departments.get(0);
             LoginHelper.setActiveDept(first.getDeptId(), first.getDeptName(), null);
+            departmentAccessService.clearRequestCache();
             currentDeptId = first.getDeptId();
         }
         Long selectedDeptId = currentDeptId;
@@ -255,7 +267,7 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         }
         for (Long id : ids) {
             PersonProfile entity = getAccessible(id);
-            if (!"ENDED".equals(entity.getMemberStatus())) {
+            if (!DepartmentMemberStatus.ENDED.equals(entity.getMemberStatus())) {
                 endMembershipInternal(entity, LocalDate.now(), "手动移出科室");
             }
         }
@@ -267,7 +279,7 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
     public Boolean endMembership(Long id, PersonProfileEndBo bo) {
         PersonProfile entity = getAccessible(id);
         validatePeriod(entity.getJoinDate(), bo.getLeaveDate());
-        if ("ENDED".equals(entity.getMemberStatus()) && Objects.equals(entity.getLeaveDate(), bo.getLeaveDate())) {
+        if (DepartmentMemberStatus.ENDED.equals(entity.getMemberStatus()) && Objects.equals(entity.getLeaveDate(), bo.getLeaveDate())) {
             return true;
         }
         endMembershipInternal(entity, bo.getLeaveDate(), bo.getReason());
@@ -320,7 +332,7 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
                 entity.setCreateDept(targetDeptId);
                 entity.setJoinDate(joinDate);
                 entity.setMemberType(memberType);
-                entity.setMemberStatus("ACTIVE");
+                entity.setMemberStatus(DepartmentMemberStatus.ACTIVE);
                 entity.setMemberSource("MANUAL");
                 personProfileMapper.insert(entity);
                 recordEvent(entity, "JOIN", joinDate, "人工导入科室", LoginHelper.getUserId());
@@ -340,8 +352,9 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         }
         entity.setMemberType(memberType);
         entity.setRemark(org.dromara.common.core.utils.StringUtils.trim(bo.getRemark()));
-        entity.setMemberStatus(bo.getLeaveDate() != null && !bo.getLeaveDate().isAfter(LocalDate.now()) ? "ENDED" : "ACTIVE");
-        if (!"ENDED".equals(entity.getMemberStatus())) {
+        entity.setMemberStatus(bo.getLeaveDate() != null && !bo.getLeaveDate().isAfter(LocalDate.now())
+            ? DepartmentMemberStatus.ENDED : DepartmentMemberStatus.ACTIVE);
+        if (!DepartmentMemberStatus.ENDED.equals(entity.getMemberStatus())) {
             entity.setEndedAt(null);
             entity.setEndedBy(null);
             entity.setEndReason(null);
@@ -353,11 +366,11 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         entity.setLeaveDate(leaveDate);
         entity.setEndReason(org.dromara.common.core.utils.StringUtils.trim(reason));
         if (!leaveDate.isAfter(LocalDate.now())) {
-            entity.setMemberStatus("ENDED");
+            entity.setMemberStatus(DepartmentMemberStatus.ENDED);
             entity.setEndedAt(LocalDateTime.now());
             entity.setEndedBy(LoginHelper.getUserId());
         } else {
-            entity.setMemberStatus("ACTIVE");
+            entity.setMemberStatus(DepartmentMemberStatus.ACTIVE);
             entity.setEndedAt(null);
             entity.setEndedBy(null);
         }
@@ -413,11 +426,7 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
     }
 
     private Long requireTargetDept() {
-        Long deptId = departmentAccessService.currentDeptId();
-        if (deptId == null) {
-            throw new ServiceException("当前登录用户缺少科室信息");
-        }
-        return deptId;
+        return departmentAccessService.requireCurrentDept("当前登录用户缺少科室信息");
     }
 
     private PersonProfile getAccessible(Long id) {

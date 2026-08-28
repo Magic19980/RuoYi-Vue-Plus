@@ -26,12 +26,16 @@ public class DailyCalendarOverride extends BaseEntity {
 
     private Long deptId;
 
-    /** 调休人员；休息日为科室统一规则时为空。 */
+    /** 目标人员；为空表示全科室生效。 */
     private Long userId;
 
     private LocalDate calendarDate;
 
+    /** 日期例外类型字典值（dm_date_exception）。 */
     private String dayType;
+
+    /** 是否需要填写日报（true 是，false 否）。 */
+    private Boolean needReport;
 
     private String remark;
 

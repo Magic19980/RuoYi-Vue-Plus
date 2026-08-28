@@ -43,6 +43,7 @@ create table if not exists dm_person_profile (
     primary key (id),
     key idx_dm_person_profile_create_dept (create_dept),
     key idx_dm_person_profile_service_period (create_dept, member_status, join_date, leave_date),
+    key idx_dm_person_profile_service_active (create_dept, member_status, del_flag, join_date, leave_date),
     key idx_dm_person_profile_user_dept_period (user_id, create_dept, del_flag, join_date, leave_date)
 ) engine=innodb comment='科室人员扩展信息';
 
@@ -98,9 +99,10 @@ create table if not exists dm_daily_report (
 create table if not exists dm_daily_calendar_override (
     id                  bigint(20)      not null comment '主键',
     dept_id             bigint(20)      not null comment '科室ID',
-    user_id             bigint(20)      default null comment '调休上班人员ID；科室统一休息日为空',
+    user_id             bigint(20)      default null comment '目标人员ID；为空表示全体成员生效',
     calendar_date       date            not null comment '例外日期',
-    day_type            varchar(20)     not null comment '日期类型（WORKDAY调休上班 REST休息）',
+    day_type            varchar(50)     not null comment '日期例外类型字典值（dm_date_exception）',
+    need_report         tinyint(1)      not null default 0 comment '是否需要填写日报（1是 0否）',
     remark              varchar(500)    default null comment '日期说明',
     version             bigint(20)      default 0 comment '版本号',
     create_dept         bigint(20)      default null comment '创建部门',
@@ -113,7 +115,7 @@ create table if not exists dm_daily_calendar_override (
     unique key uk_dm_daily_calendar_override_user_date (dept_id, calendar_date, user_id),
     key idx_dm_daily_calendar_override_range (dept_id, calendar_date)
 ) engine=innodb comment='科室日报日期例外规则';
--- REST 为科室统一休息日（user_id 为空），WORKDAY 必须绑定具体人员。
+-- user_id 为空表示全体成员生效；day_type 使用 dm_date_exception 字典，是否生成日报由 need_report 决定。
 
 create table if not exists dm_daily_leave (
     id                  bigint(20)      not null comment '主键',
@@ -121,7 +123,7 @@ create table if not exists dm_daily_leave (
     user_id             bigint(20)      not null comment '人员ID',
     start_date          date            not null comment '休假开始日期',
     end_date            date            not null comment '休假结束日期',
-    leave_type          varchar(50)     not null default '休假' comment '休假类型',
+    leave_type          varchar(50)     not null default '休假' comment '休假类型字典值（dm_leave_type）',
     reason              varchar(500)    default null comment '休假说明',
     status              varchar(20)     not null default 'ENABLED' comment '状态（ENABLED生效 CANCELLED取消）',
     version             bigint(20)      default 0 comment '版本号',
@@ -133,7 +135,8 @@ create table if not exists dm_daily_leave (
     del_flag             char(1)        default '0' comment '删除标志（0存在 1删除）',
     primary key (id),
     key idx_dm_daily_leave_user_range (user_id, start_date, end_date),
-    key idx_dm_daily_leave_dept_range (dept_id, start_date, end_date)
+    key idx_dm_daily_leave_dept_range (dept_id, start_date, end_date),
+    key idx_dm_daily_leave_dept_active_range (dept_id, status, del_flag, start_date, end_date)
 ) engine=innodb comment='科室人员休假安排';
 
 create table if not exists dm_daily_report_attachment (
@@ -630,7 +633,8 @@ create table if not exists dm_department_task_rule (
     update_time                 datetime        default null comment '更新时间',
     del_flag                    char(1)         default '0' comment '删除标志（0存在 1删除）',
     primary key (id),
-    key idx_dm_task_rule_dept_status (dept_id, status, task_type)
+    key idx_dm_task_rule_dept_status (dept_id, status, task_type),
+    key idx_dm_task_rule_dept_active (dept_id, status, del_flag, task_type)
 ) engine=innodb comment='科室周期任务规则';
 
 -- 任务分配：只有被分配到规则的成员才产生该任务要求。
@@ -655,7 +659,9 @@ create table if not exists dm_department_task_assignment (
     primary key (id),
     unique key uk_dm_task_assignment_rule_user (rule_id, user_id, del_flag),
     key idx_dm_task_assignment_user (dept_id, user_id, status),
-    key idx_dm_task_assignment_rule_status (rule_id, status, del_flag)
+    key idx_dm_task_assignment_rule_status (rule_id, status, del_flag),
+    key idx_dm_task_assignment_user_active (user_id, dept_id, status, del_flag, effective_start, effective_end),
+    key idx_dm_task_assignment_dept_active (dept_id, status, del_flag, effective_start, effective_end, user_id)
 ) engine=innodb comment='科室周期任务成员分配';
 
 -- 提醒去重记录，避免定时任务重复给同一成员发送相同周期提醒。

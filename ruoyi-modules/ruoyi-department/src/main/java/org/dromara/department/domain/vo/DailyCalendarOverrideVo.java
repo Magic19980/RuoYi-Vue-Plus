@@ -19,5 +19,6 @@ public class DailyCalendarOverrideVo implements Serializable {
     private String nickName;
     private LocalDate calendarDate;
     private String dayType;
+    private Boolean needReport;
     private String remark;
 }

@@ -45,6 +45,13 @@ public class DailyCalendarController extends BaseController {
         return R.ok(dailyCalendarService.queryCalendar(month));
     }
 
+    /** 首页只需要今日成员状态，避免加载整月成员×日期的完整日历。 */
+    @SaCheckPermission("department:dailyReport:query")
+    @GetMapping("/today")
+    public R<DailyCalendarVo> todayCalendar() {
+        return R.ok(dailyCalendarService.queryTodayCalendar());
+    }
+
     @SaCheckPermission("department:dailyReport:query")
     @GetMapping("/override/list")
     public R<List<DailyCalendarOverrideVo>> overrideList(

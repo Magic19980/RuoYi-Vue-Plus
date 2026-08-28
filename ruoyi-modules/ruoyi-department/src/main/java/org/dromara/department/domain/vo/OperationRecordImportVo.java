@@ -4,6 +4,7 @@ import lombok.Data;
 import org.apache.fesod.sheet.annotation.ExcelIgnoreUnannotated;
 import org.apache.fesod.sheet.annotation.ExcelProperty;
 import org.apache.fesod.sheet.annotation.format.DateTimeFormat;
+import org.dromara.department.domain.converter.OperationRecordDateTimeConverter;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -28,18 +29,18 @@ public class OperationRecordImportVo implements Serializable {
     @ExcelProperty("请求岗位类型")
     private String requestRoleType;
 
-    @ExcelProperty("请求时间")
+    @ExcelProperty(value = "请求时间", converter = OperationRecordDateTimeConverter.class)
     @DateTimeFormat("yyyy-MM-dd HH:mm:ss")
     private LocalDateTime requestTime;
 
     @ExcelProperty("处理人")
     private String handler;
 
-    @ExcelProperty("处理时间")
+    @ExcelProperty(value = "处理时间", converter = OperationRecordDateTimeConverter.class)
     @DateTimeFormat("yyyy-MM-dd HH:mm:ss")
     private LocalDateTime processTime;
 
-    @ExcelProperty("完成时间")
+    @ExcelProperty(value = "完成时间", converter = OperationRecordDateTimeConverter.class)
     @DateTimeFormat("yyyy-MM-dd HH:mm:ss")
     private LocalDateTime completionTime;
 

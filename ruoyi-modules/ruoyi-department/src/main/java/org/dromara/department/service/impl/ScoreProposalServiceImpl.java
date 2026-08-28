@@ -11,8 +11,10 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.department.domain.ScoreCategory;
+import org.dromara.department.domain.DepartmentEntityStatus;
 import org.dromara.department.domain.ScoreProposal;
 import org.dromara.department.domain.ScoreProposalReviewTask;
+import org.dromara.department.domain.ScoreProposalStatus;
 import org.dromara.department.domain.bo.ScoreProposalBo;
 import org.dromara.department.domain.bo.ScoreProposalQueryBo;
 import org.dromara.department.domain.bo.ScoreProposalReviewBo;
@@ -63,11 +65,7 @@ import java.time.format.DateTimeParseException;
 @Service
 public class ScoreProposalServiceImpl implements IScoreProposalService {
 
-    private static final String REVIEW_PENDING = "PENDING";
-    private static final String REVIEW_DRAFT = "DRAFT";
-    private static final String REVIEW_PENDING_CONFIRM = "PENDING_CONFIRM";
-    private static final String REVIEW_APPROVED = "APPROVED";
-    private static final String REVIEW_REJECTED = "REJECTED";
+    private static final long MAX_USER_OPTION_PAGE_SIZE = 100L;
 
     private final ScoreProposalMapper scoreProposalMapper;
     private final ScoreCategoryMapper scoreCategoryMapper;
@@ -109,12 +107,18 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
     @Override
     public PageResult<PersonUserOptionVo> queryUserOptionsPage(PersonUserOptionQueryBo bo, PageQuery pageQuery) {
         Page<PersonUserOptionVo> page = pageQuery.build();
+        page.setSize(normalizeUserOptionPageSize(page.getSize()));
         Page<PersonUserOptionVo> result = personProfileMapper.selectAllUserOptionsPage(
             page,
             bo == null ? new PersonUserOptionQueryBo() : bo,
             DepartmentScope.all()
         );
         return PageResult.build(result.getRecords(), result.getTotal());
+    }
+
+    /** 企业参与人员选择器最多返回一页 100 条，避免无分页请求造成全量加载。 */
+    private long normalizeUserOptionPageSize(long pageSize) {
+        return pageSize <= 0 ? MAX_USER_OPTION_PAGE_SIZE : Math.min(pageSize, MAX_USER_OPTION_PAGE_SIZE);
     }
 
     @Override
@@ -139,9 +143,12 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
         LocalDateTime endAt = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
         Long deptId = requireDept();
 
-        int memberCount = personProfileMapper.countMembersInMonth(deptId, monthStart, monthEnd);
-        int approvedCount = scoreProposalMapper.countApprovedInMonth(deptId, beginAt, endAt);
-        ScoreProposalMetricVo statusStats = scoreProposalMapper.selectStatusStats(deptId, beginAt, endAt);
+        ScoreProposalMetricVo metric = scoreProposalMapper.selectMetricStats(deptId, monthStart, monthEnd, beginAt, endAt);
+        if (metric == null) {
+            metric = new ScoreProposalMetricVo();
+        }
+        int memberCount = metric.getMemberCount() == null ? 0 : metric.getMemberCount();
+        int approvedCount = metric.getApprovedCount() == null ? 0 : metric.getApprovedCount();
         BigDecimal monthlyTarget = BigDecimal.valueOf(memberCount)
             .multiply(new BigDecimal("0.1"))
             .setScale(1, RoundingMode.HALF_UP);
@@ -164,18 +171,10 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
             }
         }
 
-        ScoreProposalMetricVo metric = new ScoreProposalMetricVo();
         metric.setMonth(yearMonth.toString());
         metric.setMemberCount(memberCount);
         metric.setMonthlyTarget(monthlyTarget);
         metric.setApprovedCount(approvedCount);
-        if (statusStats != null) {
-            metric.setTotalCount(statusStats.getTotalCount());
-            metric.setStatusApprovedCount(statusStats.getStatusApprovedCount());
-            metric.setPendingCount(statusStats.getPendingCount());
-            metric.setPendingConfirmCount(statusStats.getPendingConfirmCount());
-            metric.setRejectedCount(statusStats.getRejectedCount());
-        }
         metric.setCompletionRate(completionRate);
         metric.setScore(score);
         return metric;
@@ -188,7 +187,7 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
         ScoreProposal entity = new ScoreProposal();
         copyBo(bo, entity, false, deptId, isSubmit(bo));
         entity.setDeptId(deptId);
-        entity.setReviewStatus(REVIEW_DRAFT);
+        entity.setReviewStatus(ScoreProposalStatus.DRAFT);
         entity.setReviewComment(null);
         entity.setRevisionNo(0);
         if (StringUtils.isBlank(entity.getCompletionStatus())) {
@@ -206,7 +205,7 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
         ensureEditable(entity);
         Long deptId = entity.getDeptId() == null ? requireDept() : entity.getDeptId();
         copyBo(bo, entity, true, deptId, isSubmit(bo));
-        entity.setReviewStatus(REVIEW_DRAFT);
+        entity.setReviewStatus(ScoreProposalStatus.DRAFT);
         entity.setReviewComment(null);
         if (StringUtils.isBlank(entity.getCompletionStatus())) {
             entity.setCompletionStatus("进行中");
@@ -236,13 +235,13 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
         String action = StringUtils.trim(bo.getAction()).toUpperCase(Locale.ROOT);
         LocalDateTime now = LocalDateTime.now();
         if ("REVIEW_APPROVE".equals(action) || "REVIEW_REJECT".equals(action)) {
-            if (!REVIEW_PENDING.equals(entity.getReviewStatus())) throw new ServiceException("当前提案不在待审核状态");
+            if (!ScoreProposalStatus.PENDING.equals(entity.getReviewStatus())) throw new ServiceException("当前提案不在待审核状态");
             ScoreProposalReviewTask task = scoreProposalReviewTaskService.requirePending(entity.getId(), entity.getRevisionNo(), "REVIEW", userId);
             boolean approved = "REVIEW_APPROVE".equals(action);
             entity.setReviewerUserId(userId);
             entity.setReviewedAt(now);
             entity.setReviewComment(bo.getReviewComment());
-            entity.setReviewStatus(approved ? REVIEW_PENDING_CONFIRM : REVIEW_REJECTED);
+            entity.setReviewStatus(approved ? ScoreProposalStatus.PENDING_CONFIRM : ScoreProposalStatus.REJECTED);
             if (scoreProposalMapper.updateById(entity) <= 0) return false;
             scoreProposalReviewTaskService.complete(task.getId(), userId, approved ? "APPROVED" : "REJECTED", bo.getReviewComment());
             scoreProposalReviewTaskService.cancelOtherTasks(entity.getId(), entity.getRevisionNo(), "REVIEW", task.getId());
@@ -255,10 +254,10 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
             return true;
         }
         if ("CONFIRM_APPROVE".equals(action) || "CONFIRM_REJECT".equals(action)) {
-            if (!REVIEW_PENDING_CONFIRM.equals(entity.getReviewStatus())) throw new ServiceException("当前提案不在待现场确认状态");
+            if (!ScoreProposalStatus.PENDING_CONFIRM.equals(entity.getReviewStatus())) throw new ServiceException("当前提案不在待现场确认状态");
             ScoreProposalReviewTask task = scoreProposalReviewTaskService.requirePending(entity.getId(), entity.getRevisionNo(), "CONFIRM", userId);
             boolean approved = "CONFIRM_APPROVE".equals(action);
-            entity.setReviewStatus(approved ? REVIEW_APPROVED : REVIEW_REJECTED);
+            entity.setReviewStatus(approved ? ScoreProposalStatus.APPROVED : ScoreProposalStatus.REJECTED);
             entity.setConfirmComment(bo.getReviewComment());
             entity.setConfirmerUserId(userId);
             entity.setConfirmedAt(now);
@@ -316,10 +315,10 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
     }
 
     private void ensureEditable(ScoreProposal entity) {
-        if (REVIEW_PENDING.equals(entity.getReviewStatus()) || REVIEW_PENDING_CONFIRM.equals(entity.getReviewStatus())) {
+        if (ScoreProposalStatus.pendingReview(entity.getReviewStatus())) {
             throw new ServiceException("提案正在审核中，不能直接修改，请等待审核完成");
         }
-        if (REVIEW_APPROVED.equals(entity.getReviewStatus())) {
+        if (ScoreProposalStatus.APPROVED.equals(entity.getReviewStatus())) {
             throw new ServiceException("已通过提案不能直接修改，请另行创建新提案");
         }
     }
@@ -330,7 +329,7 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
         List<Long> reviewerIds = departmentTaskService.getReviewerUserIds("SCORE_PROPOSAL", entity.getDeptId());
         int revisionNo = entity.getRevisionNo() == null ? 1 : entity.getRevisionNo() + 1;
         entity.setRevisionNo(revisionNo);
-        entity.setReviewStatus(REVIEW_PENDING);
+        entity.setReviewStatus(ScoreProposalStatus.PENDING);
         entity.setReviewComment(null);
         entity.setConfirmComment(null);
         entity.setReviewerUserId(null);
@@ -649,7 +648,7 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
     }
 
     private void ensureEnabled(ScoreCategory category, String label) {
-        if (!"ENABLED".equals(category.getStatus())) {
+        if (!DepartmentEntityStatus.ENABLED.equals(category.getStatus())) {
             throw new ServiceException("所选" + label + "已停用");
         }
     }
@@ -666,11 +665,7 @@ public class ScoreProposalServiceImpl implements IScoreProposalService {
     }
 
     private Long requireDept() {
-        Long deptId = departmentAccessService.currentDeptId();
-        if (deptId == null) {
-            throw new ServiceException("当前登录用户缺少部门信息，无法维护SCORE提案");
-        }
-        return deptId;
+        return departmentAccessService.requireCurrentDept("当前登录用户缺少部门信息，无法维护SCORE提案");
     }
 
     private DepartmentScope scope() {

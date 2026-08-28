@@ -8,6 +8,8 @@ import org.dromara.department.domain.vo.PersonDepartmentContextVo;
 import org.dromara.department.mapper.DepartmentConfigMapper;
 import org.dromara.department.mapper.PersonProfileMapper;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -23,6 +25,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DepartmentContextResolver {
 
+    private static final String REQUEST_DEPT_KEY = DepartmentContextResolver.class.getName() + ".deptId";
+
     private final PersonProfileMapper personProfileMapper;
     private final DepartmentConfigMapper departmentConfigMapper;
     private final DepartmentMembershipSyncService membershipSyncService;
@@ -32,6 +36,32 @@ public class DepartmentContextResolver {
      * 自动建立上下文，多个科室时要求用户显式切换，避免把数据查到错误科室。
      */
     public Long resolveCurrentDeptId() {
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+        if (requestAttributes != null) {
+            Object cachedDeptId = requestAttributes.getAttribute(REQUEST_DEPT_KEY, RequestAttributes.SCOPE_REQUEST);
+            if (cachedDeptId instanceof Long) {
+                return (Long) cachedDeptId;
+            }
+        }
+
+        Long resolvedDeptId = resolveFromLoginContext();
+        if (requestAttributes != null) {
+            requestAttributes.setAttribute(REQUEST_DEPT_KEY, resolvedDeptId, RequestAttributes.SCOPE_REQUEST);
+        }
+        return resolvedDeptId;
+    }
+
+    /**
+     * 清理当前请求的科室缓存。切换科室后调用，确保同一请求后续逻辑读取到新上下文。
+     */
+    public void clearRequestCache() {
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+        if (requestAttributes != null) {
+            requestAttributes.removeAttribute(REQUEST_DEPT_KEY, RequestAttributes.SCOPE_REQUEST);
+        }
+    }
+
+    private Long resolveFromLoginContext() {
         Long currentDeptId = LoginHelper.getDeptId();
         if (LoginHelper.isSuperAdmin()) {
             List<DepartmentConfigVo> departments = departmentConfigMapper.selectEnabledDepartments();
@@ -57,7 +87,7 @@ public class DepartmentContextResolver {
 
         // 以用户管理中的主部门为准补偿正式人员档案。同步服务对已经正确的关系是幂等的，
         // 因此既支持登录后首次纳入，也支持用户部门变更后的下一次请求补偿。
-        membershipSyncService.syncMainDepartment(userId, LoginHelper.getMainDeptId());
+        membershipSyncService.syncMainDepartmentIfNeeded(userId, LoginHelper.getMainDeptId());
 
         LocalDate today = LocalDate.now();
         if (currentDeptEnabled && personProfileMapper.countMemberInDept(userId, currentDeptId) > 0) {

@@ -31,15 +31,48 @@ public interface DepartmentTaskAssignmentMapper extends BaseMapperPlus<Departmen
             .ne(excludeId != null, DepartmentTaskAssignment::getId, excludeId)) > 0;
     }
 
-    default List<DepartmentTaskAssignment> selectActiveByUserId(Long userId, Long deptId, LocalDate date) {
-        return selectList(Wrappers.<DepartmentTaskAssignment>lambdaQuery()
-            .eq(DepartmentTaskAssignment::getUserId, userId)
-            .eq(deptId != null, DepartmentTaskAssignment::getDeptId, deptId)
-            .eq(DepartmentTaskAssignment::getStatus, "ENABLED")
-            .eq(DepartmentTaskAssignment::getDelFlag, "0")
-            .and(wrapper -> wrapper.isNull(DepartmentTaskAssignment::getEffectiveStart).or().le(DepartmentTaskAssignment::getEffectiveStart, date))
-            .and(wrapper -> wrapper.isNull(DepartmentTaskAssignment::getEffectiveEnd).or().ge(DepartmentTaskAssignment::getEffectiveEnd, date)));
-    }
+    /** 查询当前仍属于科室的用户任务分配，合并成员关系校验避免额外 count 查询。 */
+    @Select({
+        "<script>",
+        "select a.id, a.rule_id, a.dept_id, a.user_id, a.effective_start, a.effective_end,",
+        "a.work_days, a.reminder_time, a.status, a.remark",
+        "from dm_department_task_assignment a",
+        "where a.user_id = #{userId}",
+        "and a.status = 'ENABLED' and a.del_flag = '0'",
+        "<if test='deptId != null'> and a.dept_id = #{deptId} </if>",
+        "and (a.effective_start is null or a.effective_start &lt;= #{date})",
+        "and (a.effective_end is null or a.effective_end &gt;= #{date})",
+        "and exists (select 1 from dm_person_profile p",
+        "where p.user_id = a.user_id and p.create_dept = a.dept_id and p.del_flag = '0'",
+        "and p.member_status = 'ACTIVE' and p.join_date &lt;= #{date}",
+        "and (p.leave_date is null or p.leave_date &gt; #{date}))",
+        "</script>"
+    })
+    List<DepartmentTaskAssignment> selectActiveByUserId(@Param("userId") Long userId,
+                                                          @Param("deptId") Long deptId,
+                                                          @Param("date") LocalDate date);
+
+    /** 查询时间范围内曾经有效的任务分配，用于补算本月已经逾期的日报任务。 */
+    @Select({
+        "<script>",
+        "select a.id, a.rule_id, a.dept_id, a.user_id, a.effective_start, a.effective_end,",
+        "a.work_days, a.reminder_time, a.status, a.remark",
+        "from dm_department_task_assignment a",
+        "where a.user_id = #{userId}",
+        "and a.status = 'ENABLED' and a.del_flag = '0'",
+        "<if test='deptId != null'> and a.dept_id = #{deptId} </if>",
+        "and (a.effective_start is null or a.effective_start &lt;= #{endDate})",
+        "and (a.effective_end is null or a.effective_end &gt;= #{beginDate})",
+        "and exists (select 1 from dm_person_profile p",
+        "where p.user_id = a.user_id and p.create_dept = a.dept_id and p.del_flag = '0'",
+        "and p.member_status = 'ACTIVE' and p.join_date &lt;= #{endDate}",
+        "and (p.leave_date is null or p.leave_date &gt; #{beginDate}))",
+        "</script>"
+    })
+    List<DepartmentTaskAssignment> selectByUserIdInPeriod(@Param("userId") Long userId,
+                                                           @Param("deptId") Long deptId,
+                                                           @Param("beginDate") LocalDate beginDate,
+                                                           @Param("endDate") LocalDate endDate);
 
     @Select({
         "<script>",

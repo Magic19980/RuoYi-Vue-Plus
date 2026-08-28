@@ -1,5 +1,6 @@
 package org.dromara.department.service;
 
+import cn.dev33.satoken.stp.StpUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.event.UserDepartmentChangingEvent;
@@ -8,6 +9,7 @@ import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.department.domain.PersonProfile;
 import org.dromara.department.domain.PersonProfileEvent;
+import org.dromara.department.domain.DepartmentMemberStatus;
 import org.dromara.department.mapper.DepartmentConfigMapper;
 import org.dromara.department.mapper.PersonProfileEventMapper;
 import org.dromara.department.mapper.PersonProfileMapper;
@@ -33,10 +35,39 @@ import java.util.List;
 public class DepartmentMembershipSyncService {
 
     private static final long SYSTEM_OPERATOR = 0L;
+    private static final String MAIN_DEPT_SYNC_MARKER = "department:main-membership-sync";
 
     private final DepartmentConfigMapper departmentConfigMapper;
     private final PersonProfileMapper personProfileMapper;
     private final PersonProfileEventMapper personProfileEventMapper;
+
+    /**
+     * 登录态内按“主部门 + 日期”去重同步。用户主部门变更仍由事件实时同步，
+     * 这里只负责兜底，避免每个科室接口都重复执行相同的查询和幂等判断。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void syncMainDepartmentIfNeeded(Long userId, Long mainDeptId) {
+        if (userId == null) {
+            return;
+        }
+        String marker = null;
+        try {
+            Object value = StpUtil.getTokenSession().get(MAIN_DEPT_SYNC_MARKER);
+            marker = value == null ? null : value.toString();
+        } catch (Exception ignored) {
+            // 非登录态调用时退化为正常同步，不影响业务请求。
+        }
+        String expected = String.valueOf(mainDeptId) + ":" + LocalDate.now();
+        if (expected.equals(marker)) {
+            return;
+        }
+        syncMainDepartment(userId, mainDeptId);
+        try {
+            StpUtil.getTokenSession().set(MAIN_DEPT_SYNC_MARKER, expected);
+        } catch (Exception ignored) {
+            // 登录态存储异常时不阻断本次业务请求，下次请求会再次兜底同步。
+        }
+    }
 
     @Transactional(rollbackFor = Exception.class)
     public void syncMainDepartment(Long userId, Long mainDeptId) {
@@ -53,20 +84,20 @@ public class DepartmentMembershipSyncService {
                 profile.setCreateDept(mainDeptId);
                 profile.setJoinDate(today);
                 profile.setMemberType("FULL");
-                profile.setMemberStatus("ACTIVE");
+                profile.setMemberStatus(DepartmentMemberStatus.ACTIVE);
                 profile.setMemberSource("AUTO_MAIN");
                 profile.setCreateBy(operatorId);
                 profile.setCreateDept(mainDeptId);
                 personProfileMapper.insert(profile);
                 recordEvent(profile, "JOIN", today, "系统主部门自动纳入", operatorId);
-            } else if (!"ACTIVE".equals(profile.getMemberStatus())
+            } else if (!DepartmentMemberStatus.ACTIVE.equals(profile.getMemberStatus())
                 || !"FULL".equals(profile.getMemberType())
                 || profile.getLeaveDate() != null
                 || !"AUTO_MAIN".equals(profile.getMemberSource())) {
-                String eventType = "ACTIVE".equals(profile.getMemberStatus()) ? "CHANGE" : "REJOIN";
+                String eventType = DepartmentMemberStatus.ACTIVE.equals(profile.getMemberStatus()) ? "CHANGE" : "REJOIN";
                 personProfileMapper.activateMainMembership(profile.getId(), operatorId);
                 profile.setMemberType("FULL");
-                profile.setMemberStatus("ACTIVE");
+                profile.setMemberStatus(DepartmentMemberStatus.ACTIVE);
                 profile.setMemberSource("AUTO_MAIN");
                 profile.setLeaveDate(null);
                 recordEvent(profile, eventType, today, "系统主部门自动同步", operatorId);
@@ -133,7 +164,7 @@ public class DepartmentMembershipSyncService {
 
     private void endProfile(PersonProfile profile, LocalDate leaveDate, Long operatorId, String reason) {
         profile.setLeaveDate(leaveDate);
-        profile.setMemberStatus("ENDED");
+        profile.setMemberStatus(DepartmentMemberStatus.ENDED);
         profile.setEndedAt(LocalDateTime.now());
         profile.setEndedBy(operatorId);
         profile.setEndReason(reason);

@@ -9,6 +9,7 @@ import org.apache.fesod.sheet.context.AnalysisContext;
 import org.apache.fesod.sheet.event.AnalysisEventListener;
 import org.apache.fesod.sheet.exception.ExcelAnalysisException;
 import org.apache.fesod.sheet.exception.ExcelDataConvertException;
+import org.apache.fesod.sheet.metadata.data.CellData;
 import org.dromara.common.core.utils.StreamUtils;
 import org.dromara.common.core.utils.ValidatorUtils;
 import org.dromara.common.json.utils.JsonUtils;
@@ -79,8 +80,10 @@ public class DefaultExcelListener<T> extends AnalysisEventListener<T> implements
             // 如果是某一个单元格的转换异常 能获取到具体行号
             Integer rowIndex = excelDataConvertException.getRowIndex();
             Integer columnIndex = excelDataConvertException.getColumnIndex();
-            errMsg = StrUtil.format("第{}行-第{}列-表头{}: 解析异常<br/>",
-                rowIndex + 1, columnIndex + 1, headMap == null ? "" : headMap.get(columnIndex));
+            String cellValue = getCellValue(excelDataConvertException.getCellData());
+            errMsg = StrUtil.format("第{}行-第{}列-表头{}: 解析异常{}<br/>",
+                rowIndex + 1, columnIndex + 1, headMap == null ? "" : headMap.get(columnIndex),
+                StrUtil.isBlank(cellValue) ? "" : StrUtil.format("，单元格值：{}", cellValue));
             if (log.isDebugEnabled()) {
                 log.warn(errMsg);
             }
@@ -147,6 +150,25 @@ public class DefaultExcelListener<T> extends AnalysisEventListener<T> implements
     @Override
     public ExcelResult<T> getExcelResult() {
         return excelResult;
+    }
+
+    /**
+     * 获取单元格的可读值，用于导入错误定位。
+     */
+    private String getCellValue(CellData<?> cellData) {
+        if (cellData == null) {
+            return "";
+        }
+        if (cellData.getStringValue() != null) {
+            return cellData.getStringValue();
+        }
+        if (cellData.getNumberValue() != null) {
+            return cellData.getNumberValue().toPlainString();
+        }
+        if (cellData.getBooleanValue() != null) {
+            return cellData.getBooleanValue().toString();
+        }
+        return "";
     }
 
 }

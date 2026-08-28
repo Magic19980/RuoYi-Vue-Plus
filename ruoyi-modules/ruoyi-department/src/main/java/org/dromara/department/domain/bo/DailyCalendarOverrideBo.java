@@ -19,7 +19,7 @@ public class DailyCalendarOverrideBo implements Serializable {
     @NotNull(message = "主键不能为空", groups = EditGroup.class)
     private Long id;
 
-    /** 调休上班人员；休息日为空。 */
+    /** 目标人员；为空表示全科室生效。 */
     private Long userId;
 
     @NotNull(message = "日期不能为空", groups = {AddGroup.class, EditGroup.class})
@@ -27,6 +27,9 @@ public class DailyCalendarOverrideBo implements Serializable {
 
     @NotNull(message = "日期类型不能为空", groups = {AddGroup.class, EditGroup.class})
     private String dayType;
+
+    @NotNull(message = "是否需要填写日报不能为空", groups = {AddGroup.class, EditGroup.class})
+    private Boolean needReport;
 
     private String remark;
 }

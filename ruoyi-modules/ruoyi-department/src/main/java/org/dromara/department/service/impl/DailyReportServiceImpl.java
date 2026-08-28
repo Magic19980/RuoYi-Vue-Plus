@@ -218,7 +218,7 @@ public class DailyReportServiceImpl implements IDailyReportService {
             throw new ServiceException("当前成员未分配日报任务，无需填写日报");
         }
         if (!dailyCalendarService.isWorkday(deptId, userId, reportDate)) {
-            throw new ServiceException("该日期为休息日，无需填写日报；如需填写请先配置为调休上班");
+            throw new ServiceException("该日期配置为无需填写日报的日期例外，当前不能填写日报");
         }
     }
 

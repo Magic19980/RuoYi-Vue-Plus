@@ -15,13 +15,13 @@ public interface DailyCalendarMapper {
 
     @Select({
         "<script>",
-        "select distinct u.user_id, u.user_name, u.nick_name, "
-            + "(select group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') "
-            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
-            + "where sup.user_id = u.user_id) as job_title, source_dept.dept_name as source_dept_name,",
+        "select distinct u.user_id, u.user_name, u.nick_name, post.job_title, source_dept.dept_name as source_dept_name,",
         "p.join_date, p.leave_date",
         "from sys_user u",
         "join dm_person_profile p on p.user_id = u.user_id and p.create_dept = #{deptId} and p.del_flag = '0'",
+        "left join (select sup.user_id, group_concat(distinct sp.post_name order by sp.post_sort, sp.post_id separator '、') as job_title "
+            + "from sys_user_post sup join sys_post sp on sp.post_id = sup.post_id and sp.status = '0' and sp.del_flag = '0' "
+            + "group by sup.user_id) post on post.user_id = u.user_id",
         "left join sys_dept source_dept on source_dept.dept_id = u.dept_id and source_dept.del_flag = '0'",
         "where u.del_flag = '0' and u.status = '0'",
         "and p.join_date &lt;= #{endDate} and (p.leave_date is null or p.leave_date &gt; #{beginDate})",
@@ -33,6 +33,7 @@ public interface DailyCalendarMapper {
                                                @Param("beginDate") LocalDate beginDate, @Param("endDate") LocalDate endDate);
 
     @Select({
+        "<script>",
         "select r.id, r.report_date, r.user_id, r.dept_id, r.today_work, r.tomorrow_plan,",
         "r.coordination_note, r.status, r.source_type, r.leave_id,",
         "u.user_name, u.nick_name, d.dept_name",
@@ -41,9 +42,12 @@ public interface DailyCalendarMapper {
         "left join sys_dept d on d.dept_id = r.dept_id and d.del_flag = '0'",
         "where r.del_flag = '0' and r.dept_id = #{deptId}",
         "and r.report_date between #{beginDate} and #{endDate}",
-        "order by r.report_date, r.user_id"
+        "<if test='userId != null'> and r.user_id = #{userId} </if>",
+        "order by r.report_date, r.user_id",
+        "</script>"
     })
     List<DailyReportVo> selectReports(@Param("deptId") Long deptId,
+                                      @Param("userId") Long userId,
                                       @Param("beginDate") LocalDate beginDate,
                                       @Param("endDate") LocalDate endDate);
 }

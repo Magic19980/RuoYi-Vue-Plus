@@ -7,10 +7,12 @@ import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.core.domain.R;
+import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.validate.AddGroup;
 import org.dromara.common.core.validate.EditGroup;
 import org.dromara.common.excel.core.ExcelResult;
 import org.dromara.common.excel.utils.ExcelBuilder;
+import org.dromara.department.util.XlsxInputSanitizer;
 import org.dromara.common.log.annotation.Log;
 import org.dromara.common.log.enums.BusinessType;
 import org.dromara.common.mybatis.core.page.PageQuery;
@@ -39,6 +41,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -91,11 +95,40 @@ public class OperationLedgerController extends BaseController {
     @Log(title = "运维工作记录", businessType = BusinessType.IMPORT)
     @PostMapping(value = "/importData", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public R<String> importData(@RequestPart("file") MultipartFile file) throws Exception {
-        ExcelResult<OperationRecordImportVo> result = ExcelBuilder.read(file.getInputStream(), OperationRecordImportVo.class)
+        if (file == null || file.isEmpty()) {
+            throw new ServiceException("请选择要导入的 Excel 文件");
+        }
+        byte[] sanitizedFile;
+        try (InputStream inputStream = file.getInputStream()) {
+            sanitizedFile = XlsxInputSanitizer.removeExternalHyperlinks(inputStream);
+        }
+        ExcelResult<OperationRecordImportVo> result = ExcelBuilder
+            .read(new ByteArrayInputStream(sanitizedFile), OperationRecordImportVo.class)
             .sheetName("工作记录")
             .validate(true)
+            .failFast(false)
             .doRead();
+        if (!result.getErrorList().isEmpty()) {
+            throw new ServiceException(formatImportErrors(result.getErrorList()));
+        }
         return R.ok(operationLedgerService.importRecords(result.getList()) + "。" + result.getAnalysis());
+    }
+
+    /**
+     * 将 Excel 解析错误整理成可直接定位的提示，避免只显示“解析异常”。
+     */
+    private String formatImportErrors(List<String> errors) {
+        int displayCount = Math.min(errors.size(), 20);
+        StringBuilder message = new StringBuilder("导入失败，共发现 ")
+            .append(errors.size())
+            .append(" 个问题，请修正后重新导入：");
+        for (int i = 0; i < displayCount; i++) {
+            message.append("<br/>").append(errors.get(i));
+        }
+        if (errors.size() > displayCount) {
+            message.append("<br/>其余 ").append(errors.size() - displayCount).append(" 个问题未展开");
+        }
+        return message.toString();
     }
 
     @SaCheckPermission("department:operationLedger:import")

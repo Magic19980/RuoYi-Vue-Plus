@@ -49,8 +49,6 @@ import java.util.stream.Collectors;
 public class DailyCalendarServiceImpl implements IDailyCalendarService {
 
     private static final String DEPT_VIEW_PERMISSION = "department:dailyReport:viewDept";
-    private static final String WORKDAY = "WORKDAY";
-    private static final String REST = "REST";
     private static final String LEAVE_SOURCE = "LEAVE";
     private static final String DEFAULT_WORK_DAYS = "1,2,3,4,5";
 
@@ -63,8 +61,17 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
 
     @Override
     public DailyCalendarVo queryCalendar(LocalDate month) {
+        return buildCalendar(month == null ? LocalDate.now() : month, false);
+    }
+
+    @Override
+    public DailyCalendarVo queryTodayCalendar() {
+        return buildCalendar(LocalDate.now(), true);
+    }
+
+    private DailyCalendarVo buildCalendar(LocalDate month, boolean todayOnly) {
         Long deptId = requireDeptId();
-        LocalDate firstDay = (month == null ? LocalDate.now() : month).withDayOfMonth(1);
+        LocalDate firstDay = todayOnly ? month : month.withDayOfMonth(1);
         LocalDate monthEnd = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
         LocalDate today = LocalDate.now();
         if (firstDay.isAfter(today)) {
@@ -82,7 +89,7 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
             futureResult.setFutureMonth(true);
             return futureResult;
         }
-        LocalDate lastDay = monthEnd.isAfter(today) ? today : monthEnd;
+        LocalDate lastDay = todayOnly ? today : (monthEnd.isAfter(today) ? today : monthEnd);
         Long userId = canViewDepartment() ? null : LoginHelper.getUserId();
 
         String workDays = DEFAULT_WORK_DAYS;
@@ -93,14 +100,14 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
                 .between(DailyCalendarOverride::getCalendarDate, firstDay, lastDay)
                 .orderByAsc(DailyCalendarOverride::getCalendarDate)
                 .orderByAsc(DailyCalendarOverride::getUserId));
-        Map<LocalDate, DailyCalendarOverride> globalRestOverrides = overrideRows.stream()
-            .filter(item -> item.getUserId() == null && REST.equals(item.getDayType()))
+        Map<LocalDate, DailyCalendarOverride> globalOverrides = overrideRows.stream()
+            .filter(item -> item.getUserId() == null)
             .collect(Collectors.toMap(DailyCalendarOverride::getCalendarDate, item -> item, (left, right) -> right));
-        Set<String> userWorkdayOverrides = overrideRows.stream()
-            .filter(item -> item.getUserId() != null && WORKDAY.equals(item.getDayType()))
-            .map(item -> key(item.getUserId(), item.getCalendarDate()))
-            .collect(Collectors.toSet());
-        List<DailyCalendarDayVo> days = buildDays(firstDay, lastDay, workDays, globalRestOverrides);
+        Map<String, DailyCalendarOverride> personalOverrides = overrideRows.stream()
+            .filter(item -> item.getUserId() != null)
+            .collect(Collectors.toMap(item -> key(item.getUserId(), item.getCalendarDate()), item -> item,
+                (left, right) -> right));
+        List<DailyCalendarDayVo> days = buildDays(firstDay, lastDay, workDays, globalOverrides);
 
         // 日报日历只展示实际分配了日报任务的成员，避免把仅纳入人员档案但无需填报的成员显示成整月休息。
         List<DepartmentTaskAssignment> dailyAssignments = assignmentMapper.selectDailyWorkDays(deptId, firstDay, lastDay);
@@ -120,7 +127,7 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
                     StringUtils.isBlank(item.getWorkDays())
                         ? defaultWorkDays
                         : parseWorkDays(normalizeWorkDays(item.getWorkDays())))));
-        List<DailyReportVo> reports = calendarMapper.selectReports(deptId, firstDay, lastDay);
+        List<DailyReportVo> reports = calendarMapper.selectReports(deptId, userId, firstDay, lastDay);
         Map<String, DailyReportVo> reportMap = reports.stream().collect(Collectors.toMap(
             report -> key(report.getUserId(), report.getReportDate()), report -> report, (left, right) -> right));
         List<DailyLeaveVo> leaves = leaveMapper.selectCalendarLeaves(deptId, firstDay, lastDay, userId);
@@ -154,16 +161,19 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
                 Set<Integer> memberWorkDays = activeTaskPeriods.stream()
                     .flatMap(period -> period.workDays().stream())
                     .collect(Collectors.toSet());
-                boolean personalWorkday = hasTaskWorkDays
-                    && userWorkdayOverrides.contains(key(member.getUserId(), day.getDate()));
-                boolean memberBaseWorkday = !Boolean.TRUE.equals(day.getDepartmentRest())
-                    && memberWorkDays.contains(day.getDate().getDayOfWeek().getValue());
-                boolean memberWorkday = inServicePeriod && hasTaskWorkDays && (personalWorkday || memberBaseWorkday);
+                DailyCalendarOverride personalOverride = personalOverrides.get(key(member.getUserId(), day.getDate()));
+                DailyCalendarOverride effectiveOverride = personalOverride == null
+                    ? globalOverrides.get(day.getDate()) : personalOverride;
+                boolean hasOverride = effectiveOverride != null;
+                boolean overrideNeedReport = hasOverride && Boolean.TRUE.equals(effectiveOverride.getNeedReport());
+                boolean memberBaseWorkday = memberWorkDays.contains(day.getDate().getDayOfWeek().getValue());
+                boolean memberWorkday = inServicePeriod && hasTaskWorkDays
+                    && (hasOverride ? overrideNeedReport : memberBaseWorkday);
                 cell.setWorkday(memberWorkday);
-                cell.setDayType(memberWorkday ? WORKDAY : REST);
+                cell.setDayType(hasOverride ? effectiveOverride.getDayType() : null);
                 boolean changesDefault = hasTaskWorkDays
                     && memberWorkDays.contains(day.getDate().getDayOfWeek().getValue()) != defaultWorkDays.contains(day.getDate().getDayOfWeek().getValue());
-                cell.setLabel(!hasTaskWorkDays ? "未分配日报任务" : personalWorkday ? "个人调休上班"
+                cell.setLabel(!hasTaskWorkDays ? "未分配日报任务" : hasOverride ? "日期例外"
                     : changesDefault ? (memberWorkday ? "任务工作日" : "任务休息日") : day.getLabel());
                 cell.setReportId(report == null ? null : report.getId());
                 cell.setSourceType(report == null ? null : report.getSourceType());
@@ -174,8 +184,11 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
                 cell.setLeaveType(leave == null ? null : leave.getLeaveType());
                 boolean leaveAuto = hasTaskWorkDays && leave != null
                     && (report == null || LEAVE_SOURCE.equals(report.getSourceType()));
+                boolean exceptionWithoutReport = hasOverride && !overrideNeedReport;
                 if (!inServicePeriod) {
                     cell.setState("UNAVAILABLE");
+                } else if (exceptionWithoutReport) {
+                    cell.setState("EXCEPTION");
                 } else if (leaveAuto) {
                     cell.setState("LEAVE");
                     if (memberWorkday) {
@@ -313,24 +326,22 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
     @Transactional(rollbackFor = Exception.class)
     public Boolean saveOverride(DailyCalendarOverrideBo bo) {
         Long deptId = requireDeptId();
-        if (!WORKDAY.equals(bo.getDayType()) && !REST.equals(bo.getDayType())) {
-            throw new ServiceException("日期类型只能选择调休上班或休息日");
+        String dayType = StringUtils.trim(bo.getDayType());
+        if (StringUtils.isBlank(dayType)) {
+            throw new ServiceException("日期类型不能为空");
         }
-        Long targetUserId = WORKDAY.equals(bo.getDayType()) ? bo.getUserId() : null;
-        if (WORKDAY.equals(bo.getDayType()) && targetUserId == null) {
-            throw new ServiceException("调休上班必须选择具体人员");
-        }
+        Long targetUserId = bo.getUserId();
         if (!canViewDepartment()) {
-            if (REST.equals(bo.getDayType())) {
-                throw new ServiceException("只有科室管理员可以维护全科室休息日");
+            if (targetUserId == null) {
+                throw new ServiceException("只有科室管理员可以维护全科室日期规则");
             }
             if (!Objects.equals(targetUserId, LoginHelper.getUserId())) {
-                throw new ServiceException("只能维护本人的调休上班安排");
+                throw new ServiceException("只能维护本人的日期安排");
             }
         }
         if (targetUserId != null) {
             if (dailyReportMapper.countMemberInDeptAt(targetUserId, deptId, bo.getCalendarDate()) == 0) {
-                throw new ServiceException("调休人员必须已纳入当前科室日报");
+                throw new ServiceException("指定人员必须已纳入当前科室日报");
             }
         }
         DailyCalendarOverride entity = bo.getId() == null ? null : overrideMapper.selectById(bo.getId());
@@ -349,14 +360,16 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
             entity.setDeptId(deptId);
         }
         entity.setCalendarDate(bo.getCalendarDate());
-        entity.setDayType(bo.getDayType());
+        entity.setDayType(dayType);
         entity.setUserId(targetUserId);
+        entity.setNeedReport(bo.getNeedReport());
         entity.setRemark(StringUtils.trim(bo.getRemark()));
         if (entity.getId() == null) {
             overrideMapper.insert(entity);
         } else {
             overrideMapper.updateById(entity);
         }
+        syncLeaveReportsForDate(deptId, bo.getCalendarDate(), targetUserId);
         return true;
     }
 
@@ -368,6 +381,7 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         }
         Long currentDeptId = requireDeptId();
         boolean departmentViewer = canViewDepartment();
+        List<DailyCalendarOverride> entities = new ArrayList<>();
         for (Long id : ids) {
             DailyCalendarOverride entity = overrideMapper.selectById(id);
             if (entity != null && !Objects.equals(entity.getDeptId(), currentDeptId)) {
@@ -375,10 +389,19 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
             }
             if (entity != null && !departmentViewer
                 && !Objects.equals(entity.getUserId(), LoginHelper.getUserId())) {
-                throw new ServiceException("只能删除本人的调休上班安排");
+                throw new ServiceException("只能删除本人的日期安排");
+            }
+            if (entity != null) {
+                entities.add(entity);
             }
         }
-        return overrideMapper.deleteByIds(ids) > 0;
+        boolean deleted = overrideMapper.deleteByIds(ids) > 0;
+        if (deleted) {
+            for (DailyCalendarOverride entity : entities) {
+                syncLeaveReportsForDate(entity.getDeptId(), entity.getCalendarDate(), entity.getUserId());
+            }
+        }
+        return deleted;
     }
 
     @Override
@@ -449,20 +472,21 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         if (userId != null && assignmentMapper.countDailyReportRequired(userId, deptId, date) == 0) {
             return false;
         }
-        if (userId != null && overrideMapper.selectCount(Wrappers.<DailyCalendarOverride>lambdaQuery()
-            .eq(DailyCalendarOverride::getDeptId, deptId)
-            .eq(DailyCalendarOverride::getCalendarDate, date)
-            .eq(DailyCalendarOverride::getUserId, userId)
-            .eq(DailyCalendarOverride::getDayType, WORKDAY)) > 0) {
-            return true;
+        if (userId != null) {
+            DailyCalendarOverride personalOverride = overrideMapper.selectOne(Wrappers.<DailyCalendarOverride>lambdaQuery()
+                .eq(DailyCalendarOverride::getDeptId, deptId)
+                .eq(DailyCalendarOverride::getCalendarDate, date)
+                .eq(DailyCalendarOverride::getUserId, userId));
+            if (personalOverride != null) {
+                return Boolean.TRUE.equals(personalOverride.getNeedReport());
+            }
         }
-        DailyCalendarOverride globalRest = overrideMapper.selectOne(Wrappers.<DailyCalendarOverride>lambdaQuery()
+        DailyCalendarOverride globalOverride = overrideMapper.selectOne(Wrappers.<DailyCalendarOverride>lambdaQuery()
             .eq(DailyCalendarOverride::getDeptId, deptId)
             .eq(DailyCalendarOverride::getCalendarDate, date)
-            .eq(DailyCalendarOverride::getDayType, REST)
             .isNull(DailyCalendarOverride::getUserId));
-        if (globalRest != null) {
-            return false;
+        if (globalOverride != null) {
+            return Boolean.TRUE.equals(globalOverride.getNeedReport());
         }
         if (userId != null) {
             Set<Integer> taskWorkDays = assignmentMapper.selectUserDailyWorkDays(userId, deptId, date).stream()
@@ -484,32 +508,55 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
 
     private void syncLeaveReports(DailyLeave leave) {
         for (LocalDate date = leave.getStartDate(); !date.isAfter(leave.getEndDate()); date = date.plusDays(1)) {
-            if (!isDailyReportRequired(leave.getDeptId(), leave.getUserId(), date)
-                || !isWorkday(leave.getDeptId(), leave.getUserId(), date)) {
-                continue;
+            syncLeaveReport(leave, date);
+        }
+    }
+
+    private void syncLeaveReportsForDate(Long deptId, LocalDate date, Long targetUserId) {
+        var query = Wrappers.<DailyLeave>lambdaQuery()
+            .eq(DailyLeave::getDeptId, deptId)
+            .eq(DailyLeave::getStatus, "ENABLED")
+            .le(DailyLeave::getStartDate, date)
+            .ge(DailyLeave::getEndDate, date);
+        if (targetUserId != null) {
+            query.eq(DailyLeave::getUserId, targetUserId);
+        }
+        for (DailyLeave leave : leaveMapper.selectList(query)) {
+            syncLeaveReport(leave, date);
+        }
+    }
+
+    private void syncLeaveReport(DailyLeave leave, LocalDate date) {
+        DailyReport entity = dailyReportMapper.selectOne(Wrappers.<DailyReport>lambdaQuery()
+            .eq(DailyReport::getReportDate, date).eq(DailyReport::getUserId, leave.getUserId())
+            .eq(DailyReport::getDeptId, leave.getDeptId()));
+        boolean shouldGenerate = isDailyReportRequired(leave.getDeptId(), leave.getUserId(), date)
+            && isWorkday(leave.getDeptId(), leave.getUserId(), date);
+        if (!shouldGenerate) {
+            if (entity != null && LEAVE_SOURCE.equals(entity.getSourceType())
+                && (entity.getLeaveId() == null || Objects.equals(entity.getLeaveId(), leave.getId()))) {
+                dailyReportMapper.deleteById(entity.getId());
             }
-            DailyReport entity = dailyReportMapper.selectOne(Wrappers.<DailyReport>lambdaQuery()
-                .eq(DailyReport::getReportDate, date).eq(DailyReport::getUserId, leave.getUserId())
-                .eq(DailyReport::getDeptId, leave.getDeptId()));
-            if (entity == null) {
-                entity = new DailyReport();
-                entity.setReportDate(date);
-                entity.setUserId(leave.getUserId());
-                entity.setDeptId(leave.getDeptId());
-                entity.setTodayWork("休假");
-                entity.setTomorrowPlan("");
-                entity.setCoordinationNote(StringUtils.isBlank(leave.getReason()) ? null : leave.getReason());
-                entity.setStatus(DailyReportStatus.SUBMITTED);
-                entity.setSourceType(LEAVE_SOURCE);
-                entity.setLeaveId(leave.getId());
-                dailyReportMapper.insert(entity);
-            } else if (LEAVE_SOURCE.equals(entity.getSourceType()) &&
-                (entity.getLeaveId() == null || Objects.equals(entity.getLeaveId(), leave.getId()))) {
-                entity.setTodayWork("休假");
-                entity.setCoordinationNote(StringUtils.isBlank(leave.getReason()) ? null : leave.getReason());
-                entity.setLeaveId(leave.getId());
-                dailyReportMapper.updateById(entity);
-            }
+            return;
+        }
+        if (entity == null) {
+            entity = new DailyReport();
+            entity.setReportDate(date);
+            entity.setUserId(leave.getUserId());
+            entity.setDeptId(leave.getDeptId());
+            entity.setTodayWork("休假");
+            entity.setTomorrowPlan("");
+            entity.setCoordinationNote(StringUtils.isBlank(leave.getReason()) ? null : leave.getReason());
+            entity.setStatus(DailyReportStatus.SUBMITTED);
+            entity.setSourceType(LEAVE_SOURCE);
+            entity.setLeaveId(leave.getId());
+            dailyReportMapper.insert(entity);
+        } else if (LEAVE_SOURCE.equals(entity.getSourceType())
+            && (entity.getLeaveId() == null || Objects.equals(entity.getLeaveId(), leave.getId()))) {
+            entity.setTodayWork("休假");
+            entity.setCoordinationNote(StringUtils.isBlank(leave.getReason()) ? null : leave.getReason());
+            entity.setLeaveId(leave.getId());
+            dailyReportMapper.updateById(entity);
         }
     }
 
@@ -572,16 +619,17 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         List<DailyCalendarDayVo> days = new ArrayList<>();
         for (LocalDate date = begin; !date.isAfter(end); date = date.plusDays(1)) {
             DailyCalendarOverride override = overrides.get(date);
-            boolean workday = override == null || !REST.equals(override.getDayType())
-                ? defaultWorkDays.contains(date.getDayOfWeek().getValue()) : false;
+            boolean hasOverride = override != null;
+            boolean workday = hasOverride
+                ? Boolean.TRUE.equals(override.getNeedReport())
+                : defaultWorkDays.contains(date.getDayOfWeek().getValue());
             DailyCalendarDayVo day = new DailyCalendarDayVo();
             day.setDate(date);
             day.setDayOfWeek(date.getDayOfWeek().getValue());
             day.setWeekLabel(weekLabel(date.getDayOfWeek()));
-            day.setDepartmentRest(override != null);
             day.setWorkday(workday);
-            day.setDayType(workday ? WORKDAY : REST);
-            day.setLabel(override == null ? (workday ? "工作日" : "休息日") : "休息日");
+            day.setDayType(hasOverride ? override.getDayType() : null);
+            day.setLabel(hasOverride ? "日期例外" : workday ? "工作日" : "休息日");
             day.setRemark(override == null ? null : override.getRemark());
             days.add(day);
         }
@@ -594,6 +642,7 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         vo.setUserId(entity.getUserId());
         vo.setCalendarDate(entity.getCalendarDate());
         vo.setDayType(entity.getDayType());
+        vo.setNeedReport(entity.getNeedReport());
         vo.setRemark(entity.getRemark());
         return vo;
     }
@@ -641,11 +690,7 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
     }
 
     private Long requireDeptId() {
-        Long deptId = departmentAccessService.currentDeptId();
-        if (deptId == null) {
-            throw new ServiceException("当前登录用户缺少部门信息");
-        }
-        return deptId;
+        return departmentAccessService.requireCurrentDept("当前登录用户缺少部门信息");
     }
 
     private boolean canViewDepartment() {
