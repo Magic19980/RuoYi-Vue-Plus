@@ -16,15 +16,31 @@ import java.util.List;
 @Mapper
 public interface DepartmentConfigMigrationMapper {
 
+    /**
+     * 查询并锁定待迁移的业务科室配置。
+     *
+     * @param deptId 业务科室主键
+     * @return 科室配置
+     */
     @Select("select * from dm_department where dept_id = #{deptId} and del_flag = '0' for update")
     DepartmentConfig selectConfigForUpdate(@Param("deptId") Long deptId);
 
+    /**
+     * 统计指定部门的科室配置记录数。
+     *
+     * @param deptId 业务科室主键
+     * @return 配置记录数
+     */
     @Select("select count(1) from dm_department where dept_id = #{deptId}")
     long countAnyConfig(@Param("deptId") Long deptId);
 
     /**
      * 检查迁移到目标科室后可能触发的业务唯一键冲突。
      * 迁移不自动合并重复数据，出现冲突时由管理员先处理目标科室数据。
+     *
+     * @param sourceDeptId 来源科室主键
+     * @param targetDeptId 目标科室主键
+     * @return 各业务表的冲突数量
      */
     @Results({
         @Result(property = "dataName", column = "data_name"),
@@ -62,6 +78,15 @@ public interface DepartmentConfigMigrationMapper {
     List<DepartmentConfigMigrationConflictVo> selectConflicts(@Param("sourceDeptId") Long sourceDeptId,
                                                                @Param("targetDeptId") Long targetDeptId);
 
+    /**
+     * 迁移业务科室配置主记录。
+     *
+     * @param sourceDeptId 来源科室主键
+     * @param targetDeptId 目标科室主键
+     * @param operatorId 操作人用户主键
+     * @param updateTime 更新时间
+     * @return 更新记录数
+     */
     @Update("update dm_department set dept_id = #{targetDeptId}, update_by = #{operatorId}, update_time = #{updateTime}, version = coalesce(version, 0) + 1 "
         + "where dept_id = #{sourceDeptId} and del_flag = '0'")
     int moveConfig(@Param("sourceDeptId") Long sourceDeptId,
@@ -69,57 +94,75 @@ public interface DepartmentConfigMigrationMapper {
                    @Param("operatorId") Long operatorId,
                    @Param("updateTime") LocalDateTime updateTime);
 
+    /** 迁移人员档案的业务科室归属。 */
     @Update("update dm_person_profile set create_dept = #{targetDeptId} where create_dept = #{sourceDeptId}")
     int movePersonProfiles(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移人员服务关系事件的业务科室归属。 */
     @Update("update dm_person_profile_event set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int movePersonProfileEvents(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移日报记录的业务科室归属。 */
     @Update("update dm_daily_report set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveDailyReports(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移日报日期例外规则的业务科室归属。 */
     @Update("update dm_daily_calendar_override set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveDailyCalendarOverrides(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移休假记录的业务科室归属。 */
     @Update("update dm_daily_leave set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveDailyLeaves(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移资料分类的业务科室归属。 */
     @Update("update dm_department_document_category set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveDocumentCategories(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移资料记录的业务科室归属。 */
     @Update("update dm_department_document set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveDocuments(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移工单记录的业务科室归属。 */
     @Update("update dm_work_order set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveWorkOrders(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移科室项目的业务科室归属。 */
     @Update("update dm_department_project set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveProjects(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移运维工作记录的业务科室归属。 */
     @Update("update dm_operation_record set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveOperationRecords(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移系统在线率记录的业务科室归属。 */
     @Update("update dm_operation_system set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveOperationSystems(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移5WHY分析记录的业务科室归属。 */
     @Update("update dm_five_why set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveFiveWhy(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移SCORE提案的业务科室归属。 */
     @Update("update dm_score_proposal set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveScoreProposals(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移SCORE提案审核任务的业务科室归属。 */
     @Update("update dm_score_proposal_review_task set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveScoreProposalReviewTasks(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移审核规则的业务科室归属。 */
     @Update("update dm_review_rule set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveReviewRules(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移周期任务规则的业务科室归属。 */
     @Update("update dm_department_task_rule set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveTaskRules(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移周期任务成员分配的业务科室归属。 */
     @Update("update dm_department_task_assignment set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveTaskAssignments(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 
+    /** 迁移周期任务实例的业务科室归属。 */
     @Update("update dm_department_task_instance set dept_id = #{targetDeptId} where dept_id = #{sourceDeptId}")
     int moveTaskInstances(@Param("sourceDeptId") Long sourceDeptId, @Param("targetDeptId") Long targetDeptId);
 }

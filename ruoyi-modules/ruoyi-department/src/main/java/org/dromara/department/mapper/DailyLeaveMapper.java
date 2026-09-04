@@ -14,6 +14,15 @@ import java.util.List;
 @Mapper
 public interface DailyLeaveMapper extends BaseMapper<DailyLeave> {
 
+    /**
+     * 查询指定日期范围内与条件重叠的有效休假记录。
+     *
+     * @param deptId    业务科室主键
+     * @param beginDate 开始日期
+     * @param endDate   结束日期
+     * @param userId    用户主键，为 {@code null} 时查询科室全部成员
+     * @return 休假记录列表
+     */
     @Select({
         "<script>",
         "select l.id, l.dept_id, l.user_id, u.user_name, u.nick_name, l.start_date, l.end_date,",

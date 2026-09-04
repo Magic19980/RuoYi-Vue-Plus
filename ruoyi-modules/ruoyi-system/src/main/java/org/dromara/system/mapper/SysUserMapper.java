@@ -116,8 +116,26 @@ public interface SysUserMapper extends BaseMapperPlus<SysUser, SysUserVo>, MPJBa
         @DataColumn(key = "userName", value = "u.create_by")
     })
     default Page<SysUserVo> selectUnallocatedList(Page<SysUserVo> page, SysUserBo user, List<Long> userIds) {
+        return this.selectUnallocatedList(page, user, userIds, null);
+    }
+
+    /**
+     * 根据条件分页查询指定角色未分配的用户，并支持组织及下级组织筛选。
+     *
+     * @param page    分页信息
+     * @param user    用户查询条件
+     * @param userIds 已分配给角色的用户 ID
+     * @param deptIds 当前组织及其下级组织 ID
+     * @return 用户分页结果
+     */
+    @DataPermission({
+        @DataColumn(key = "deptName", value = "d.dept_id"),
+        @DataColumn(key = "userName", value = "u.create_by")
+    })
+    default Page<SysUserVo> selectUnallocatedList(Page<SysUserVo> page, SysUserBo user, List<Long> userIds, List<Long> deptIds) {
         MPJLambdaWrapper<SysUser> wrapper = this.buildUserRoleJoinWrapper(user)
             .notIn(userIds != null && !userIds.isEmpty(), "u", SysUser::getUserId, userIds)
+            .in(deptIds != null && !deptIds.isEmpty(), "u", SysUser::getDeptId, deptIds)
             .orderByAsc("u", SysUser::getUserId);
         return this.selectJoinPage(page, SysUserVo.class, wrapper);
     }
@@ -177,6 +195,9 @@ public interface SysUserMapper extends BaseMapperPlus<SysUser, SysUserVo>, MPJBa
             .leftJoin(SysUserRole.class, "sur", SysUserRole::getUserId, SysUser::getUserId)
             .leftJoin(SysRole.class, "r", SysRole::getRoleId, SysUserRole::getRoleId)
             .likeIfText("u", SysUser::getUserName, user.getUserName())
+            .likeIfText("u", SysUser::getNickName, user.getNickName())
+            .likeIfText("u", SysUser::getEmployeeNo, user.getEmployeeNo())
+            .likeIfText("u", SysUser::getEmail, user.getEmail())
             .eqIfText("u", SysUser::getStatus, user.getStatus())
             .likeIfText("u", SysUser::getPhoneNumber, user.getPhoneNumber())
             .build();

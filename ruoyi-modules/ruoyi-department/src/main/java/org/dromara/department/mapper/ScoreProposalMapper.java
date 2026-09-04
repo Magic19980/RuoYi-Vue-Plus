@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 @Mapper
 public interface ScoreProposalMapper extends BaseMapperPlus<ScoreProposal, ScoreProposalVo> {
 
+    /** 按权限范围分页查询SCORE提案。 */
     @Select({
         "<script>",
         "select s.id, s.dept_id, s.main_category_id, s.sub_category_id, s.proposer_user_id, s.company_name, s.team_member_user_ids, s.employee_no, s.proposer_name,",
@@ -54,6 +55,13 @@ public interface ScoreProposalMapper extends BaseMapperPlus<ScoreProposal, Score
     /**
      * 一次查询月度精益指标所需的基础数据，减少首页看板的数据库往返次数。
      * 已通过数按现场确认时间统计，状态总数按提交审核时间统计，保持原业务口径。
+     *
+     * @param deptId    业务科室主键
+     * @param monthStart 月份开始日期
+     * @param monthEnd   月份结束日期
+     * @param beginAt    统计开始时间
+     * @param endAt      统计结束时间
+     * @return 月度精益指标统计结果
      */
     @Select("select "
         + "(select count(distinct p.user_id) from dm_person_profile p "

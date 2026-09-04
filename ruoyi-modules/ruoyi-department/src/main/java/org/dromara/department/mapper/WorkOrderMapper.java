@@ -18,6 +18,7 @@ import java.util.List;
 @Mapper
 public interface WorkOrderMapper extends BaseMapperPlus<WorkOrder, WorkOrderVo> {
 
+    /** 按权限范围分页查询人工单台账。 */
     @Select({
         "<script>",
         "select w.id, w.dept_id, w.ticket_no, w.occur_date, w.source_period_start, w.source_period_end,",
@@ -47,6 +48,7 @@ public interface WorkOrderMapper extends BaseMapperPlus<WorkOrder, WorkOrderVo> 
                                       @Param("bo") WorkOrderQueryBo bo,
                                       @Param("scope") DepartmentScope scope);
 
+    /** 查询指定日期范围内的工单明细，用于汇总统计。 */
     @Select({
         "<script>",
         "select w.id, w.dept_id, w.ticket_no, w.occur_date, w.source_period_start, w.source_period_end,",

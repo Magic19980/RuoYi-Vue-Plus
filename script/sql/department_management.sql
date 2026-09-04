@@ -721,7 +721,8 @@ create table if not exists dm_department_task_completion (
 ) engine=innodb comment='科室任务周期完成记录';
 
 -- 菜单与按钮权限。日报不设置审核，也排除签字、固化清单和推广清单。
-insert ignore into sys_menu values(1761400000000003000, '科室管理', 0, 6, 'department', null, '', 'N', 'Y', 'M', '0', '0', '', 'post', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '科室管理目录');
+insert ignore into sys_menu values(1761400000000003000, '运营管理', 0, 6, 'department', null, '', 'N', 'Y', 'M', '0', '0', '', 'post', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '运营管理目录');
+update sys_menu set menu_name = '运营管理', remark = '运营管理目录' where menu_id = 1761400000000003000;
 insert ignore into sys_menu values(1761400000000003001, '日报管理', 1761400000000003000, 1, 'dailyReport', 'department/dailyReport/index', '', 'N', 'Y', 'C', '0', '0', 'department:dailyReport:list', 'documentation', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '科室日报管理');
 insert ignore into sys_menu values(1761400000000003010, '日报查询', 1761400000000003001, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:dailyReport:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003011, '日报新增', 1761400000000003001, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:dailyReport:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
@@ -1375,32 +1376,32 @@ create table if not exists dm_oa_callback_event (
     key idx_dm_oa_callback_status (event_status, create_time)
 ) engine=innodb comment='泛微审批回调事件';
 
-insert ignore into sys_menu values(1761400000000003200, '泛微审批中心', 1761400000000003000, 13, 'ecology', '', '', 'N', 'Y', 'M', '0', '0', '', 'guide', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '非 SCORE、非 5WHY 的外部泛微审批统一入口');
-insert ignore into sys_menu values(1761400000000003201, '通用审批申请', 1761400000000003200, 1, 'application', 'ecology/center/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:application:list', 'form', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '发起申请、查看流程状态和外部 OA 链接');
-insert ignore into sys_menu values(1761400000000003202, '申请查询', 1761400000000003201, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003203, '申请新增', 1761400000000003201, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003204, '申请编辑', 1761400000000003201, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003205, '申请提交', 1761400000000003201, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:submit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003206, '申请同步', 1761400000000003201, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:sync', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003207, '立即对账', 1761400000000003201, 6, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:reconcile', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+-- 泛微工作区权限：保留真实 API 按钮权限，统一挂到新的工作区菜单下。
+-- 3201 原为旧的“通用审批申请”页面，这里复用为单项审批列表权限按钮，避免删除后丢失 ecology:application:list。
+insert ignore into sys_menu values(1761400000000003201, '单项审批查询', 1761400000000003292, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '单项审批列表权限');
+insert ignore into sys_menu values(1761400000000003202, '申请查询', 1761400000000003292, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003203, '申请新增', 1761400000000003292, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003204, '申请编辑', 1761400000000003292, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003205, '申请提交', 1761400000000003292, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:submit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003206, '申请同步', 1761400000000003292, 6, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:sync', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003207, '立即对账', 1761400000000003292, 7, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:reconcile', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003210, '流程配置', 1761400000000003299, 2, 'workflowConfig', 'ecology/workflowConfig/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:workflowConfig:list', 'workflow', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护可复用的泛微表单及其审批方式选项');
 insert ignore into sys_menu values(1761400000000003211, '流程配置新增', 1761400000000003210, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:workflowConfig:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003212, '流程配置修改', 1761400000000003210, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:workflowConfig:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003213, '流程配置删除', 1761400000000003210, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:workflowConfig:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003214, '流程配置查询', 1761400000000003210, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:workflowConfig:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003220, '审批方案管理', 1761400000000003200, 3, 'departmentApproval', 'ecology/center/index', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护可复用的泛微审批人员方案和自动匹配条件');
-insert ignore into sys_menu values(1761400000000003221, '配置查询', 1761400000000003220, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003222, '配置新增', 1761400000000003220, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003223, '配置修改', 1761400000000003220, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003224, '配置删除', 1761400000000003220, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003225, '审批链预览', 1761400000000003201, 7, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:preview', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003230, '审批监控', 1761400000000003201, 6, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:monitor', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看全部通用审批实例');
-insert ignore into sys_menu values(1761400000000003250, '业务类型配置', 1761400000000003200, 4, 'businessType', 'ecology/center/index', '{"tab":"businessType"}', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护泛微审批业务类型，其他审批页面统一选择');
-insert ignore into sys_menu values(1761400000000003251, '业务类型查询', 1761400000000003250, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003252, '业务类型新增', 1761400000000003250, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003253, '业务类型修改', 1761400000000003250, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003254, '业务类型停用', 1761400000000003250, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003200 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_menu values(1761400000000003220, '审批方案权限', 1761400000000003291, 8, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '审批方案列表权限');
+insert ignore into sys_menu values(1761400000000003221, '配置查询', 1761400000000003291, 9, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003222, '配置新增', 1761400000000003291, 10, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003223, '配置修改', 1761400000000003291, 11, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003224, '配置删除', 1761400000000003291, 12, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003225, '审批链预览', 1761400000000003292, 8, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:preview', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003230, '审批监控', 1761400000000003292, 9, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:monitor', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看全部通用审批实例');
+insert ignore into sys_menu values(1761400000000003250, '业务类型权限', 1761400000000003291, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '业务类型列表权限');
+insert ignore into sys_menu values(1761400000000003251, '业务类型查询', 1761400000000003291, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003252, '业务类型新增', 1761400000000003291, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003253, '业务类型修改', 1761400000000003291, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003254, '业务类型停用', 1761400000000003291, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003201 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003202 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003203 from sys_role_menu where menu_id = 1761400000000003000;
@@ -1477,12 +1478,10 @@ create table if not exists dm_oa_sync_detail (
     key idx_dm_oa_sync_detail_source (entity_type, source_key)
 ) engine=innodb comment='泛微 HRM 同步明细';
 
-insert ignore into sys_menu values(1761400000000003240, '泛微 HRM 同步', 1761400000000003200, 4, 'hrmSync', 'ecology/hrm-sync/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:hrmSync:list', 'tree', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '泛微组织接管和人员同步');
-insert ignore into sys_menu values(1761400000000003241, '同步并接管组织', 1761400000000003240, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:organization', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按泛微组织重建本地部门并同步岗位');
-insert ignore into sys_menu values(1761400000000003242, '同步人员', 1761400000000003240, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:user', '#', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按泛微工号同步系统用户');
-insert ignore into sys_menu values(1761400000000003245, '同步批次查询', 1761400000000003240, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:batch:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看泛微 HRM 同步批次');
-insert ignore into sys_menu values(1761400000000003246, '同步明细查询', 1761400000000003240, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:detail:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看泛微 HRM 同步异常明细');
-insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003240 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_menu values(1761400000000003241, '同步并接管组织', 1761400000000003290, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:organization', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按泛微组织重建本地部门并同步岗位');
+insert ignore into sys_menu values(1761400000000003242, '同步人员', 1761400000000003290, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:user', '#', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按泛微工号同步系统用户');
+insert ignore into sys_menu values(1761400000000003245, '同步批次查询', 1761400000000003290, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:batch:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看泛微 HRM 同步批次');
+insert ignore into sys_menu values(1761400000000003246, '同步明细查询', 1761400000000003290, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:detail:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看泛微 HRM 同步异常明细');
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003241 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003242 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003245 from sys_role_menu where menu_id = 1761400000000003000;
@@ -1528,27 +1527,27 @@ create table if not exists dm_oa_import_dept_alias (
 ) engine=innodb comment='通用泛微导入部门别名映射';
 
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
-values (1761400000000003270, '通用导入业务', 1761400000000003000, 14, 'importBusiness', 'ecology/importBusiness/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:importBusiness:list', 'upload', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'Excel 导入、部门匹配、附件生成并提交泛微');
+values (1761400000000003270, '批量导入权限', 1761400000000003292, 10, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '批量导入列表权限');
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
-values (1761400000000003271, '通用导入查询', 1761400000000003270, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查询通用导入批次');
+values (1761400000000003271, '通用导入查询', 1761400000000003292, 11, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查询通用导入批次');
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
-values (1761400000000003272, '通用导入数据', 1761400000000003270, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:import', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '导入 Excel 业务数据');
+values (1761400000000003272, '通用导入数据', 1761400000000003292, 12, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:import', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '导入 Excel 业务数据');
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
-values (1761400000000003273, '通用导入部门匹配', 1761400000000003270, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:map', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护来源部门到泛微部门的映射');
+values (1761400000000003273, '通用导入部门匹配', 1761400000000003292, 13, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:map', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护来源部门到泛微部门的映射');
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
-values (1761400000000003274, '通用导入提交泛微', 1761400000000003270, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:submit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按分组生成附件并提交泛微');
+values (1761400000000003274, '通用导入提交泛微', 1761400000000003292, 14, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:submit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按分组生成附件并提交泛微');
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
-values (1761400000000003275, '通用导入批次删除', 1761400000000003270, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '删除尚未创建泛微申请的导入批次');
+values (1761400000000003275, '通用导入批次删除', 1761400000000003292, 15, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '删除尚未创建泛微申请的导入批次');
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
-values (1761400000000003280, '导入业务模板', 1761400000000003000, 15, 'importConfig', 'ecology/importConfig/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:importConfig:list', 'edit', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护通用 Excel 导入业务模板');
+values (1761400000000003280, '导入模板权限', 1761400000000003291, 13, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '导入模板列表权限');
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
-values (1761400000000003281, '导入模板查询', 1761400000000003280, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查询导入业务模板');
+values (1761400000000003281, '导入模板查询', 1761400000000003291, 14, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查询导入业务模板');
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
-values (1761400000000003282, '导入模板新增', 1761400000000003280, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '新增导入业务模板');
+values (1761400000000003282, '导入模板新增', 1761400000000003291, 15, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '新增导入业务模板');
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
-values (1761400000000003283, '导入模板修改', 1761400000000003280, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '修改导入业务模板');
+values (1761400000000003283, '导入模板修改', 1761400000000003291, 16, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '修改导入业务模板');
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
-values (1761400000000003284, '导入模板删除', 1761400000000003280, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '删除导入业务模板');
+values (1761400000000003284, '导入模板删除', 1761400000000003291, 17, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '删除导入业务模板');
 
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003270 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003271 from sys_role_menu where menu_id = 1761400000000003000;
@@ -1562,19 +1561,7 @@ insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 176
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003283 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003284 from sys_role_menu where menu_id = 1761400000000003000;
 
--- 泛微业务工作区导航优化：隐藏散落的旧入口，统一放到“泛微工作中心”下。
-update sys_menu
-set visible = '1', update_time = sysdate()
-where menu_id in (
-    1761400000000003200, 1761400000000003201,
-    1761400000000003211, 1761400000000003212, 1761400000000003213,
-    1761400000000003220, 1761400000000003221, 1761400000000003222, 1761400000000003223, 1761400000000003224,
-    1761400000000003240, 1761400000000003241, 1761400000000003242, 1761400000000003245, 1761400000000003246,
-    1761400000000003250, 1761400000000003251, 1761400000000003252, 1761400000000003253, 1761400000000003254,
-    1761400000000003270, 1761400000000003271, 1761400000000003272, 1761400000000003273, 1761400000000003274, 1761400000000003275,
-    1761400000000003280, 1761400000000003281, 1761400000000003282, 1761400000000003283, 1761400000000003284
-);
-
+-- 泛微工作区导航统一由“泛微工作中心”承载，旧目录节点不再创建。
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
 values (1761400000000003299, '泛微工作中心', 1761400000000003000, 13, 'ecologyWorkspace', '', '', 'N', 'Y', 'M', '0', '0', '', 'workflow', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '泛微组织同步、业务配置、业务提交和申请记录');
 insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)

@@ -25,6 +25,7 @@ import java.time.LocalDate;
 @Mapper
 public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, PersonProfileVo> {
 
+    /** 按权限范围分页查询人员档案。 */
     @Select({
         "<script>",
         "select p.id, p.user_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name,",
@@ -59,6 +60,7 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
                                           @Param("scope") DepartmentScope scope,
                                           @Param("today") LocalDate today);
 
+    /** 查询当前权限范围内可用于选择的有效系统用户。 */
     @Select({
         "<script>",
         "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name",
@@ -74,6 +76,7 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
     })
     List<PersonUserOptionVo> selectUserOptions(@Param("scope") DepartmentScope scope);
 
+    /** 按用户名集合查询有效系统用户选择项。 */
     @Select({
         "<script>",
         "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name",
@@ -89,6 +92,7 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
     })
     List<PersonUserOptionVo> selectUserOptionsByNames(@Param("userNames") Collection<String> userNames);
 
+    /** 按用户主键集合查询有效系统用户选择项。 */
     @Select({
         "<script>",
         "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name",
@@ -104,6 +108,7 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
     })
     List<PersonUserOptionVo> selectUserOptionsByIds(@Param("userIds") Collection<Long> userIds);
 
+    /** 按用户主键查询单个有效系统用户选择项。 */
     @Select("select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name, "
         + "d.dept_name, d.indonesian_name as dept_indonesian_name "
         + "from sys_user u left join sys_dept d on d.dept_id = u.dept_id and d.del_flag = '0' "
@@ -114,6 +119,7 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
         + "where u.user_id = #{userId} and u.del_flag = '0' and u.status = '0'")
     PersonUserOptionVo selectUserOptionById(@Param("userId") Long userId);
 
+    /** 分页查询可加入指定业务科室的有效系统用户。 */
     @Select({
         "<script>",
         "select u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, u.employee_no, post.job_title, post.job_title_indonesian_name, "
@@ -171,6 +177,7 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
                                                         @Param("bo") PersonUserOptionQueryBo bo,
                                                         @Param("scope") DepartmentScope scope);
 
+    /** 查询指定业务科室当前有效成员的用户选择项。 */
     @Select("select distinct u.user_id, u.dept_id, u.user_name, u.nick_name, u.indonesian_name, u.employee_no, "
         + "post.job_title, post.job_title_indonesian_name, d.dept_name, d.indonesian_name as dept_indonesian_name "
         + "from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' "
@@ -184,6 +191,7 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
         + "and u.status = '0' order by u.user_name")
     List<PersonUserOptionVo> selectMemberUserOptions(@Param("deptId") Long deptId, @Param("today") LocalDate today);
 
+    /** 统计用户在指定业务科室的任职关系是否存在日期重叠。 */
     @Select({
         "<script>",
         "select count(1) from dm_person_profile p",
@@ -199,16 +207,19 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
                                     @Param("leaveDate") LocalDate leaveDate,
                                     @Param("excludeId") Long excludeId);
 
+    /** 统计用户当前是否为指定业务科室的有效成员。 */
     @Select("select count(1) from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' and u.status = '0' "
         + "where p.user_id = #{userId} and p.create_dept = #{deptId} and p.del_flag = '0' and p.member_status = 'ACTIVE' "
         + "and p.join_date <= current_date and (p.leave_date is null or p.leave_date > current_date)")
     long countMemberInDept(@Param("userId") Long userId, @Param("deptId") Long deptId);
 
+    /** 统计用户在指定日期是否为指定业务科室的有效成员。 */
     @Select("select count(1) from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' and u.status = '0' "
         + "where p.user_id = #{userId} and p.create_dept = #{deptId} and p.del_flag = '0' "
         + "and p.join_date <= #{date} and (p.leave_date is null or p.leave_date > #{date})")
     long countMemberInDeptAt(@Param("userId") Long userId, @Param("deptId") Long deptId, @Param("date") LocalDate date);
 
+    /** 统计用户在指定日期是否为指定业务科室的全职成员。 */
     @Select("select count(1) from dm_person_profile p join sys_user u on u.user_id = p.user_id "
         + "and u.del_flag = '0' and u.status = '0' "
         + "where p.user_id = #{userId} and p.create_dept = #{deptId} and p.member_type = 'FULL' "
@@ -216,20 +227,24 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
         + "and p.join_date <= #{date} and (p.leave_date is null or p.leave_date > #{date})")
     long countFullMemberInDeptAt(@Param("userId") Long userId, @Param("deptId") Long deptId, @Param("date") LocalDate date);
 
+    /** 查询用户在指定日期于业务科室生效的任职关系。 */
     @Select("select p.* from dm_person_profile p join sys_user u on u.user_id = p.user_id and u.del_flag = '0' and u.status = '0' "
         + "where p.user_id = #{userId} and p.create_dept = #{deptId} and p.del_flag = '0' and p.member_status = 'ACTIVE' "
         + "and p.join_date <= #{date} and (p.leave_date is null or p.leave_date > #{date}) "
         + "order by p.join_date desc, p.id desc limit 1")
     PersonProfile selectActiveMembership(@Param("userId") Long userId, @Param("deptId") Long deptId, @Param("date") LocalDate date);
 
+    /** 查询用户在指定业务科室的最新任职关系。 */
     @Select("select p.* from dm_person_profile p where p.user_id = #{userId} and p.create_dept = #{deptId} and p.del_flag = '0' "
         + "order by case when p.member_status = 'ACTIVE' then 0 else 1 end, p.join_date desc, p.id desc limit 1")
     PersonProfile selectLatestByUserDept(@Param("userId") Long userId, @Param("deptId") Long deptId);
 
+    /** 查询用户的有效自动主部门任职关系。 */
     @Select("select p.* from dm_person_profile p where p.user_id = #{userId} and p.member_source = 'AUTO_MAIN' "
         + "and p.del_flag = '0' and p.member_status = 'ACTIVE'")
     List<PersonProfile> selectActiveAutoMainMemberships(@Param("userId") Long userId);
 
+    /** 查询指定业务科室的有效自动主部门任职关系。 */
     @Select("select p.* from dm_person_profile p where p.create_dept = #{deptId} and p.member_source = 'AUTO_MAIN' "
         + "and p.del_flag = '0' and p.member_status = 'ACTIVE'")
     List<PersonProfile> selectActiveAutoMainMembershipsByDept(@Param("deptId") Long deptId);
@@ -256,14 +271,17 @@ public interface PersonProfileMapper extends BaseMapperPlus<PersonProfile, Perso
     })
     List<DepartmentMembershipDTO> selectActiveMembershipsByUserIds(@Param("userIds") Collection<Long> userIds);
 
+    /** 查询指定系统部门下有效用户的主键。 */
     @Select("select u.user_id from sys_user u where u.dept_id = #{deptId} and u.del_flag = '0' and u.status = '0'")
     List<Long> selectMainUserIdsByDept(@Param("deptId") Long deptId);
 
+    /** 将人员档案恢复为有效的自动主部门成员关系。 */
     @Update("update dm_person_profile set member_type = 'FULL', member_status = 'ACTIVE', member_source = 'AUTO_MAIN', "
         + "leave_date = null, ended_at = null, ended_by = null, end_reason = null, update_by = #{operatorId}, update_time = now() "
         + "where id = #{profileId} and del_flag = '0'")
     int activateMainMembership(@Param("profileId") Long profileId, @Param("operatorId") Long operatorId);
 
+    /** 查询用户当前有效的业务科室上下文。 */
     @Select("select p.create_dept as dept_id, d.dept_name, p.member_type, p.join_date, p.leave_date "
         + "from dm_person_profile p "
         + "join dm_department c on c.dept_id = p.create_dept and c.del_flag = '0' and c.status = 'ENABLED' "

@@ -137,7 +137,8 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     @Override
     public PageResult<SysUserVo> selectUnallocatedList(SysUserBo user, PageQuery pageQuery) {
         List<Long> userIds = userRoleMapper.selectUserIdsByRoleId(user.getRoleId());
-        Page<SysUserVo> page = userMapper.selectUnallocatedList(pageQuery.build(), user, userIds);
+        List<Long> deptIds = ObjectUtil.isNotNull(user.getDeptId()) ? deptMapper.selectDeptAndChildById(user.getDeptId()) : null;
+        Page<SysUserVo> page = userMapper.selectUnallocatedList(pageQuery.build(), user, userIds, deptIds);
         return PageResult.build(page.getRecords(), page.getTotal());
     }
 

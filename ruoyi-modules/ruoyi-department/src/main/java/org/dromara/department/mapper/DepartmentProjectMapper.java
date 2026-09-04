@@ -18,6 +18,14 @@ import java.util.List;
 @Mapper
 public interface DepartmentProjectMapper extends BaseMapperPlus<DepartmentProject, DepartmentProjectVo> {
 
+    /**
+     * 按权限范围分页查询科室项目。
+     *
+     * @param page  分页对象
+     * @param bo    项目查询条件
+     * @param scope 科室数据权限范围
+     * @return 分页项目数据
+     */
     @Select({
         "<script>",
         "select p.id, p.dept_id, p.project_code, p.project_name, p.project_type, p.responsible_person,",
@@ -39,6 +47,12 @@ public interface DepartmentProjectMapper extends BaseMapperPlus<DepartmentProjec
                                               @Param("bo") DepartmentProjectQueryBo bo,
                                               @Param("scope") DepartmentScope scope);
 
+    /**
+     * 查询当前权限范围内的启用项目选项。
+     *
+     * @param scope 科室数据权限范围
+     * @return 项目选项列表
+     */
     @Select({
         "<script>",
         "select p.id, p.dept_id, p.project_code, p.project_name, p.project_type, p.responsible_person,",
@@ -53,9 +67,22 @@ public interface DepartmentProjectMapper extends BaseMapperPlus<DepartmentProjec
     })
     List<DepartmentProjectVo> selectOptions(@Param("scope") DepartmentScope scope);
 
+    /**
+     * 按科室和项目名称查询项目主键。
+     *
+     * @param deptId      业务科室主键
+     * @param projectName 项目名称
+     * @return 项目主键，不存在时返回 {@code null}
+     */
     @Select("select id from dm_department_project where del_flag = '0' and dept_id = #{deptId} and project_name = #{projectName} limit 1")
     Long selectIdByName(@Param("deptId") Long deptId, @Param("projectName") String projectName);
 
+    /**
+     * 统计项目关联的运维记录数量。
+     *
+     * @param projectId 项目主键
+     * @return 运维记录数量
+     */
     @Select("select count(1) from dm_operation_record where project_id = #{projectId} and del_flag = '0'")
     int countOperationRecords(@Param("projectId") Long projectId);
 }

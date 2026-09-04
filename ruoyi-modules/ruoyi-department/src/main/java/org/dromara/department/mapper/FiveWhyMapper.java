@@ -14,6 +14,7 @@ import org.dromara.department.service.DepartmentScope;
 @Mapper
 public interface FiveWhyMapper extends BaseMapperPlus<FiveWhy, FiveWhyVo> {
 
+    /** 按权限范围分页查询5WHY分析记录。 */
     @Select({
         "<script>",
         "select f.id, f.dept_id, f.company_dept, f.employee_no, f.analyst_user_id, f.analyst_name, f.analysis_date,",

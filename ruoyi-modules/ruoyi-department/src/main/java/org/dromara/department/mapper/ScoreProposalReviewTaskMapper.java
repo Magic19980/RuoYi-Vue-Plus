@@ -14,6 +14,7 @@ import java.util.List;
 @Mapper
 public interface ScoreProposalReviewTaskMapper extends BaseMapperPlus<ScoreProposalReviewTask, ScoreProposalReviewTaskVo> {
 
+    /** 查询指定用户待处理的SCORE提案审核任务。 */
     @Select("select t.id, t.proposal_id, t.dept_id, t.revision_no, t.stage, t.assignee_user_id, t.status, "
         + "t.deadline, t.create_time, s.proposer_name, s.main_category, s.sub_category "
         + "from dm_score_proposal_review_task t "
@@ -22,6 +23,7 @@ public interface ScoreProposalReviewTaskMapper extends BaseMapperPlus<ScorePropo
         + "order by case when t.deadline is null then 1 else 0 end, t.deadline asc, t.create_time desc")
     List<ScoreProposalReviewTaskVo> selectPendingByUserId(@Param("userId") Long userId);
 
+    /** 查询指定提案阶段中指定审核人的待处理任务。 */
     default ScoreProposalReviewTask selectPending(Long proposalId, Integer revisionNo, String stage, Long assigneeUserId) {
         return selectOne(Wrappers.<ScoreProposalReviewTask>lambdaQuery()
             .eq(ScoreProposalReviewTask::getProposalId, proposalId)
@@ -33,6 +35,7 @@ public interface ScoreProposalReviewTaskMapper extends BaseMapperPlus<ScorePropo
             .last("limit 1"));
     }
 
+    /** 查询指定提案阶段的全部待处理审核任务。 */
     default List<ScoreProposalReviewTask> selectPendingByProposalStage(Long proposalId, Integer revisionNo, String stage) {
         return selectList(Wrappers.<ScoreProposalReviewTask>lambdaQuery()
             .eq(ScoreProposalReviewTask::getProposalId, proposalId)

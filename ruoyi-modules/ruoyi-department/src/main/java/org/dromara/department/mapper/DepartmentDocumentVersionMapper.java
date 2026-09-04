@@ -15,6 +15,7 @@ import java.util.List;
 @Mapper
 public interface DepartmentDocumentVersionMapper extends BaseMapperPlus<DepartmentDocumentVersion, DepartmentDocumentVersionVo> {
 
+    /** 查询指定资料的有效版本列表，按版本号倒序排列。 */
     @Select({
         "select v.id, v.document_id, v.version_no, v.oss_id, v.original_name, v.file_suffix, v.file_size,",
         "v.content_type, v.version_note, coalesce(u.nick_name, u.user_name) as create_by_name, v.create_time",

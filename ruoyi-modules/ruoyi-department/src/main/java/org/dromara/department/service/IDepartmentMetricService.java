@@ -13,7 +13,21 @@ import java.time.LocalDate;
  */
 public interface IDepartmentMetricService {
 
+    /**
+     * 汇总人工工单指标。
+     *
+     * @param beginDate 统计开始日期，包含当天
+     * @param endDate   统计结束日期，包含当天
+     * @return 人工工单汇总指标
+     */
     WorkOrderSummaryVo buildManualOrderSummary(LocalDate beginDate, LocalDate endDate);
 
+    /**
+     * 汇总运维台账指标。
+     *
+     * @param beginDate 统计开始日期，包含当天
+     * @param endDate   统计结束日期，包含当天
+     * @return 运维台账汇总指标
+     */
     OperationSummaryVo buildOperationSummary(LocalDate beginDate, LocalDate endDate);
 }

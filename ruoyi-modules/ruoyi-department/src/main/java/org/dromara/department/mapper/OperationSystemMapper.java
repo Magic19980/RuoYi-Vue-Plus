@@ -18,6 +18,7 @@ import java.util.List;
 @Mapper
 public interface OperationSystemMapper extends BaseMapperPlus<OperationSystem, OperationSystemVo> {
 
+    /** 按权限范围分页查询系统在线率记录。 */
     @Select({
         "<script>",
         "select s.id, s.dept_id, s.project_id, p.project_name, s.stat_date, s.system_name, s.responsible_person,",
@@ -39,6 +40,7 @@ public interface OperationSystemMapper extends BaseMapperPlus<OperationSystem, O
                                             @Param("systemName") String systemName,
                                             @Param("scope") DepartmentScope scope);
 
+    /** 查询指定日期范围内的系统在线率记录，用于汇总统计。 */
     @Select({
         "<script>",
         "select s.id, s.dept_id, s.project_id, p.project_name, s.stat_date, s.system_name, s.responsible_person,",

@@ -19,6 +19,14 @@ import java.util.Collection;
 @Mapper
 public interface DepartmentDocumentMapper extends BaseMapperPlus<DepartmentDocument, DepartmentDocumentVo> {
 
+    /**
+     * 按权限范围分页查询有效资料。
+     *
+     * @param page  分页对象
+     * @param bo    资料查询条件
+     * @param scope 科室数据权限范围
+     * @return 分页资料数据
+     */
     @Select({
         "<script>",
         "select d.id, d.dept_id, d.project_id, p.project_name, d.category_id, c.category_name, d.title, d.description, d.tags,",
@@ -46,6 +54,14 @@ public interface DepartmentDocumentMapper extends BaseMapperPlus<DepartmentDocum
                                                @Param("bo") DepartmentDocumentQueryBo bo,
                                                @Param("scope") DepartmentScope scope);
 
+    /**
+     * 按权限范围分页查询回收站资料。
+     *
+     * @param page  分页对象
+     * @param bo    资料查询条件
+     * @param scope 科室数据权限范围
+     * @return 分页回收站资料
+     */
     @Select({
         "<script>",
         "select d.id, d.dept_id, d.project_id, p.project_name, d.category_id, c.category_name, d.title, d.description, d.tags,",
@@ -72,6 +88,12 @@ public interface DepartmentDocumentMapper extends BaseMapperPlus<DepartmentDocum
                                                       @Param("bo") DepartmentDocumentQueryBo bo,
                                                       @Param("scope") DepartmentScope scope);
 
+    /**
+     * 查询有效资料详情。
+     *
+     * @param id 资料主键
+     * @return 资料详情
+     */
     @Select({
         "select d.id, d.dept_id, d.project_id, p.project_name, d.category_id, c.category_name, d.title, d.description, d.tags,",
         "d.visibility, d.status, d.expire_date, d.current_version_id, d.version_no, d.current_oss_id,",
@@ -85,9 +107,22 @@ public interface DepartmentDocumentMapper extends BaseMapperPlus<DepartmentDocum
     })
     DepartmentDocumentVo selectDetailById(@Param("id") Long id);
 
+    /**
+     * 查询资料原始记录，包括回收站数据。
+     *
+     * @param id 资料主键
+     * @return 资料实体
+     */
     @Select("select * from dm_department_document where id = #{id}")
     DepartmentDocument selectAnyById(@Param("id") Long id);
 
+    /**
+     * 批量恢复回收站资料。
+     *
+     * @param ids    资料主键集合
+     * @param userId 操作人用户主键
+     * @return 更新记录数
+     */
     @Update({
         "<script>",
         "update dm_department_document set del_flag = '0', update_by = #{userId}, update_time = now()",

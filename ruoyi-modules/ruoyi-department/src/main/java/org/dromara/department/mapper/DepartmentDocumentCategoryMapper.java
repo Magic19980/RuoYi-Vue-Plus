@@ -14,6 +14,12 @@ import java.util.List;
 @Mapper
 public interface DepartmentDocumentCategoryMapper extends BaseMapperPlus<DepartmentDocumentCategory, DepartmentDocumentCategoryVo> {
 
+    /**
+     * 查询资料分类选择项。
+     *
+     * @param scope 科室数据权限范围
+     * @return 启用分类选项
+     */
     @Select({
         "<script>",
         "select c.id, c.dept_id, c.parent_id, c.category_name, c.sort_num, c.status, c.remark",
@@ -27,9 +33,24 @@ public interface DepartmentDocumentCategoryMapper extends BaseMapperPlus<Departm
     })
     List<DepartmentDocumentCategoryVo> selectOptions(@Param("scope") DepartmentScope scope);
 
+    /**
+     * 统计同一科室、同一父分类下的重名分类。
+     *
+     * @param deptId       业务科室主键
+     * @param parentId     父分类主键
+     * @param categoryName 分类名称
+     * @param id           当前分类主键，新增时可为 {@code null}
+     * @return 重名记录数
+     */
     @Select("select count(1) from dm_department_document_category where del_flag = '0' and dept_id = #{deptId} and parent_id = #{parentId} and category_name = #{categoryName} and id <> #{id}")
     int countDuplicate(@Param("deptId") Long deptId, @Param("parentId") Long parentId, @Param("categoryName") String categoryName, @Param("id") Long id);
 
+    /**
+     * 查询资料分类树及分类下的资料数量。
+     *
+     * @param scope 科室数据权限范围
+     * @return 分类树数据
+     */
     @Select({
         "select c.id, c.dept_id, c.parent_id, c.category_name, c.sort_num, c.status, c.remark, c.create_time, c.update_time,",
         "(select count(1) from dm_department_document d where d.category_id = c.id and d.del_flag = '0') as document_count",
@@ -39,12 +60,15 @@ public interface DepartmentDocumentCategoryMapper extends BaseMapperPlus<Departm
     })
     List<DepartmentDocumentCategoryVo> selectTreeList(@Param("scope") DepartmentScope scope);
 
+    /** 统计父分类下的子分类数量。 */
     @Select("select count(1) from dm_department_document_category where del_flag = '0' and dept_id = #{deptId} and parent_id = #{parentId}")
     int countChildren(@Param("deptId") Long deptId, @Param("parentId") Long parentId);
 
+    /** 统计父分类下的启用子分类数量。 */
     @Select("select count(1) from dm_department_document_category where del_flag = '0' and dept_id = #{deptId} and parent_id = #{parentId} and status = 'ENABLED'")
     int countEnabledChildren(@Param("deptId") Long deptId, @Param("parentId") Long parentId);
 
+    /** 统计分类下的有效资料数量。 */
     @Select("select count(1) from dm_department_document where category_id = #{categoryId} and del_flag = '0'")
     int countDocuments(@Param("categoryId") Long categoryId);
 }

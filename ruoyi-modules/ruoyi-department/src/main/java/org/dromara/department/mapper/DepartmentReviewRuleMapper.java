@@ -10,6 +10,13 @@ import org.dromara.department.domain.vo.DepartmentReviewRuleVo;
 @Mapper
 public interface DepartmentReviewRuleMapper extends BaseMapperPlus<DepartmentReviewRule, DepartmentReviewRuleVo> {
 
+    /**
+     * 查询指定科室和业务类型当前生效的审核规则。
+     *
+     * @param deptId   业务科室主键
+     * @param taskType 业务任务类型
+     * @return 当前生效的审核规则
+     */
     default DepartmentReviewRule selectEnabledRule(Long deptId, String taskType) {
         return selectOne(Wrappers.<DepartmentReviewRule>lambdaQuery()
             .eq(DepartmentReviewRule::getDeptId, deptId)

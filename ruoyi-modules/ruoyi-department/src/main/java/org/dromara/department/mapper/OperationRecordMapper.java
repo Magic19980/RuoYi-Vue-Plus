@@ -19,6 +19,7 @@ import java.util.List;
 @Mapper
 public interface OperationRecordMapper extends BaseMapperPlus<OperationRecord, OperationRecordVo> {
 
+    /** 按权限范围分页查询运维工作记录。 */
     @Select({
         "<script>",
         "select o.id, o.dept_id, o.request_person, o.customer_unit, o.request_role_type, o.request_time,",
@@ -45,6 +46,7 @@ public interface OperationRecordMapper extends BaseMapperPlus<OperationRecord, O
                                             @Param("bo") OperationRecordQueryBo bo,
                                             @Param("scope") DepartmentScope scope);
 
+    /** 查询指定日期范围内的运维记录，用于汇总统计。 */
     @Select({
         "<script>",
         "select o.id, o.dept_id, o.request_person, o.customer_unit, o.request_role_type, o.request_time,",

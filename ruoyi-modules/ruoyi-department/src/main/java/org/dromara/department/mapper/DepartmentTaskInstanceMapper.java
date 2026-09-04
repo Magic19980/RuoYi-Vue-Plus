@@ -14,6 +14,7 @@ import java.time.LocalDate;
 @Mapper
 public interface DepartmentTaskInstanceMapper extends BaseMapperPlus<DepartmentTaskInstance, DepartmentTaskInstanceVo> {
 
+    /** 查询指定规则、用户和周期的有效任务实例。 */
     default DepartmentTaskInstance selectActive(Long ruleId, Long userId, LocalDate periodStart) {
         return selectOne(Wrappers.<DepartmentTaskInstance>lambdaQuery()
             .eq(DepartmentTaskInstance::getRuleId, ruleId)
@@ -22,6 +23,7 @@ public interface DepartmentTaskInstanceMapper extends BaseMapperPlus<DepartmentT
             .eq(DepartmentTaskInstance::getDelFlag, "0"));
     }
 
+    /** 统计指定规则、用户和周期的任务实例数量。 */
     @Select("select count(1) from dm_department_task_instance where rule_id = #{ruleId} and user_id = #{userId} and period_start = #{periodStart} and del_flag = '0'")
     long countActive(@Param("ruleId") Long ruleId, @Param("userId") Long userId, @Param("periodStart") LocalDate periodStart);
 }

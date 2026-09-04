@@ -15,6 +15,7 @@ import java.util.List;
 @Mapper
 public interface WorkOrderDetailMapper extends BaseMapperPlus<WorkOrderDetail, WorkOrderDetailVo> {
 
+    /** 查询指定工单的明细并按序号排序。 */
     default List<WorkOrderDetail> selectByWorkOrderId(Long workOrderId) {
         return selectList(Wrappers.<WorkOrderDetail>lambdaQuery()
             .eq(WorkOrderDetail::getWorkOrderId, workOrderId)
@@ -22,6 +23,7 @@ public interface WorkOrderDetailMapper extends BaseMapperPlus<WorkOrderDetail, W
             .orderByAsc(WorkOrderDetail::getId));
     }
 
+    /** 批量查询多个工单的明细并按工单、序号排序。 */
     default List<WorkOrderDetail> selectByWorkOrderIds(Collection<Long> workOrderIds) {
         if (workOrderIds == null || workOrderIds.isEmpty()) {
             return List.of();
@@ -33,6 +35,7 @@ public interface WorkOrderDetailMapper extends BaseMapperPlus<WorkOrderDetail, W
             .orderByAsc(WorkOrderDetail::getId));
     }
 
+    /** 删除指定工单的全部明细。 */
     default int deleteByWorkOrderId(Long workOrderId) {
         return delete(Wrappers.<WorkOrderDetail>lambdaUpdate().eq(WorkOrderDetail::getWorkOrderId, workOrderId));
     }

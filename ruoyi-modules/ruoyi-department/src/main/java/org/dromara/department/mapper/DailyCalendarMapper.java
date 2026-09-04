@@ -13,6 +13,15 @@ import java.util.List;
 @Mapper
 public interface DailyCalendarMapper {
 
+    /**
+     * 查询指定日期范围内仍在科室服务的成员。
+     *
+     * @param deptId    业务科室主键
+     * @param userId    用户主键，为 {@code null} 时查询科室全部成员
+     * @param beginDate 开始日期
+     * @param endDate   结束日期
+     * @return 日历成员列表
+     */
     @Select({
         "<script>",
         "select distinct u.user_id, u.user_name, u.nick_name, post.job_title, source_dept.dept_name as source_dept_name,",
@@ -32,6 +41,15 @@ public interface DailyCalendarMapper {
     List<DailyCalendarMemberVo> selectMembers(@Param("deptId") Long deptId, @Param("userId") Long userId,
                                                @Param("beginDate") LocalDate beginDate, @Param("endDate") LocalDate endDate);
 
+    /**
+     * 查询指定日期范围内的日报记录。
+     *
+     * @param deptId    业务科室主键
+     * @param userId    用户主键，为 {@code null} 时查询科室全部日报
+     * @param beginDate 开始日期
+     * @param endDate   结束日期
+     * @return 日报列表
+     */
     @Select({
         "<script>",
         "select r.id, r.report_date, r.user_id, r.dept_id, r.today_work, r.tomorrow_plan,",

@@ -12,12 +12,14 @@ import org.dromara.department.domain.vo.DepartmentTaskRuleVo;
 @Mapper
 public interface DepartmentTaskRuleMapper extends BaseMapperPlus<DepartmentTaskRule, DepartmentTaskRuleVo> {
 
+    /** 查询全部有效的周期任务规则。 */
     default java.util.List<DepartmentTaskRule> selectEnabledRules() {
         return selectList(Wrappers.<DepartmentTaskRule>lambdaQuery()
             .eq(DepartmentTaskRule::getStatus, "ENABLED")
             .eq(DepartmentTaskRule::getDelFlag, "0"));
     }
 
+    /** 统计指定规则下的有效成员分配数量。 */
     @Select("select count(1) from dm_department_task_assignment where rule_id = #{ruleId} and status = 'ENABLED' and del_flag = '0'")
     long countAssignments(@Param("ruleId") Long ruleId);
 }

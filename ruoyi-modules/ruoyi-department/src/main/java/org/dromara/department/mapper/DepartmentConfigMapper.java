@@ -16,6 +16,14 @@ import java.util.List;
 @Mapper
 public interface DepartmentConfigMapper extends BaseMapperPlus<DepartmentConfig, DepartmentConfigVo> {
 
+    /**
+     * 按权限范围分页查询业务科室配置。
+     *
+     * @param page  分页对象
+     * @param bo    科室配置查询条件
+     * @param scope 科室数据权限范围
+     * @return 分页科室配置数据
+     */
     @Select({
         "<script>",
         "select c.dept_id, d.dept_name, case when d.dept_id is not null and d.del_flag = '0' and d.status = '0' then true else false end as system_dept_available,",
@@ -44,6 +52,7 @@ public interface DepartmentConfigMapper extends BaseMapperPlus<DepartmentConfig,
                                               @Param("bo") DepartmentConfigQueryBo bo,
                                               @Param("scope") DepartmentScope scope);
 
+    /** 查询指定业务科室的详细配置。 */
     @Select("select c.dept_id, d.dept_name, c.status, c.manager_user_id, coalesce(m.nick_name, m.user_name) as manager_name, c.sort_num, "
         + "(select count(1) from dm_person_profile p where p.create_dept = c.dept_id and p.del_flag = '0' and p.member_status = 'ACTIVE' and p.join_date <= current_date and (p.leave_date is null or p.leave_date > current_date)) as member_count, "
         + "c.remark, c.create_time, c.update_time from dm_department c join sys_dept d on d.dept_id = c.dept_id and d.del_flag = '0' "
@@ -51,6 +60,7 @@ public interface DepartmentConfigMapper extends BaseMapperPlus<DepartmentConfig,
         + "where c.dept_id = #{deptId} and c.del_flag = '0'")
     DepartmentConfigVo selectDetail(@Param("deptId") Long deptId);
 
+    /** 查询尚未配置为业务科室的有效系统部门。 */
     @Select({
         "<script>",
         "select d.dept_id, d.dept_name from sys_dept d left join dm_department c on c.dept_id = d.dept_id",
@@ -61,6 +71,7 @@ public interface DepartmentConfigMapper extends BaseMapperPlus<DepartmentConfig,
     })
     List<DepartmentConfigVo> selectAvailableDepartments(@Param("deptName") String deptName);
 
+    /** 查询指定系统组织下的直接子部门及其是否可选状态。 */
     @Select({
         "<script>",
         "select d.dept_id, d.parent_id, d.dept_name,",
@@ -73,15 +84,18 @@ public interface DepartmentConfigMapper extends BaseMapperPlus<DepartmentConfig,
     })
     List<DepartmentConfigVo> selectOrganizationChildren(@Param("parentId") Long parentId);
 
+    /** 查询全部已启用的业务科室。 */
     @Select("select c.dept_id, d.dept_name from dm_department c join sys_dept d on d.dept_id = c.dept_id and d.del_flag = '0' "
         + "where c.del_flag = '0' and c.status = 'ENABLED' and d.status = '0' "
         + "order by c.sort_num asc, d.dept_name asc, c.dept_id asc")
     List<DepartmentConfigVo> selectEnabledDepartments();
 
+    /** 统计指定业务科室是否存在已启用配置。 */
     @Select("select count(1) from dm_department c join sys_dept d on d.dept_id = c.dept_id and d.del_flag = '0' and d.status = '0' "
         + "where c.dept_id = #{deptId} and c.del_flag = '0' and c.status = 'ENABLED'")
     long countEnabled(@Param("deptId") Long deptId);
 
+    /** 统计指定系统部门是否有效。 */
     @Select("select count(1) from sys_dept where dept_id = #{deptId} and del_flag = '0' and status = '0'")
     long countActiveSystemDepartment(@Param("deptId") Long deptId);
 }
