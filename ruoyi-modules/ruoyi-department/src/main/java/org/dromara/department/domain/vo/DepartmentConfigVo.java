@@ -15,7 +15,19 @@ public class DepartmentConfigVo implements Serializable {
 
     private Long deptId;
 
+    /** 泛微组织树中的父部门。 */
+    private Long parentId;
+
     private String deptName;
+
+    /** 是否可以配置为业务科室。 */
+    private Boolean selectable;
+
+    /** 是否存在直属下级部门。 */
+    private Boolean hasChildren;
+
+    /** 对应的系统部门是否仍为泛微同步后的有效部门。 */
+    private Boolean systemDeptAvailable;
 
     private String status;
 

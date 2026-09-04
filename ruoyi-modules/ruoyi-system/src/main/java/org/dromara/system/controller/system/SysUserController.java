@@ -344,6 +344,30 @@ public class SysUserController extends BaseController {
     }
 
     /**
+     * 获取泛微同步组织的直属子节点，供用户选择器懒加载。
+     *
+     * @param parentId 父组织 ID，0 表示根节点
+     * @return 泛微同步组织直属子节点
+     */
+    @SaCheckPermission("system:user:list")
+    @GetMapping("/deptChildren")
+    public R<List<SysDeptVo>> deptChildren(@RequestParam(defaultValue = "0") Long parentId) {
+        return R.ok(deptService.selectOaDeptChildren(parentId));
+    }
+
+    /**
+     * 搜索泛微同步组织，返回命中节点及其上级路径。
+     *
+     * @param deptName 组织名称关键字
+     * @return 泛微同步组织搜索结果
+     */
+    @SaCheckPermission("system:user:list")
+    @GetMapping("/deptSearch")
+    public R<List<SysDeptVo>> deptSearch(@RequestParam String deptName) {
+        return R.ok(deptService.selectOaDeptSearchList(deptName));
+    }
+
+    /**
      * 获取指定部门下的全部用户信息。
      *
      * @param deptId 部门ID

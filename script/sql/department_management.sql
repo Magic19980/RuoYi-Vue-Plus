@@ -764,12 +764,14 @@ insert ignore into sys_menu values(1761400000000003031, '周报汇总', 17614000
 insert ignore into sys_menu values(1761400000000003032, '周报生成', 1761400000000003003, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:weeklyReport:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003033, '周报导出', 1761400000000003003, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:weeklyReport:export', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_menu values(1761400000000003034, '本部门查看', 1761400000000003003, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:weeklyReport:viewDept', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003035, '周报删除', 1761400000000003003, 6, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:weeklyReport:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003003);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003030);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003031);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003032);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003033);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003034);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003035);
 
 insert ignore into sys_menu values(1761400000000003004, '人工单台账', 1761400000000003000, 4, 'workOrder', 'department/workOrder/index', '', 'N', 'Y', 'C', '0', '0', 'department:workOrder:list', 'clipboard', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'PDF导入与手动维护人工单台账');
 insert ignore into sys_menu values(1761400000000003040, '人工单查询', 1761400000000003004, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:workOrder:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
@@ -847,20 +849,12 @@ select distinct role_id, 1761400000000003115 from sys_role_menu where menu_id = 
 insert ignore into sys_role_menu (role_id, menu_id)
 select distinct role_id, 1761400000000003116 from sys_role_menu where menu_id = 1761400000000003000;
 
-insert ignore into sys_menu values(1761400000000003120, '资料分类配置', 1761400000000003000, 10, 'documentCategory', 'department/documentCategory/index', '', 'N', 'Y', 'C', '0', '0', 'department:documentCategory:list', 'tree', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按科室维护资料分类配置');
-insert ignore into sys_menu values(1761400000000003121, '分类查询', 1761400000000003120, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:documentCategory:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003122, '分类新增', 1761400000000003120, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:documentCategory:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003123, '分类修改', 1761400000000003120, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:documentCategory:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_menu values(1761400000000003124, '分类删除', 1761400000000003120, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:documentCategory:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003120);
-insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003121);
+insert ignore into sys_menu values(1761400000000003122, '分类新增', 1761400000000003110, 7, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:documentCategory:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003123, '分类修改', 1761400000000003110, 8, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:documentCategory:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003124, '分类删除', 1761400000000003110, 9, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:documentCategory:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003122);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003123);
 insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003124);
-insert ignore into sys_role_menu (role_id, menu_id)
-select distinct role_id, 1761400000000003120 from sys_role_menu where menu_id = 1761400000000003000;
-insert ignore into sys_role_menu (role_id, menu_id)
-select distinct role_id, 1761400000000003121 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id)
 select distinct role_id, 1761400000000003122 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id)
@@ -941,3 +935,659 @@ insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 176
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003133 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003134 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003135 from sys_role_menu where menu_id = 1761400000000003000;
+
+-- 泛微通用审批中心：仅用于非 SCORE、非 5WHY 的外部 OA 业务。
+create table if not exists dm_oa_application (
+    id                  bigint          not null comment '主键',
+    application_no      varchar(40)     not null comment '申请编号',
+    business_type       varchar(64)     not null comment '业务类型',
+    source_module       varchar(64)     null comment '来源业务模块',
+    business_id         varchar(100)    null comment '来源业务单据 ID',
+    business_no         varchar(100)    null comment '来源业务单号',
+    title               varchar(200)    not null comment '申请标题',
+    content             varchar(5000)   not null comment '申请内容',
+    urgency             varchar(20)     not null default 'NORMAL' comment '紧急程度',
+    form_data_json      text            null comment '业务表单扩展数据 JSON',
+    applicant_user_id   bigint          not null comment '申请人本地用户 ID',
+    applicant_name      varchar(100)    null comment '申请人名称快照',
+    dept_id             bigint          null comment '申请部门 ID',
+    company_id          bigint          null comment '申请使用公司 ID',
+    process_type        varchar(20)     not null default 'SEQUENTIAL' comment 'SEQUENTIAL/COUNTERSIGN/MIXED',
+    approval_plan_id    bigint          null comment '本次使用的审批方案 ID，临时指定时为空',
+    approval_mode       varchar(20)     not null default 'AUTO_RULE' comment '审批方式：AUTO_RULE/PLAN/MANUAL',
+    workflow_config_id  bigint          not null comment '泛微流程配置 ID',
+    status              varchar(30)     not null default 'DRAFT' comment '申请状态',
+    submitted_at        datetime        null comment '提交时间',
+    create_dept         bigint          null,
+    create_by           bigint          null,
+    create_time         datetime        null,
+    update_by           bigint          null,
+    update_time         datetime        null,
+    version             bigint          not null default 1,
+    del_flag            char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_application_no (application_no),
+    key idx_dm_oa_application_applicant (applicant_user_id, status, del_flag),
+    key idx_dm_oa_application_business (business_type, status, del_flag),
+    key idx_dm_oa_application_workflow (workflow_config_id),
+    key idx_dm_oa_application_approval (workflow_config_id, business_type, approval_plan_id, status, del_flag)
+) engine=innodb comment='泛微通用审批申请';
+
+create table if not exists dm_oa_application_dept (
+    id              bigint          not null comment '主键',
+    application_id  bigint          not null comment '审批申请 ID',
+    dept_id         bigint          not null comment '申请适用部门，本地泛微组织 ID',
+    dept_name       varchar(200)    null comment '部门名称快照',
+    sort_no         int             not null default 0 comment '部门顺序',
+    create_dept     bigint          null,
+    create_by       bigint          null,
+    create_time     datetime        null,
+    update_by       bigint          null,
+    update_time     datetime        null,
+    del_flag        char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_application_dept (application_id, dept_id, del_flag),
+    key idx_dm_oa_application_dept (application_id, sort_no, del_flag)
+) engine=innodb comment='泛微审批申请适用部门快照';
+
+create table if not exists dm_oa_department_approval (
+    id                  bigint          not null comment '主键',
+    workflow_config_id  bigint          not null comment '泛微流程配置 ID',
+    business_type       varchar(64)     not null comment '业务类型',
+    source_module       varchar(64)     null comment '来源业务模块；为空表示该业务下通用方案',
+    business_dept_id    bigint          null comment '业务需要发起泛微流程的归属组织；为空表示全组织通用',
+    plan_name           varchar(100)    not null comment '审批方案名称',
+    match_condition_json mediumtext     null comment '自动匹配条件 JSON；为空表示通用方案',
+    priority            int             not null default 0 comment '自动匹配优先级',
+    status              varchar(20)     not null default 'ENABLED' comment 'ENABLED/DISABLED',
+    remark              varchar(1000)   null,
+    create_dept         bigint          null,
+    create_by           bigint          null,
+    create_time         datetime        null,
+    update_by           bigint          null,
+    update_time         datetime        null,
+    version             bigint          not null default 1,
+    del_flag            char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_approval_plan_name (workflow_config_id, business_type, source_module, business_dept_id, plan_name, del_flag),
+    key idx_dm_oa_approval_plan_match (workflow_config_id, business_type, source_module, business_dept_id, priority, status, del_flag)
+) engine=innodb comment='泛微审批方案';
+
+create table if not exists dm_oa_approval_plan_user (
+    id                bigint          not null comment '主键',
+    approval_id       bigint          not null comment '审批方案 ID',
+    local_user_id     bigint          not null comment '本地泛微同步用户 ID',
+    stage_code        varchar(32)     not null default 'APPROVAL' comment '审批阶段：APPROVAL/LEVEL_1/COUNTERSIGN/LEVEL_3/COPY',
+    stage_name        varchar(100)    null comment '审批阶段名称',
+    stage_mode        varchar(20)     null comment '阶段方式：SEQUENTIAL/COUNTERSIGN',
+    participant_role  varchar(20)     not null default 'APPROVER' comment 'APPROVER/COPY',
+    sort_no           int             not null default 0 comment '同类人员顺序',
+    create_dept       bigint          null,
+    create_by         bigint          null,
+    create_time       datetime        null,
+    update_by         bigint          null,
+    update_time       datetime        null,
+    del_flag          char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_dept_approval_user (approval_id, local_user_id, stage_code, participant_role, del_flag),
+    key idx_dm_oa_dept_approval_user (approval_id, stage_code, participant_role, sort_no, del_flag)
+) engine=innodb comment='泛微审批方案用户';
+
+create table if not exists dm_oa_process_instance (
+    id                    bigint          not null comment '主键',
+    application_id        bigint          not null comment '本地申请 ID',
+    business_type         varchar(64)     null comment '流程分类，可空；流程不绑定具体业务',
+    business_id           varchar(100)    null comment '业务单据 ID',
+    business_no           varchar(100)    null comment '业务单号',
+    source_module         varchar(64)     null comment '来源业务模块',
+    business_title        varchar(200)    null comment '业务标题快照',
+    workflow_config_id    bigint          not null comment '流程配置 ID',
+    workflow_id           varchar(64)     not null comment '泛微 workflowId',
+    oa_request_id         varchar(64)     null comment '泛微 requestId',
+    applicant_user_id     bigint          not null comment '本地申请人 ID',
+    applicant_oa_user_id  varchar(64)     not null comment '申请人泛微用户 ID',
+    local_status          varchar(30)     not null comment '本地标准状态',
+    oa_status             varchar(100)    null comment '泛微原始状态值',
+    oa_status_raw         text            null comment '泛微原始响应摘要',
+    request_name          varchar(250)    null comment '泛微请求名称',
+    submitted_at          datetime        null,
+    completed_at          datetime        null,
+    last_sync_at          datetime        null,
+    fail_reason           varchar(2000)   null,
+    retry_count           int             not null default 0,
+    idempotency_key       varchar(64)     not null,
+    config_snapshot_json  text            null comment '提交时的流程配置快照',
+    oa_link               varchar(1000)   null,
+    create_dept           bigint          null,
+    create_by             bigint          null,
+    create_time           datetime        null,
+    update_by             bigint          null,
+    update_time           datetime        null,
+    version               bigint          not null default 1,
+    del_flag              char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_process_application (application_id, del_flag),
+    unique key uk_dm_oa_process_idempotency (idempotency_key),
+    key idx_dm_oa_process_request (oa_request_id),
+    key idx_dm_oa_process_status (local_status, last_sync_at),
+    key idx_dm_oa_process_applicant (applicant_user_id)
+) engine=innodb comment='泛微审批流程实例';
+
+create table if not exists dm_oa_workflow_config (
+    id                    bigint          not null comment '主键',
+    business_type         varchar(64)     null comment '流程分类，可空；流程不绑定具体业务',
+    workflow_id           varchar(64)     not null comment '泛微 workflowId',
+    workflow_name         varchar(100)    not null comment '页面显示的可选流程名称',
+    process_type          varchar(20)     not null default 'SEQUENTIAL' comment '可选流程模式：SEQUENTIAL/COUNTERSIGN/MIXED',
+    source_workflow_name  varchar(100)    null comment '原始泛微流程名称',
+    request_name_template varchar(200)    null comment '请求名称模板',
+    field_mapping_json    text            null comment '字段映射 JSON',
+    status                varchar(20)     not null default 'ENABLED',
+    remark                varchar(1000)   null,
+    create_dept           bigint          null,
+    create_by             bigint          null,
+    create_time           datetime        null,
+    update_by             bigint          null,
+    update_time           datetime        null,
+    version               bigint          not null default 1,
+    del_flag              char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_workflow_option (workflow_id, process_type, del_flag),
+    key idx_dm_oa_workflow_status (status, del_flag)
+) engine=innodb comment='泛微流程配置';
+
+create table if not exists dm_oa_business_type (
+    id              bigint          not null comment '主键',
+    business_type   varchar(64)     not null comment '稳定的业务类型标识，用于审批方案匹配',
+    business_name   varchar(100)    not null comment '业务类型展示名称',
+    status          varchar(20)     not null default 'ENABLED' comment 'ENABLED/DISABLED',
+    remark          varchar(1000)   null comment '备注',
+    create_dept     bigint          null,
+    create_by       bigint          null,
+    create_time     datetime        null,
+    update_by       bigint          null,
+    update_time     datetime        null,
+    version         bigint          not null default 1,
+    del_flag        char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_business_type (business_type, del_flag),
+    key idx_dm_oa_business_type_status (status, del_flag)
+) engine=innodb comment='泛微审批业务类型配置';
+
+create table if not exists dm_oa_form_workflow (
+    id                    bigint          not null comment '主键',
+    workflow_id           varchar(64)     not null comment '泛微 workflowId',
+    form_name             varchar(100)    not null comment '泛微表单名称',
+    request_name_template varchar(200)    null comment '请求名称模板',
+    field_mapping_json    text            null comment '公用字段映射 JSON',
+    specific_field_mapping_json text      null comment '表单专属字段映射 JSON',
+    field_schema_json     text            null comment '可视化表单字段定义及泛微字段映射 JSON',
+    status                varchar(20)     not null default 'ENABLED' comment 'ENABLED/DISABLED',
+    remark                varchar(1000)   null comment '备注',
+    create_dept           bigint          null,
+    create_by             bigint          null,
+    create_time           datetime        null,
+    update_by             bigint          null,
+    update_time           datetime        null,
+    version               bigint          not null default 1,
+    del_flag              char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_form_workflow_id (workflow_id, del_flag),
+    key idx_dm_oa_form_workflow_status (status, del_flag)
+) engine=innodb comment='泛微可复用表单配置';
+
+create table if not exists dm_oa_workflow_option (
+    id              bigint          not null comment '主键',
+    option_code     varchar(64)     not null comment '系统审批方式编码',
+    option_name     varchar(100)    not null comment '审批方式展示名称',
+    process_type    varchar(20)     null comment '历史兼容字段，不参与泛微提交',
+    participant_mapping_json text   null comment '审批节点字段映射 JSON',
+    sort_no         int             not null default 0 comment '显示顺序',
+    status          varchar(20)     not null default 'ENABLED' comment 'ENABLED/DISABLED',
+    remark          varchar(1000)   null comment '备注',
+    create_dept     bigint          null,
+    create_by       bigint          null,
+    create_time     datetime        null,
+    update_by       bigint          null,
+    update_time     datetime        null,
+    version         bigint          not null default 1,
+    del_flag        char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_workflow_option_code (option_code, del_flag),
+    key idx_dm_oa_workflow_option_status (status, del_flag)
+) engine=innodb comment='泛微通用审批方式选项';
+
+insert into dm_oa_form_workflow (id, workflow_id, form_name, request_name_template, field_mapping_json, specific_field_mapping_json, field_schema_json, status, remark, create_time, version, del_flag)
+values (1761400000000003401, '645025', '公用审批（部门）', '{formName}-{title}',
+        '{"titleField":"wjmc","contentField":"spxq","applicantField":"tbr","applicantDateField":"tbrq","approvalModeField":"splcfs","copyField":"csr","imageAttachmentField":"tp","fileAttachmentField":"fj"}', '{}',
+        '{"version":1,"fields":[{"key":"title","label":"标题","oaFieldCode":"wjmc","controlType":"TEXT","semanticType":"TITLE","required":true,"sortNo":1},{"key":"content","label":"审批详情","oaFieldCode":"spxq","controlType":"TEXTAREA","semanticType":"CONTENT","required":true,"sortNo":2},{"key":"applicant","label":"申请人","oaFieldCode":"tbr","controlType":"USER_SINGLE","semanticType":"APPLICANT","required":true,"sortNo":3},{"key":"applicantDate","label":"申请时间","oaFieldCode":"tbrq","controlType":"DATETIME","semanticType":"APPLICANT_DATE","required":false,"sortNo":4},{"key":"approvalMode","label":"审批流程方式","oaFieldCode":"splcfs","controlType":"SELECT","semanticType":"APPROVAL_MODE","required":true,"sortNo":5,"options":[{"label":"依次签","optionCode":"0","oaValue":"0"},{"label":"会签","optionCode":"1","oaValue":"1"},{"label":"或签","optionCode":"15","oaValue":"15"},{"label":"依次签---或签","optionCode":"14","oaValue":"14"},{"label":"依次签---会签","optionCode":"2","oaValue":"2"},{"label":"会签---依次签","optionCode":"3","oaValue":"3"},{"label":"依次签---会签---会签","optionCode":"4","oaValue":"4"},{"label":"依次签---会签---依次签","optionCode":"5","oaValue":"5"},{"label":"会签---会签---依次签","optionCode":"9","oaValue":"9"},{"label":"主任会签---经理会签---分管领导会签","optionCode":"6","oaValue":"6"},{"label":"主任会签---经理会签---分管领导会签---公司领导","optionCode":"7","oaValue":"7"},{"label":"依次签---会签---会签---公司领导签","optionCode":"8","oaValue":"8"},{"label":"依次签---会签---会签---依次签","optionCode":"10","oaValue":"10"},{"label":"依次签---依次签---会签---依次签","optionCode":"11","oaValue":"11"},{"label":"依次签---会签---会签---会签---依次签","optionCode":"12","oaValue":"12"},{"label":"依次签---会签---会签---会签","optionCode":"13","oaValue":"13"}]},{"key":"copy","label":"抄送人","oaFieldCode":"csr","controlType":"USER_MULTI","semanticType":"COPY","multiple":true,"required":false,"sortNo":6},{"key":"image","label":"图片","oaFieldCode":"tp","controlType":"IMAGE","semanticType":"IMAGE","required":false,"sortNo":7},{"key":"attachment","label":"附件","oaFieldCode":"fj","controlType":"FILE","semanticType":"ATTACHMENT","required":false,"sortNo":8}]}' ,
+        'ENABLED', '测试环境泛微表单 workflowId=645025', now(), 1, '0')
+on duplicate key update
+    form_name = values(form_name),
+    field_mapping_json = values(field_mapping_json),
+    specific_field_mapping_json = values(specific_field_mapping_json),
+    field_schema_json = values(field_schema_json),
+    status = values(status),
+    remark = values(remark);
+
+insert into dm_oa_form_workflow (
+    id, workflow_id, form_name, request_name_template, field_mapping_json,
+    specific_field_mapping_json, field_schema_json, status, remark, create_time, version, del_flag
+)
+values (
+    1761400000000003402, '724025', '公用审批（智慧物流）', '{formName}-{title}',
+    '{"titleField":"wjmc","contentField":"spxq","applicantField":"tbr","applicantDateField":"tbrq","approvalModeField":"splcfs","copyField":"csr","imageAttachmentField":"tp","fileAttachmentField":"fj"}', '{}',
+    '{"version":1,"fields":[{"key":"title","label":"文件名称","oaFieldCode":"wjmc","controlType":"TEXT","semanticType":"TITLE","required":false,"sortNo":1},{"key":"content","label":"审批详情","oaFieldCode":"spxq","controlType":"TEXTAREA","semanticType":"CONTENT","required":true,"sortNo":2},{"key":"applicant","label":"申请人","oaFieldCode":"tbr","controlType":"USER_SINGLE","semanticType":"APPLICANT","required":true,"sortNo":3},{"key":"applicantDate","label":"申请时间","oaFieldCode":"tbrq","controlType":"DATETIME","semanticType":"APPLICANT_DATE","required":false,"sortNo":4},{"key":"approvalMode","label":"审批流程方式","oaFieldCode":"splcfs","controlType":"SELECT","semanticType":"APPROVAL_MODE","required":true,"sortNo":5,"options":[{"label":"依次签","optionCode":"0","oaValue":"0"},{"label":"会签","optionCode":"1","oaValue":"1"},{"label":"或签","optionCode":"15","oaValue":"15"},{"label":"依次签---或签","optionCode":"14","oaValue":"14"},{"label":"依次签---会签","optionCode":"2","oaValue":"2"},{"label":"会签---依次签","optionCode":"3","oaValue":"3"},{"label":"依次签---会签---会签","optionCode":"4","oaValue":"4"},{"label":"依次签---会签---依次签","optionCode":"5","oaValue":"5"},{"label":"会签---会签---依次签","optionCode":"9","oaValue":"9"},{"label":"主任会签---经理会签---分管领导会签","optionCode":"6","oaValue":"6"},{"label":"主任会签---经理会签---分管领导会签---公司领导","optionCode":"7","oaValue":"7"},{"label":"依次签---会签---会签---公司领导签","optionCode":"8","oaValue":"8"},{"label":"依次签---会签---会签---依次签","optionCode":"10","oaValue":"10"},{"label":"依次签---依次签---会签---依次签","optionCode":"11","oaValue":"11"},{"label":"依次签---会签---会签---会签---依次签","optionCode":"12","oaValue":"12"},{"label":"依次签---会签---会签---会签","optionCode":"13","oaValue":"13"}]},{"key":"copy","label":"抄送人","oaFieldCode":"csr","controlType":"USER_MULTI","semanticType":"COPY","multiple":true,"required":false,"sortNo":6},{"key":"image","label":"图片","oaFieldCode":"tp","controlType":"IMAGE","semanticType":"IMAGE","required":false,"sortNo":7},{"key":"attachment","label":"附件","oaFieldCode":"fj","controlType":"FILE","semanticType":"ATTACHMENT","required":false,"sortNo":8}]}' ,
+    'ENABLED', '浏览器读取：workflowId=724025；创建页表单标题为“公用审批（部门）”，入口名称为“公用审批（智慧物流）”', now(), 1, '0'
+)
+on duplicate key update
+    form_name = values(form_name), request_name_template = values(request_name_template),
+    field_mapping_json = values(field_mapping_json), specific_field_mapping_json = values(specific_field_mapping_json),
+    field_schema_json = values(field_schema_json), status = values(status), remark = values(remark);
+
+insert into dm_oa_form_workflow (
+    id, workflow_id, form_name, request_name_template, field_mapping_json,
+    specific_field_mapping_json, field_schema_json, status, remark, create_time, version, del_flag
+)
+values (
+    1761400000000003403, '721603', 'TEI青耀电气结算单', '{formName}-{title}',
+    '{"titleField":"wjmc","contentField":"spsx","applicantField":"tbr","applicantDateField":"tbsj","approvalModeField":"splcfs","copyField":"csrmd","fileAttachmentField":"fj"}', '{"formFields":{"settlementDepartment":"jsbm","approvalAmountUsd":"spjedx"}}',
+    '{"version":1,"fields":[{"key":"title","label":"文件名称","oaFieldCode":"wjmc","controlType":"TEXT","semanticType":"TITLE","required":false,"sortNo":1},{"key":"settlementDepartment","label":"结算部门","oaFieldCode":"jsbm","controlType":"TEXT","semanticType":"SPECIFIC","required":false,"sortNo":2},{"key":"approvalAmountUsd","label":"审批金额（美元）","oaFieldCode":"spjedx","controlType":"NUMBER","semanticType":"SPECIFIC","required":false,"placeholder":"请输入美元金额","sortNo":3},{"key":"content","label":"审批事项","oaFieldCode":"spsx","controlType":"TEXTAREA","semanticType":"CONTENT","required":true,"sortNo":4},{"key":"applicant","label":"申请人","oaFieldCode":"tbr","controlType":"USER_SINGLE","semanticType":"APPLICANT","required":true,"sortNo":5},{"key":"applicantDate","label":"申请时间","oaFieldCode":"tbsj","controlType":"DATETIME","semanticType":"APPLICANT_DATE","required":false,"sortNo":6},{"key":"approvalMode","label":"审批流程方式","oaFieldCode":"splcfs","controlType":"SELECT","semanticType":"APPROVAL_MODE","required":true,"sortNo":7,"options":[{"label":"依次签","optionCode":"0","oaValue":"0"},{"label":"会签","optionCode":"1","oaValue":"1"},{"label":"依次签---依次签","optionCode":"11","oaValue":"11"},{"label":"依次签---会签","optionCode":"2","oaValue":"2"},{"label":"会签---依次签","optionCode":"3","oaValue":"3"},{"label":"依次签---会签---会签","optionCode":"4","oaValue":"4"},{"label":"依次签---会签---依次签","optionCode":"5","oaValue":"5"},{"label":"会签---会签---依次签","optionCode":"6","oaValue":"6"},{"label":"依次签---会签---会签---依次签","optionCode":"7","oaValue":"7"},{"label":"依次签---依次签---会签---依次签","optionCode":"8","oaValue":"8"},{"label":"依次签---会签---会签---会签---依次签","optionCode":"9","oaValue":"9"},{"label":"依次签---会签---会签---会签","optionCode":"10","oaValue":"10"},{"label":"依次签---会签---依次签---会签---依次签","optionCode":"12","oaValue":"12"}]},{"key":"copy","label":"抄送人","oaFieldCode":"csrmd","controlType":"USER_MULTI","semanticType":"COPY","multiple":true,"required":false,"sortNo":8},{"key":"attachment","label":"附件","oaFieldCode":"fj","controlType":"FILE","semanticType":"ATTACHMENT","required":true,"sortNo":9}]}' ,
+    'ENABLED', '浏览器读取：workflowId=721603；附件字段 fj 必填，审批事项字段 spsx 必填', now(), 1, '0'
+)
+on duplicate key update
+    form_name = values(form_name), request_name_template = values(request_name_template),
+    field_mapping_json = values(field_mapping_json), specific_field_mapping_json = values(specific_field_mapping_json),
+    field_schema_json = values(field_schema_json), status = values(status), remark = values(remark);
+
+insert into dm_oa_workflow_option (id, option_code, option_name, sort_no, status, remark)
+values
+    (1761400000000003501, '0',  '依次签',                                                  0,  'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003502, '1',  '会签',                                                    1,  'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003503, '15', '或签',                                                    2,  'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003504, '14', '依次签---或签',                                             3,  'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003505, '2',  '依次签---会签',                                             4,  'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003506, '3',  '会签---依次签',                                             5,  'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003507, '4',  '依次签---会签---会签',                                      6,  'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003508, '5',  '依次签---会签---依次签',                                    7,  'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003509, '9',  '会签---会签---依次签',                                      8,  'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003510, '6',  '主任会签---经理会签---分管领导会签',                         9,  'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003511, '7',  '主任会签---经理会签---分管领导会签---公司领导',                10, 'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003512, '8',  '依次签---会签---会签---公司领导签',                          11, 'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003513, '10', '依次签---会签---会签---依次签',                              12, 'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003514, '11', '依次签---依次签---会签---依次签',                            13, 'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003515, '12', '依次签---会签---会签---会签---依次签',                       14, 'ENABLED', '来自泛微测试表单审批流程方式字段'),
+    (1761400000000003516, '13', '依次签---会签---会签---会签',                                15, 'ENABLED', '来自泛微测试表单审批流程方式字段')
+on duplicate key update
+    option_name = values(option_name),
+    sort_no = values(sort_no),
+    status = values(status),
+    remark = values(remark);
+
+update dm_oa_workflow_option
+set participant_mapping_json = case option_code
+    when '0' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"依次签","fieldCode":"ycq1","mode":"SEQUENTIAL","sortNo":1,"required":true}]}'
+    when '1' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"会签","fieldCode":"hq2","mode":"COUNTERSIGN","sortNo":1,"required":true}]}'
+    when '15' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"或签","fieldCode":"hq15","mode":"OR_SIGN","sortNo":1,"required":true}]}'
+    when '14' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"依次签","fieldCode":"yjycq16","mode":"SEQUENTIAL","sortNo":1,"required":true},{"code":"STAGE_2","name":"或签","fieldCode":"ejhq16","mode":"OR_SIGN","sortNo":2,"required":true}]}'
+    when '2' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"依次签","fieldCode":"ycq3","mode":"SEQUENTIAL","sortNo":1,"required":true},{"code":"STAGE_2","name":"会签","fieldCode":"hq3","mode":"COUNTERSIGN","sortNo":2,"required":true}]}'
+    when '3' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"会签","fieldCode":"hq4","mode":"COUNTERSIGN","sortNo":1,"required":true},{"code":"STAGE_2","name":"依次签","fieldCode":"ycq4","mode":"SEQUENTIAL","sortNo":2,"required":true}]}'
+    when '4' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"依次签","fieldCode":"ycq6","mode":"SEQUENTIAL","sortNo":1,"required":true},{"code":"STAGE_2","name":"一级会签","fieldCode":"yjhq","mode":"COUNTERSIGN","sortNo":2,"required":true},{"code":"STAGE_3","name":"二级会签","fieldCode":"ejhq","mode":"COUNTERSIGN","sortNo":3,"required":true}]}'
+    when '5' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"一级依次签","fieldCode":"yjycq","mode":"SEQUENTIAL","sortNo":1,"required":true},{"code":"STAGE_2","name":"会签","fieldCode":"hq8","mode":"COUNTERSIGN","sortNo":2,"required":true},{"code":"STAGE_3","name":"二级依次签","fieldCode":"ejycq8","mode":"SEQUENTIAL","sortNo":3,"required":true}]}'
+    when '9' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"一级会签","fieldCode":"yjhq10","mode":"COUNTERSIGN","sortNo":1,"required":true},{"code":"STAGE_2","name":"二级会签","fieldCode":"ejhq10","mode":"COUNTERSIGN","sortNo":2,"required":true},{"code":"STAGE_3","name":"依次签","fieldCode":"ycq10","mode":"SEQUENTIAL","sortNo":3,"required":true}]}'
+    when '6' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"主任会签","fieldCode":"zrjhq5","mode":"COUNTERSIGN","sortNo":1,"required":true},{"code":"STAGE_2","name":"经理会签","fieldCode":"jljhq5","mode":"COUNTERSIGN","sortNo":2,"required":true},{"code":"STAGE_3","name":"分管领导会签","fieldCode":"fgfzjl5","mode":"COUNTERSIGN","sortNo":3,"required":true}]}'
+    when '7' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"主任会签","fieldCode":"zrjhq7","mode":"COUNTERSIGN","sortNo":1,"required":true},{"code":"STAGE_2","name":"经理会签","fieldCode":"jljhq7","mode":"COUNTERSIGN","sortNo":2,"required":true},{"code":"STAGE_3","name":"分管领导会签","fieldCode":"fgfzjl7","mode":"COUNTERSIGN","sortNo":3,"required":true},{"code":"STAGE_4","name":"公司领导","fieldCode":"gsld1","mode":"COUNTERSIGN","sortNo":4,"required":true}]}'
+    when '8' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"依次签","fieldCode":"ycq9","mode":"SEQUENTIAL","sortNo":1,"required":true},{"code":"STAGE_2","name":"一级会签","fieldCode":"yjhq9","mode":"COUNTERSIGN","sortNo":2,"required":true},{"code":"STAGE_3","name":"二级会签","fieldCode":"ejhq9","mode":"COUNTERSIGN","sortNo":3,"required":true},{"code":"STAGE_4","name":"公司领导","fieldCode":"gsld2","mode":"COUNTERSIGN","sortNo":4,"required":true}]}'
+    when '10' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"一级依次签","fieldCode":"yjycq11","mode":"SEQUENTIAL","sortNo":1,"required":true},{"code":"STAGE_2","name":"一级会签","fieldCode":"yjhq11","mode":"COUNTERSIGN","sortNo":2,"required":true},{"code":"STAGE_3","name":"二级会签","fieldCode":"ejhq11","mode":"COUNTERSIGN","sortNo":3,"required":true},{"code":"STAGE_4","name":"二级依次签","fieldCode":"ejycq11","mode":"SEQUENTIAL","sortNo":4,"required":true}]}'
+    when '11' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"一级依次签","fieldCode":"yjycq12","mode":"SEQUENTIAL","sortNo":1,"required":true},{"code":"STAGE_2","name":"二级依次签","fieldCode":"ejycq12","mode":"SEQUENTIAL","sortNo":2,"required":true},{"code":"STAGE_3","name":"会签","fieldCode":"yjhq12","mode":"COUNTERSIGN","sortNo":3,"required":true},{"code":"STAGE_4","name":"三级依次签","fieldCode":"sjjycq12","mode":"SEQUENTIAL","sortNo":4,"required":true}]}'
+    when '12' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"一级依次签","fieldCode":"yjycq13","mode":"SEQUENTIAL","sortNo":1,"required":true},{"code":"STAGE_2","name":"一级会签","fieldCode":"yjhq13","mode":"COUNTERSIGN","sortNo":2,"required":true},{"code":"STAGE_3","name":"二级会签","fieldCode":"ejhq13","mode":"COUNTERSIGN","sortNo":3,"required":true},{"code":"STAGE_4","name":"三级会签","fieldCode":"sjhq13","mode":"COUNTERSIGN","sortNo":4,"required":true},{"code":"STAGE_5","name":"二级依次签","fieldCode":"ejycq13","mode":"SEQUENTIAL","sortNo":5,"required":true}]}'
+    when '13' then '{"modeField":"splcfs","copyField":"csr","stages":[{"code":"STAGE_1","name":"一级依次签","fieldCode":"yjycq14","mode":"SEQUENTIAL","sortNo":1,"required":true},{"code":"STAGE_2","name":"一级会签","fieldCode":"yjhq14","mode":"COUNTERSIGN","sortNo":2,"required":true},{"code":"STAGE_3","name":"二级会签","fieldCode":"ejhq14","mode":"COUNTERSIGN","sortNo":3,"required":true},{"code":"STAGE_4","name":"三级会签","fieldCode":"sjhq14","mode":"COUNTERSIGN","sortNo":4,"required":true}]}'
+    else participant_mapping_json
+end
+where option_code in ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15');
+
+create table if not exists dm_oa_business_workflow_binding (
+    id                bigint          not null comment '主键',
+    business_type     varchar(64)     not null comment '业务类型标识',
+    form_id           bigint          not null comment '泛微表单配置 ID',
+    default_option_id bigint          not null comment '默认审批方式选项 ID',
+    status            varchar(20)     not null default 'ENABLED',
+    create_dept       bigint          null,
+    create_by         bigint          null,
+    create_time       datetime        null,
+    update_by         bigint          null,
+    update_time       datetime        null,
+    version           bigint          not null default 1,
+    del_flag          char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_business_workflow_binding (business_type, del_flag),
+    key idx_dm_oa_business_workflow_binding_form (form_id, status, del_flag)
+) engine=innodb comment='业务类型与泛微表单绑定';
+
+create table if not exists dm_oa_business_workflow_option (
+    id          bigint          not null comment '主键',
+    binding_id  bigint          not null comment '业务表单绑定 ID',
+    option_id   bigint          not null comment '审批方式选项 ID',
+    sort_no     int             not null default 0,
+    create_dept bigint          null,
+    create_by   bigint          null,
+    create_time datetime        null,
+    update_by   bigint          null,
+    update_time datetime        null,
+    del_flag    char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_business_workflow_option (binding_id, option_id, del_flag),
+    key idx_dm_oa_business_workflow_option_binding (binding_id, sort_no, del_flag)
+) engine=innodb comment='业务类型允许的审批方式';
+
+create table if not exists dm_oa_process_event_log (
+    id                bigint          not null comment '主键',
+    process_id        bigint          not null comment '审批实例 ID',
+    event_type        varchar(30)     not null comment '事件类型',
+    from_status       varchar(30)     null,
+    to_status         varchar(30)     null,
+    request_summary   varchar(2000)   null,
+    response_summary  varchar(2000)   null,
+    error_code        varchar(100)    null,
+    idempotency_key   varchar(64)     null,
+    create_dept       bigint          null,
+    create_by         bigint          null,
+    create_time       datetime        null,
+    update_by         bigint          null,
+    update_time       datetime        null,
+    primary key (id),
+    key idx_dm_oa_event_process (process_id, create_time),
+    key idx_dm_oa_event_type (event_type, create_time)
+) engine=innodb comment='泛微审批事件日志';
+
+create table if not exists dm_oa_application_attachment (
+    id              bigint          not null comment '主键',
+    application_id  bigint          not null comment '申请 ID',
+    process_id      bigint          null comment '流程实例 ID',
+    oss_id          bigint          not null comment '本地 OSS ID',
+    attachment_type varchar(20)     not null default 'FILE' comment 'FILE 或 IMAGE',
+    file_name       varchar(255)    not null comment '文件名称快照',
+    file_url        varchar(1000)   null comment '本地 OSS URL 快照',
+    sort_no         int             not null default 0,
+    upload_status   varchar(30)     not null default 'PENDING' comment 'PENDING/URL_READY/PROCESS_BOUND/FAILED',
+    oa_file_id      varchar(100)    null comment '泛微文件 ID',
+    oa_file_path    varchar(1000)   null comment '泛微文件访问路径',
+    fail_reason     varchar(1000)   null,
+    create_dept     bigint          null,
+    create_by       bigint          null,
+    create_time     datetime        null,
+    update_by       bigint          null,
+    update_time     datetime        null,
+    del_flag        char(1)         not null default '0',
+    primary key (id),
+    unique key uk_dm_oa_attachment (application_id, oss_id, del_flag),
+    key idx_dm_oa_attachment_process (process_id),
+    key idx_dm_oa_attachment_application (application_id, sort_no, del_flag)
+) engine=innodb comment='泛微审批申请附件';
+
+create table if not exists dm_oa_approval_participant (
+    id                bigint          not null comment '主键',
+    application_id     bigint          not null comment '申请 ID',
+    process_id         bigint          null comment '流程实例 ID',
+    stage_code         varchar(64)     not null comment '审批节点编码',
+    stage_name         varchar(100)    null comment '审批节点名称',
+    rule_id            bigint          null comment '审批规则 ID',
+    rule_code          varchar(64)     null comment '审批规则编码',
+    rule_name          varchar(100)    null comment '审批规则名称',
+    stage_order        int             null comment '审批节点顺序',
+    stage_mode         varchar(20)     null comment '审批方式',
+    participant_role   varchar(20)     null comment '参与类型 APPROVER/COPY',
+    participant_type   varchar(20)     not null default 'USER' comment 'USER/OA_USER',
+    local_user_id      bigint          null comment '本地用户 ID',
+    oa_user_id         varchar(64)     null comment '泛微用户 ID 快照',
+    oa_user_name       varchar(100)    null comment '泛微用户名称快照',
+    source_value       varchar(100)    null comment '动态规则来源值',
+    sort_no            int             not null default 0,
+    required           tinyint         not null default 1,
+    create_dept        bigint          null,
+    create_by          bigint          null,
+    create_time        datetime        null,
+    update_by          bigint          null,
+    update_time        datetime        null,
+    del_flag           char(1)         not null default '0',
+    primary key (id),
+    key idx_dm_oa_participant_application (application_id, stage_code, sort_no, del_flag),
+    key idx_dm_oa_participant_process (process_id)
+) engine=innodb comment='泛微审批动态审批人快照';
+
+create table if not exists dm_oa_callback_event (
+    id              bigint          not null comment '主键',
+    event_key       varchar(128)    not null comment '回调事件幂等键',
+    oa_request_id   varchar(64)     not null comment '泛微 requestId',
+    process_id      bigint          null comment '本地流程实例 ID',
+    event_status    varchar(20)     not null comment 'RECEIVED/PROCESSED/IGNORED/FAILED',
+    raw_body        text            null comment '回调原始报文（已截断）',
+    error_message   varchar(1000)   null,
+    processed_at    datetime        null,
+    create_dept     bigint          null,
+    create_by       bigint          null,
+    create_time     datetime        null,
+    update_by       bigint          null,
+    update_time      datetime        null,
+    primary key (id),
+    unique key uk_dm_oa_callback_event (event_key),
+    key idx_dm_oa_callback_request (oa_request_id, create_time),
+    key idx_dm_oa_callback_status (event_status, create_time)
+) engine=innodb comment='泛微审批回调事件';
+
+insert ignore into sys_menu values(1761400000000003200, '泛微审批中心', 1761400000000003000, 13, 'ecology', '', '', 'N', 'Y', 'M', '0', '0', '', 'guide', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '非 SCORE、非 5WHY 的外部泛微审批统一入口');
+insert ignore into sys_menu values(1761400000000003201, '通用审批申请', 1761400000000003200, 1, 'application', 'ecology/center/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:application:list', 'form', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '发起申请、查看流程状态和外部 OA 链接');
+insert ignore into sys_menu values(1761400000000003202, '申请查询', 1761400000000003201, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003203, '申请新增', 1761400000000003201, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003204, '申请编辑', 1761400000000003201, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003205, '申请提交', 1761400000000003201, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:submit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003206, '申请同步', 1761400000000003201, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:sync', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003207, '立即对账', 1761400000000003201, 6, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:reconcile', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003210, '流程配置', 1761400000000003299, 2, 'workflowConfig', 'ecology/workflowConfig/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:workflowConfig:list', 'workflow', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护可复用的泛微表单及其审批方式选项');
+insert ignore into sys_menu values(1761400000000003211, '流程配置新增', 1761400000000003210, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:workflowConfig:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003212, '流程配置修改', 1761400000000003210, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:workflowConfig:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003213, '流程配置删除', 1761400000000003210, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:workflowConfig:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003214, '流程配置查询', 1761400000000003210, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:workflowConfig:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003220, '审批方案管理', 1761400000000003200, 3, 'departmentApproval', 'ecology/center/index', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护可复用的泛微审批人员方案和自动匹配条件');
+insert ignore into sys_menu values(1761400000000003221, '配置查询', 1761400000000003220, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003222, '配置新增', 1761400000000003220, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003223, '配置修改', 1761400000000003220, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003224, '配置删除', 1761400000000003220, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:departmentApproval:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003225, '审批链预览', 1761400000000003201, 7, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:preview', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003230, '审批监控', 1761400000000003201, 6, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:application:monitor', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看全部通用审批实例');
+insert ignore into sys_menu values(1761400000000003250, '业务类型配置', 1761400000000003200, 4, 'businessType', 'ecology/center/index', '{"tab":"businessType"}', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护泛微审批业务类型，其他审批页面统一选择');
+insert ignore into sys_menu values(1761400000000003251, '业务类型查询', 1761400000000003250, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003252, '业务类型新增', 1761400000000003250, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003253, '业务类型修改', 1761400000000003250, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003254, '业务类型停用', 1761400000000003250, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:businessType:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003200 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003201 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003202 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003203 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003204 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003205 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003206 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003207 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003210 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003211 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003212 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003213 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003214 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003220 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003221 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003222 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003223 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003224 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003225 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003230 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003250 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003251 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003252 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003253 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003254 from sys_role_menu where menu_id = 1761400000000003000;
+
+-- 泛微 HRM 组织与人员同步中心
+create table if not exists dm_oa_sync_batch (
+    id                  bigint          not null comment '主键',
+    sync_type           varchar(20)     not null comment 'ORGANIZATION/USER',
+    sync_mode           varchar(20)     not null default 'FULL' comment 'FULL/INCREMENTAL',
+    status              varchar(20)     not null default 'RUNNING' comment 'RUNNING/SUCCESS/PARTIAL/FAILED',
+    watermark           varchar(30)     null comment '本次增量起始时间',
+    started_at          datetime        not null,
+    finished_at         datetime        null,
+    total_count         int             not null default 0,
+    success_count       int             not null default 0,
+    created_count       int             not null default 0,
+    updated_count       int             not null default 0,
+    disabled_count      int             not null default 0,
+    pending_count       int             not null default 0,
+    failed_count        int             not null default 0,
+    message             varchar(2000)   null,
+    create_dept         bigint          null,
+    create_by           bigint          null,
+    create_time         datetime        null,
+    update_by           bigint          null,
+    update_time         datetime        null,
+    version             bigint          not null default 1,
+    del_flag            char(1)         not null default '0',
+    primary key (id),
+    key idx_dm_oa_sync_batch_type (sync_type, status, started_at),
+    key idx_dm_oa_sync_batch_started (started_at)
+) engine=innodb comment='泛微 HRM 同步批次';
+
+create table if not exists dm_oa_sync_detail (
+    id                  bigint          not null comment '主键',
+    batch_id            bigint          not null comment '同步批次 ID',
+    entity_type         varchar(30)     not null comment 'SUBCOMPANY/DEPARTMENT/JOBTITLE/USER',
+    source_id           varchar(64)     null comment '泛微源 ID',
+    source_key          varchar(200)    null comment '泛微源业务键',
+    local_id            bigint          null comment '本地对象 ID',
+    action              varchar(30)     null comment 'CREATE/UPDATE/DISABLE/SKIP',
+    detail_status       varchar(30)     not null comment 'SUCCESS/PENDING/FAILED/CONFLICT',
+    message             varchar(2000)   null,
+    create_dept         bigint          null,
+    create_by           bigint          null,
+    create_time         datetime        null,
+    update_by           bigint          null,
+    update_time         datetime        null,
+    version             bigint          not null default 1,
+    del_flag            char(1)         not null default '0',
+    primary key (id),
+    key idx_dm_oa_sync_detail_batch (batch_id, detail_status),
+    key idx_dm_oa_sync_detail_source (entity_type, source_key)
+) engine=innodb comment='泛微 HRM 同步明细';
+
+insert ignore into sys_menu values(1761400000000003240, '泛微 HRM 同步', 1761400000000003200, 4, 'hrmSync', 'ecology/hrm-sync/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:hrmSync:list', 'tree', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '泛微组织接管和人员同步');
+insert ignore into sys_menu values(1761400000000003241, '同步并接管组织', 1761400000000003240, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:organization', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按泛微组织重建本地部门并同步岗位');
+insert ignore into sys_menu values(1761400000000003242, '同步人员', 1761400000000003240, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:user', '#', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按泛微工号同步系统用户');
+insert ignore into sys_menu values(1761400000000003245, '同步批次查询', 1761400000000003240, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:batch:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看泛微 HRM 同步批次');
+insert ignore into sys_menu values(1761400000000003246, '同步明细查询', 1761400000000003240, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:detail:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看泛微 HRM 同步异常明细');
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003240 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003241 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003242 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003245 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003246 from sys_role_menu where menu_id = 1761400000000003000;
+
+-- 通用业务导入到泛微：Excel 导入、部门匹配、分组附件和 OA 申请批次。
+create table if not exists dm_oa_import_business_config (
+    id bigint not null comment '主键', business_type varchar(64) not null comment '业务类型编码', business_name varchar(100) not null comment '业务名称',
+    sheet_name varchar(100) null comment 'Excel 工作表名称', header_row int not null default 0 comment '表头行，从 0 开始',
+    field_definitions_json mediumtext null, parameter_definitions_json mediumtext null, group_by_json mediumtext null,
+    dept_field varchar(64) null, company_field varchar(64) null, aggregation_json mediumtext null, form_mapping_json mediumtext null,
+    attachment_config_json mediumtext null, request_name_template varchar(200) null, content_template varchar(5000) null,
+    default_workflow_config_id bigint null, default_approval_plan_id bigint null,
+    default_approval_mode varchar(20) not null default 'AUTO_RULE', status varchar(20) not null default 'ENABLED', remark varchar(1000) null,
+    create_dept bigint null, create_by bigint null, create_time datetime null, update_by bigint null, update_time datetime null,
+    version bigint not null default 1, del_flag char(1) not null default '0', primary key (id),
+    unique key uk_dm_oa_import_business_type (business_type, del_flag), key idx_dm_oa_import_business_status (status, del_flag)
+) engine=innodb comment='通用泛微导入业务模板';
+
+create table if not exists dm_oa_import_batch (
+    id bigint not null comment '主键', config_id bigint not null, business_type varchar(64) not null, batch_no varchar(64) not null,
+    source_file_name varchar(255) null, status varchar(30) not null default 'READY', total_count int not null default 0,
+    matched_count int not null default 0, group_count int not null default 0, application_count int not null default 0,
+    failed_count int not null default 0, skipped_count int not null default 0, message varchar(2000) null, create_dept bigint null, create_by bigint null, create_time datetime null,
+    update_by bigint null, update_time datetime null, version bigint not null default 1, del_flag char(1) not null default '0', primary key (id),
+    unique key uk_dm_oa_import_batch_no (batch_no, del_flag), key idx_dm_oa_import_batch_query (config_id, status, create_time, del_flag)
+) engine=innodb comment='通用泛微导入批次';
+
+create table if not exists dm_oa_import_record (
+    id bigint not null comment '主键', batch_id bigint not null, row_no int not null, data_json longtext null, group_key varchar(500) null,
+    group_name varchar(500) null, dept_id bigint null, company_id bigint null, application_id bigint null, attachment_oss_id bigint null,
+    status varchar(30) not null default 'UNMATCHED', error_message varchar(500) null, skip_reason varchar(500) null, create_dept bigint null, create_by bigint null,
+    create_time datetime null, update_by bigint null, update_time datetime null, version bigint not null default 1, del_flag char(1) not null default '0',
+    primary key (id), key idx_dm_oa_import_record_batch (batch_id, row_no, del_flag), key idx_dm_oa_import_record_dept (batch_id, dept_id, status, del_flag),
+    key idx_dm_oa_import_record_application (application_id, del_flag)
+) engine=innodb comment='通用泛微导入明细';
+
+create table if not exists dm_oa_import_dept_alias (
+    id bigint not null comment '主键', business_type varchar(64) not null comment '业务类型编码', source_dept_name varchar(255) not null, normalized_name varchar(255) not null, dept_id bigint not null,
+    target_dept_name varchar(255) null, status char(1) not null default '0', create_dept bigint null, create_by bigint null, create_time datetime null,
+    update_by bigint null, update_time datetime null, version bigint not null default 1, del_flag char(1) not null default '0', primary key (id),
+    unique key uk_dm_oa_import_dept_alias_scope (business_type, normalized_name, del_flag), key idx_dm_oa_import_dept_alias_business (business_type, status, del_flag), key idx_dm_oa_import_dept_alias_dept (dept_id, status, del_flag)
+) engine=innodb comment='通用泛微导入部门别名映射';
+
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003270, '通用导入业务', 1761400000000003000, 14, 'importBusiness', 'ecology/importBusiness/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:importBusiness:list', 'upload', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, 'Excel 导入、部门匹配、附件生成并提交泛微');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003271, '通用导入查询', 1761400000000003270, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查询通用导入批次');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003272, '通用导入数据', 1761400000000003270, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:import', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '导入 Excel 业务数据');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003273, '通用导入部门匹配', 1761400000000003270, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:map', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护来源部门到泛微部门的映射');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003274, '通用导入提交泛微', 1761400000000003270, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:submit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按分组生成附件并提交泛微');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003275, '通用导入批次删除', 1761400000000003270, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importBusiness:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '删除尚未创建泛微申请的导入批次');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003280, '导入业务模板', 1761400000000003000, 15, 'importConfig', 'ecology/importConfig/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:importConfig:list', 'edit', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护通用 Excel 导入业务模板');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003281, '导入模板查询', 1761400000000003280, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查询导入业务模板');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003282, '导入模板新增', 1761400000000003280, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '新增导入业务模板');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003283, '导入模板修改', 1761400000000003280, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '修改导入业务模板');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003284, '导入模板删除', 1761400000000003280, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:importConfig:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '删除导入业务模板');
+
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003270 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003271 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003272 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003273 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003274 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003275 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003280 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003281 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003282 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003283 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003284 from sys_role_menu where menu_id = 1761400000000003000;
+
+-- 泛微业务工作区导航优化：隐藏散落的旧入口，统一放到“泛微工作中心”下。
+update sys_menu
+set visible = '1', update_time = sysdate()
+where menu_id in (
+    1761400000000003200, 1761400000000003201,
+    1761400000000003211, 1761400000000003212, 1761400000000003213,
+    1761400000000003220, 1761400000000003221, 1761400000000003222, 1761400000000003223, 1761400000000003224,
+    1761400000000003240, 1761400000000003241, 1761400000000003242, 1761400000000003245, 1761400000000003246,
+    1761400000000003250, 1761400000000003251, 1761400000000003252, 1761400000000003253, 1761400000000003254,
+    1761400000000003270, 1761400000000003271, 1761400000000003272, 1761400000000003273, 1761400000000003274, 1761400000000003275,
+    1761400000000003280, 1761400000000003281, 1761400000000003282, 1761400000000003283, 1761400000000003284
+);
+
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003299, '泛微工作中心', 1761400000000003000, 13, 'ecologyWorkspace', '', '', 'N', 'Y', 'M', '0', '0', '', 'workflow', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '泛微组织同步、业务配置、业务提交和申请记录');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003290, '泛微同步', 1761400000000003299, 1, 'hrmSync', 'ecology/hrm-sync/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:hrmSync:list', 'tree', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '同步泛微组织、岗位和人员');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003291, '业务配置', 1761400000000003299, 3, 'businessConfig', 'ecology/businessConfig/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:businessConfig:list', 'tool', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '维护业务类型绑定、审批方案和导入模板');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003292, '业务提交', 1761400000000003299, 4, 'businessSubmit', 'ecology/businessSubmit/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:businessSubmit:list', 'upload', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '发起单项审批或批量业务导入');
+insert ignore into sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query_param, is_frame, is_cache, menu_type, visible, status, perms, icon, active_menu, ext, create_dept, create_by, create_time, update_by, update_time, remark)
+values (1761400000000003293, '我的申请', 1761400000000003299, 5, 'myApplication', 'ecology/myApplication/index', '', 'N', 'Y', 'C', '0', '0', 'ecology:myApplication:list', 'documentation', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看本人发起的审批和导入申请');
+
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003299 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003290 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003291 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003292 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003293 from sys_role_menu where menu_id = 1761400000000003000;

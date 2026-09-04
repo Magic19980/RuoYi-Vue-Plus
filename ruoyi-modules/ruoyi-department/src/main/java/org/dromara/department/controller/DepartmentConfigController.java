@@ -13,6 +13,7 @@ import org.dromara.common.log.enums.BusinessType;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.web.core.BaseController;
 import org.dromara.department.domain.bo.DepartmentConfigBo;
+import org.dromara.department.domain.bo.DepartmentConfigMigrationBo;
 import org.dromara.department.domain.bo.DepartmentConfigQueryBo;
 import org.dromara.department.domain.vo.DepartmentConfigVo;
 import org.dromara.department.service.IDepartmentConfigService;
@@ -46,8 +47,14 @@ public class DepartmentConfigController extends BaseController {
 
     @SaCheckPermission("department:department:list")
     @GetMapping("/available")
-    public R<List<DepartmentConfigVo>> available() {
-        return R.ok(departmentConfigService.queryAvailableDepartments());
+    public R<List<DepartmentConfigVo>> available(DepartmentConfigQueryBo bo) {
+        return R.ok(departmentConfigService.queryAvailableDepartments(bo == null ? null : bo.getDeptName()));
+    }
+
+    @SaCheckPermission("department:department:list")
+    @GetMapping("/organization/children")
+    public R<List<DepartmentConfigVo>> organizationChildren(Long parentId) {
+        return R.ok(departmentConfigService.queryOrganizationChildren(parentId));
     }
 
     @SaCheckPermission("department:department:query")
@@ -68,6 +75,14 @@ public class DepartmentConfigController extends BaseController {
     @PutMapping
     public R<Void> edit(@Validated(EditGroup.class) @RequestBody DepartmentConfigBo bo) {
         return toAjax(departmentConfigService.updateByBo(bo));
+    }
+
+    @SaCheckPermission("department:department:edit")
+    @Log(title = "业务科室配置迁移", businessType = BusinessType.UPDATE)
+    @PutMapping("/migrate")
+    public R<Void> migrate(@Validated @RequestBody DepartmentConfigMigrationBo bo) {
+        departmentConfigService.migrate(bo);
+        return R.ok();
     }
 
     @SaCheckPermission("department:department:remove")

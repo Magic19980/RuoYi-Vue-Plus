@@ -17,6 +17,7 @@
 
     <modules>
         <module>ruoyi-department</module>
+        <module>ruoyi-ecology</module>
         <module>ruoyi-demo</module>
         <module>ruoyi-gen</module>
         <module>ruoyi-job</module>

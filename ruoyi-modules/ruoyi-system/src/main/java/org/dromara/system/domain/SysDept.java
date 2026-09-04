@@ -33,6 +33,18 @@ public class SysDept extends BaseEntity {
     private Long deptId;
 
     /**
+     * 泛微组织来源类型：SUBCOMPANY 分部、DEPARTMENT 部门。
+     * 为空表示本地维护的部门，非空表示由泛微 HRM 接管。
+     */
+    private String oaSourceType;
+
+    /** 泛微组织节点 ID。 */
+    private String oaSourceId;
+
+    /** 泛微所属分部 ID，用于区分不同分部下可能重复的部门 ID。 */
+    private String oaSubcompanyId;
+
+    /**
      * 父部门ID
      */
     private Long parentId;

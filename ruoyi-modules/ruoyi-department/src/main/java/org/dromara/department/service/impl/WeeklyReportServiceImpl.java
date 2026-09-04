@@ -176,6 +176,13 @@ public class WeeklyReportServiceImpl implements IWeeklyReportService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean deleteById(Long id) {
+        getAccessible(id);
+        return weeklyReportMapper.deleteById(id) > 0;
+    }
+
+    @Override
     public void exportPptx(Long id, HttpServletResponse response) throws Exception {
         WeeklyReport entity = getAccessible(id);
         WeeklyReportSummaryVo summary = JsonUtils.parseObject(entity.getSnapshotJson(), WeeklyReportSummaryVo.class);

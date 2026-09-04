@@ -54,6 +54,12 @@ public class SysDeptVo implements Serializable {
     @ExcelProperty(value = "部门名称")
     private String deptName;
 
+    /** 泛微组织来源类型：SUBCOMPANY 或 DEPARTMENT。 */
+    private String oaSourceType;
+
+    /** 泛微组织节点 ID。 */
+    private String oaSourceId;
+
     /**
      * 部门印尼语名称
      */

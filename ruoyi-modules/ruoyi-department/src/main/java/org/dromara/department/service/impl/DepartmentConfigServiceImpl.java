@@ -8,9 +8,11 @@ import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.department.domain.DepartmentConfig;
 import org.dromara.department.domain.bo.DepartmentConfigBo;
+import org.dromara.department.domain.bo.DepartmentConfigMigrationBo;
 import org.dromara.department.domain.bo.DepartmentConfigQueryBo;
 import org.dromara.department.domain.vo.DepartmentConfigVo;
 import org.dromara.department.mapper.DepartmentConfigMapper;
+import org.dromara.department.mapper.DepartmentConfigMigrationMapper;
 import org.dromara.department.service.DepartmentAccessService;
 import org.dromara.department.service.DepartmentMembershipSyncService;
 import org.dromara.department.service.DepartmentScope;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.StringJoiner;
 
 /** 业务科室配置服务实现。 */
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ public class DepartmentConfigServiceImpl implements IDepartmentConfigService {
     private static final String DISABLED = "DISABLED";
 
     private final DepartmentConfigMapper departmentConfigMapper;
+    private final DepartmentConfigMigrationMapper migrationMapper;
     private final DepartmentAccessService departmentAccessService;
     private final DepartmentMembershipSyncService membershipSyncService;
 
@@ -55,8 +59,21 @@ public class DepartmentConfigServiceImpl implements IDepartmentConfigService {
     }
 
     @Override
-    public List<DepartmentConfigVo> queryAvailableDepartments() {
-        List<DepartmentConfigVo> result = departmentConfigMapper.selectAvailableDepartments();
+    public List<DepartmentConfigVo> queryAvailableDepartments(String deptName) {
+        if (StringUtils.isBlank(deptName)) {
+            return List.of();
+        }
+        List<DepartmentConfigVo> result = departmentConfigMapper.selectAvailableDepartments(deptName.trim());
+        if (!LoginHelper.isSuperAdmin()) {
+            Long currentDeptId = departmentAccessService.currentDeptId();
+            return result.stream().filter(item -> Objects.equals(item.getDeptId(), currentDeptId)).toList();
+        }
+        return result;
+    }
+
+    @Override
+    public List<DepartmentConfigVo> queryOrganizationChildren(Long parentId) {
+        List<DepartmentConfigVo> result = departmentConfigMapper.selectOrganizationChildren(parentId == null ? 0L : parentId);
         if (!LoginHelper.isSuperAdmin()) {
             Long currentDeptId = departmentAccessService.currentDeptId();
             return result.stream().filter(item -> Objects.equals(item.getDeptId(), currentDeptId)).toList();
@@ -98,6 +115,65 @@ public class DepartmentConfigServiceImpl implements IDepartmentConfigService {
             membershipSyncService.disableDepartmentAutoMemberships(entity.getDeptId());
         }
         return success;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void migrate(DepartmentConfigMigrationBo bo) {
+        if (!LoginHelper.isSuperAdmin()) {
+            throw new ServiceException("科室配置迁移仅允许超级管理员操作");
+        }
+        Long sourceDeptId = bo.getSourceDeptId();
+        Long targetDeptId = bo.getTargetDeptId();
+        if (Objects.equals(sourceDeptId, targetDeptId)) {
+            throw new ServiceException("原科室和目标部门不能相同");
+        }
+        if (migrationMapper.selectConfigForUpdate(sourceDeptId) == null) {
+            throw new ServiceException("原科室配置不存在、已迁移或已删除");
+        }
+        if (departmentConfigMapper.countActiveSystemDepartment(targetDeptId) == 0) {
+            throw new ServiceException("目标部门不存在或已停用，请先完成泛微组织同步");
+        }
+        if (migrationMapper.countAnyConfig(targetDeptId) > 0) {
+            throw new ServiceException("目标部门已经存在科室配置，请先处理目标配置");
+        }
+
+        List<org.dromara.department.domain.vo.DepartmentConfigMigrationConflictVo> conflicts =
+            migrationMapper.selectConflicts(sourceDeptId, targetDeptId);
+        if (!conflicts.isEmpty()) {
+            StringJoiner message = new StringJoiner("、");
+            conflicts.forEach(item -> message.add(item.getDataName() + " " + item.getConflictCount() + " 条"));
+            throw new ServiceException("迁移存在重复数据，已取消本次迁移：" + message);
+        }
+
+        Long operatorId = LoginHelper.getUserId() == null ? 0L : LoginHelper.getUserId();
+        int movedConfig = migrationMapper.moveConfig(sourceDeptId, targetDeptId, operatorId, java.time.LocalDateTime.now());
+        if (movedConfig != 1) {
+            throw new ServiceException("科室配置已发生变化，请刷新后重试");
+        }
+        migrationMapper.movePersonProfiles(sourceDeptId, targetDeptId);
+        migrationMapper.movePersonProfileEvents(sourceDeptId, targetDeptId);
+        migrationMapper.moveDailyReports(sourceDeptId, targetDeptId);
+        migrationMapper.moveDailyCalendarOverrides(sourceDeptId, targetDeptId);
+        migrationMapper.moveDailyLeaves(sourceDeptId, targetDeptId);
+        migrationMapper.moveDocumentCategories(sourceDeptId, targetDeptId);
+        migrationMapper.moveDocuments(sourceDeptId, targetDeptId);
+        migrationMapper.moveWorkOrders(sourceDeptId, targetDeptId);
+        migrationMapper.moveProjects(sourceDeptId, targetDeptId);
+        migrationMapper.moveOperationRecords(sourceDeptId, targetDeptId);
+        migrationMapper.moveOperationSystems(sourceDeptId, targetDeptId);
+        migrationMapper.moveFiveWhy(sourceDeptId, targetDeptId);
+        migrationMapper.moveScoreProposals(sourceDeptId, targetDeptId);
+        migrationMapper.moveScoreProposalReviewTasks(sourceDeptId, targetDeptId);
+        migrationMapper.moveReviewRules(sourceDeptId, targetDeptId);
+        migrationMapper.moveTaskRules(sourceDeptId, targetDeptId);
+        migrationMapper.moveTaskAssignments(sourceDeptId, targetDeptId);
+        migrationMapper.moveTaskInstances(sourceDeptId, targetDeptId);
+
+        DepartmentConfig targetConfig = departmentConfigMapper.selectById(targetDeptId);
+        if (targetConfig != null && ENABLED.equals(targetConfig.getStatus())) {
+            membershipSyncService.syncConfiguredDepartment(targetDeptId);
+        }
     }
 
     @Override

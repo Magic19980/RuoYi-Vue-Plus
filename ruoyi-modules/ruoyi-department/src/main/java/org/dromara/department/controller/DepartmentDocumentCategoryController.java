@@ -2,15 +2,12 @@ package org.dromara.department.controller;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
-import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.core.domain.R;
 import org.dromara.common.core.validate.AddGroup;
 import org.dromara.common.core.validate.EditGroup;
 import org.dromara.common.log.annotation.Log;
 import org.dromara.common.log.enums.BusinessType;
-import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.web.core.BaseController;
 import org.dromara.department.domain.bo.DepartmentDocumentCategoryBo;
 import org.dromara.department.domain.bo.DepartmentDocumentCategoryQueryBo;
@@ -38,28 +35,16 @@ public class DepartmentDocumentCategoryController extends BaseController {
 
     private final IDepartmentDocumentCategoryService categoryService;
 
-    @SaCheckPermission("department:documentCategory:list")
-    @GetMapping("/list")
-    public R<PageResult<DepartmentDocumentCategoryVo>> list(DepartmentDocumentCategoryQueryBo bo, PageQuery pageQuery) {
-        return R.ok(categoryService.queryPageList(bo, pageQuery));
-    }
-
-    @SaCheckPermission("department:documentCategory:list")
+    @SaCheckPermission("department:document:query")
     @GetMapping("/options")
     public R<List<DepartmentDocumentCategoryVo>> options() {
         return R.ok(categoryService.queryOptions());
     }
 
-    @SaCheckPermission("department:documentCategory:list")
+    @SaCheckPermission("department:document:query")
     @GetMapping("/tree")
     public R<List<DepartmentDocumentCategoryVo>> tree(DepartmentDocumentCategoryQueryBo bo) {
         return R.ok(categoryService.queryTreeList(bo));
-    }
-
-    @SaCheckPermission("department:documentCategory:query")
-    @GetMapping("/{id}")
-    public R<DepartmentDocumentCategoryVo> getInfo(@NotNull(message = "分类主键不能为空") @PathVariable Long id) {
-        return R.ok(categoryService.queryById(id));
     }
 
     @SaCheckPermission("department:documentCategory:add")

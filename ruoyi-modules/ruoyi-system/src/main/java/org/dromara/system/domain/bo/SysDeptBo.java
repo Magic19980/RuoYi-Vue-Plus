@@ -40,7 +40,7 @@ public class SysDeptBo implements Serializable {
      * 部门名称
      */
     @NotBlank(message = "部门名称不能为空")
-    @Size(min = 0, max = 30, message = "部门名称长度不能超过{max}个字符")
+    @Size(min = 0, max = 255, message = "部门名称长度不能超过{max}个字符")
     private String deptName;
 
     /**
@@ -88,6 +88,9 @@ public class SysDeptBo implements Serializable {
      * 归属部门id（部门树）
      */
     private Long belongDeptId;
+
+    /** 仅查询泛微同步组织；仅用于查询，不写入 sys_dept。 */
+    private boolean oaOnly;
 
     /**
      * 请求参数

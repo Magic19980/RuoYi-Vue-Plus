@@ -21,5 +21,7 @@ public interface IWeeklyReportService {
 
     WeeklyReportVo generate(WeeklyReportBo bo);
 
+    Boolean deleteById(Long id);
+
     void exportPptx(Long id, HttpServletResponse response) throws Exception;
 }

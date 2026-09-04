@@ -68,6 +68,12 @@ public class SysUserBo implements Serializable {
     @Size(max = 64, message = "工号长度不能超过{max}个字符")
     private String employeeNo;
 
+    /** 泛微人员来源类型。 */
+    private String oaSourceType;
+
+    /** 泛微人员 ID。 */
+    private String oaSourceId;
+
     /**
      * 用户类型（sys_user系统用户）
      */

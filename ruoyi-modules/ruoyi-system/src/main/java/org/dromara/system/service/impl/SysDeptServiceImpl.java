@@ -36,6 +36,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 部门管理 服务实现
@@ -45,6 +46,9 @@ import java.util.*;
 @RequiredArgsConstructor
 @Service
 public class SysDeptServiceImpl implements ISysDeptService, DeptService {
+
+    /** 单次部门搜索最多返回的命中节点数量。上级路径不计入此限制。 */
+    private static final int DEPT_SEARCH_LIMIT = 100;
 
     private final SysDeptMapper deptMapper;
     private final SysRoleMapper roleMapper;
@@ -76,6 +80,51 @@ public class SysDeptServiceImpl implements ISysDeptService, DeptService {
     }
 
     /**
+     * 搜索部门，并补齐命中节点的上级路径。
+     *
+     * <p>搜索结果不补齐命中节点的全部下级：泛微组织规模较大时，补齐下级会重新
+     * 产生数万节点并拖慢页面。命中节点本身会完整返回，用户可通过重置查看懒加载组织树。</p>
+     */
+    @Override
+    public List<SysDeptVo> selectDeptSearchList(SysDeptBo dept) {
+        if (dept == null) {
+            return Collections.emptyList();
+        }
+        List<SysDeptVo> matchedRows = deptMapper.selectDeptList(buildQueryWrapper(dept)
+            .last("limit " + DEPT_SEARCH_LIMIT));
+        if (CollUtil.isEmpty(matchedRows)) {
+            return Collections.emptyList();
+        }
+
+        Set<Long> deptIds = new LinkedHashSet<>();
+        matchedRows.forEach(row -> {
+            if (row.getDeptId() != null) {
+                deptIds.add(row.getDeptId());
+            }
+            if (StringUtils.isNotBlank(row.getAncestors())) {
+                deptIds.addAll(StringUtils.splitTo(row.getAncestors(), Convert::toLong));
+            }
+        });
+        if (deptIds.isEmpty()) {
+            return matchedRows;
+        }
+
+        LambdaQueryWrapper<SysDept> pathQuery = QueryBuilder.lambda(SysDept.class)
+            .select(SysDept::getDeptId, SysDept::getParentId, SysDept::getDeptName,
+                SysDept::getOaSourceType, SysDept::getOaSourceId, SysDept::getOaSubcompanyId,
+                SysDept::getIndonesianName, SysDept::getDeptCategory, SysDept::getOrderNum,
+                SysDept::getLeader, SysDept::getPhone, SysDept::getEmail, SysDept::getStatus,
+                SysDept::getDelFlag, SysDept::getAncestors, SysDept::getCreateTime,
+                SysDept::getUpdateTime)
+            .eq(SysDept::getDelFlag, SystemConstants.NORMAL)
+            .in(dept.isOaOnly(), SysDept::getOaSourceType, List.of("SUBCOMPANY", "DEPARTMENT"))
+            .in(SysDept::getDeptId, deptIds)
+            .orderByAsc(SysDept::getAncestors, SysDept::getParentId, SysDept::getOrderNum, SysDept::getDeptId)
+            .build();
+        return deptMapper.selectDeptList(pathQuery);
+    }
+
+    /**
      * 按父部门查询直属子部门，并标记是否还存在下一级节点。
      *
      * @param parentId 父部门ID
@@ -85,11 +134,49 @@ public class SysDeptServiceImpl implements ISysDeptService, DeptService {
     public List<SysDeptVo> selectDeptChildren(Long parentId) {
         SysDeptBo query = new SysDeptBo();
         query.setParentId(parentId);
+        return selectDeptChildren(query);
+    }
+
+    @Override
+    public List<SysDeptVo> selectOaDeptChildren(Long parentId) {
+        SysDeptBo query = new SysDeptBo();
+        query.setParentId(parentId);
+        query.setStatus(SystemConstants.NORMAL);
+        query.setOaOnly(true);
+        return selectDeptChildren(query);
+    }
+
+    @Override
+    public List<SysDeptVo> selectOaDeptSearchList(String deptName) {
+        SysDeptBo query = new SysDeptBo();
+        query.setDeptName(deptName);
+        query.setStatus(SystemConstants.NORMAL);
+        query.setOaOnly(true);
+        return selectDeptSearchList(query);
+    }
+
+    private List<SysDeptVo> selectDeptChildren(SysDeptBo query) {
         List<SysDeptVo> children = selectDeptList(query);
         if (CollUtil.isEmpty(children)) {
             return children;
         }
-        Set<Long> childParentIds = deptMapper.selectParentIds(StreamUtils.toList(children, SysDeptVo::getDeptId));
+        List<Long> deptIds = StreamUtils.toList(children, SysDeptVo::getDeptId);
+        Set<Long> childParentIds;
+        if (query.isOaOnly()) {
+            childParentIds = deptMapper.lambda()
+                .select(SysDept::getParentId)
+                .in(SysDept::getParentId, deptIds)
+                .in(SysDept::getOaSourceType, List.of("SUBCOMPANY", "DEPARTMENT"))
+                .eq(SysDept::getDelFlag, SystemConstants.NORMAL)
+                .eq(SysDept::getStatus, SystemConstants.NORMAL)
+                .groupBy(SysDept::getParentId)
+                .list().stream()
+                .map(SysDept::getParentId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        } else {
+            childParentIds = deptMapper.selectParentIds(deptIds);
+        }
         children.forEach(child -> child.setHasChildren(childParentIds.contains(child.getDeptId())));
         return children;
     }
@@ -122,6 +209,7 @@ public class SysDeptServiceImpl implements ISysDeptService, DeptService {
             .likeIfText(SysDept::getDeptName, bo.getDeptName())
             .likeIfText(SysDept::getDeptCategory, bo.getDeptCategory())
             .eqIfText(SysDept::getStatus, bo.getStatus())
+            .in(bo.isOaOnly(), SysDept::getOaSourceType, List.of("SUBCOMPANY", "DEPARTMENT"))
             .betweenParams(SysDept::getCreateTime, params, "beginTime", "endTime")
             .orderByAsc(SysDept::getAncestors, SysDept::getParentId, SysDept::getOrderNum, SysDept::getDeptId);
         if (ObjectUtil.isNotNull(bo.getBelongDeptId())) {

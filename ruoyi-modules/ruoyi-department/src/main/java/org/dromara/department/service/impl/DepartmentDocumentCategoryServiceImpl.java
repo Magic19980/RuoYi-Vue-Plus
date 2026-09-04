@@ -1,12 +1,8 @@
 package org.dromara.department.service.impl;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
-import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.utils.StringUtils;
-import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.department.domain.DepartmentDocumentCategory;
 import org.dromara.department.domain.bo.DepartmentDocumentCategoryBo;
 import org.dromara.department.domain.bo.DepartmentDocumentCategoryQueryBo;
@@ -39,19 +35,6 @@ public class DepartmentDocumentCategoryServiceImpl implements IDepartmentDocumen
 
     private final DepartmentDocumentCategoryMapper categoryMapper;
     private final DepartmentAccessService departmentAccessService;
-
-    @Override
-    public PageResult<DepartmentDocumentCategoryVo> queryPageList(DepartmentDocumentCategoryQueryBo bo, PageQuery pageQuery) {
-        Page<DepartmentDocumentCategoryVo> page = pageQuery.build();
-        Page<DepartmentDocumentCategoryVo> result = categoryMapper.selectPageList(
-            page, bo == null ? new DepartmentDocumentCategoryQueryBo() : bo, scope());
-        return PageResult.build(result.getRecords(), result.getTotal());
-    }
-
-    @Override
-    public DepartmentDocumentCategoryVo queryById(Long id) {
-        return toVo(getAccessible(id));
-    }
 
     @Override
     public List<DepartmentDocumentCategoryVo> queryOptions() {
@@ -173,20 +156,6 @@ public class DepartmentDocumentCategoryServiceImpl implements IDepartmentDocumen
             throw new ServiceException("您没有访问该资料分类的权限");
         }
         return entity;
-    }
-
-    private DepartmentDocumentCategoryVo toVo(DepartmentDocumentCategory entity) {
-        DepartmentDocumentCategoryVo vo = new DepartmentDocumentCategoryVo();
-        vo.setId(entity.getId());
-        vo.setDeptId(entity.getDeptId());
-        vo.setParentId(normalizeParentId(entity.getParentId()));
-        vo.setCategoryName(entity.getCategoryName());
-        vo.setSortNum(entity.getSortNum());
-        vo.setStatus(entity.getStatus());
-        vo.setRemark(entity.getRemark());
-        vo.setCreateTime(entity.getCreateTime());
-        vo.setUpdateTime(entity.getUpdateTime());
-        return vo;
     }
 
     private List<DepartmentDocumentCategoryVo> buildTree(List<DepartmentDocumentCategoryVo> source,

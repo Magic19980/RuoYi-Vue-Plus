@@ -1,3 +1,12 @@
+--- # 根据 System-boxplusn 测试环境配置科室系统泛微地址
+ecology:
+  enabled: true
+  address: ${ECOLOGY_ADDRESS:http://10.1.11.175}
+  app-id: ${ECOLOGY_APP_ID:62acf88c-55d0-465c-b08d-99cd36020608}
+  server-public-key: ${ECOLOGY_SERVER_PUBLIC_KEY:MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAj8duyBBrBE+vKrdZ3RcwuESYiovhOaYTrmFUkQc2qfvFUgWh05xLsXlvvau1RVWP5cGCBQ2bbQShCekHoV52TglVM5C0B7YX8+VruRZ2/OkTJmz8nLlpVf4/zfLPMgai9DaIDgzGHgCGpK97yO8AdX3Gx0YR4gnY28DHhmMHjsh3xq6kD7h+pJL/EdRwY4tSkUJehCLGNQDw254J/qdTKXL4+52k1H/pca0V2/U7vPZHH/GialAP+7Ah7tk7YrMYgSCuURTKcnKUTsUeXzruzY18ASMw2OKZD+Smyi/4lHXukfTL6D52A72LIYesQlvUoNOTXyuhcSKSqpYyhQH3tQIDAQAB}
+  server-secret: ${ECOLOGY_SERVER_SECRET:347eb8b8-6b9a-4884-b77e-e16e68f4cf6a}
+  # 旧 oa.workflowId=633025，请录入 dm_oa_workflow_config.workflow_id
+
 --- # 监控中心配置
 spring.boot.admin.client:
   # 增加客户端开关

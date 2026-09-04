@@ -111,6 +111,7 @@ security:
     - /warm-flow-ui/config
     - /snail-chat/**
     - /api/snail/chat/**
+    - /ecology/callback
 
 # MyBatisPlus配置
 # https://baomidou.com/config/
@@ -194,6 +195,7 @@ xss:
   excludeUrls:
     - /system/notice
     - /warm-flow/save-json
+    - /ecology/callback
 
 --- # 分布式锁 lock4j 全局配置
 lock4j:
@@ -383,3 +385,52 @@ spring.ai.mcp:
             - -y
             - '@modelcontextprotocol/server-filesystem'
             - D:/data
+
+--- # 泛微 Ecology 通用审批中心
+# 配置值依据 System-boxplusn 的 oa.address、ECologyUtils 鉴权参数和 HRM applyId 配置到本命名空间。
+# SCORE 和 5WHY 继续使用科室管理平台本地审批，不经过此配置。
+ecology:
+  enabled: ${ECOLOGY_ENABLED:true}
+  address: ${ECOLOGY_ADDRESS:}
+  app-id: ${ECOLOGY_APP_ID:}
+  server-public-key: ${ECOLOGY_SERVER_PUBLIC_KEY:}
+  server-secret: ${ECOLOGY_SERVER_SECRET:}
+  # HRM REST 人员接口配置，对应 System-boxplusn 的 getOaUserInfo/getOaUserList 适配
+  hrm-apply-id: ${ECOLOGY_HRM_APPLY_ID:10a415b0-5db5-417d-84f7-545afd33793b}
+  hrm-user-list-path: ${ECOLOGY_HRM_USER_LIST_PATH:/api/hrm/resful/getHrmUserInfoWithPage}
+  hrm-subcompany-list-path: ${ECOLOGY_HRM_SUBCOMPANY_LIST_PATH:/api/hrm/resful/getHrmsubcompanyWithPage}
+  hrm-department-list-path: ${ECOLOGY_HRM_DEPARTMENT_LIST_PATH:/api/hrm/resful/getHrmdepartmentWithPage}
+  hrm-jobtitle-list-path: ${ECOLOGY_HRM_JOBTITLE_LIST_PATH:/api/hrm/resful/getJobtitleInfoWithPage}
+  hrm-user-search-field: ${ECOLOGY_HRM_USER_SEARCH_FIELD:workcode}
+  hrm-default-password: ${ECOLOGY_HRM_DEFAULT_PASSWORD:}
+  # 页面配置的初始密码使用 AES 加密保存；建议设置独立密钥，未设置时使用 server-secret 派生
+  hrm-password-encryption-key: ${ECOLOGY_HRM_PASSWORD_ENCRYPTION_KEY:}
+  hrm-skip-secondary-accounts: ${ECOLOGY_HRM_SKIP_SECONDARY_ACCOUNTS:true}
+  hrm-sync-enabled: ${ECOLOGY_HRM_SYNC_ENABLED:false}
+  hrm-sync-fixed-delay-millis: ${ECOLOGY_HRM_SYNC_FIXED_DELAY_MILLIS:3600000}
+  hrm-sync-initial-delay-millis: ${ECOLOGY_HRM_SYNC_INITIAL_DELAY_MILLIS:120000}
+  hrm-sync-overlap-seconds: ${ECOLOGY_HRM_SYNC_OVERLAP_SECONDS:300}
+  hrm-sync-page-size: ${ECOLOGY_HRM_SYNC_PAGE_SIZE:200}
+  # 分页之间增加间隔，避免全量同步连续打满泛微接口
+  hrm-sync-page-interval-millis: ${ECOLOGY_HRM_SYNC_PAGE_INTERVAL_MILLIS:300}
+  hrm-request-retry-count: ${ECOLOGY_HRM_REQUEST_RETRY_COUNT:2}
+  hrm-request-retry-initial-delay-millis: ${ECOLOGY_HRM_REQUEST_RETRY_INITIAL_DELAY_MILLIS:1000}
+  hrm-request-retry-max-delay-millis: ${ECOLOGY_HRM_REQUEST_RETRY_MAX_DELAY_MILLIS:30000}
+  token-ttl-seconds: ${ECOLOGY_TOKEN_TTL_SECONDS:3600}
+  connect-timeout: ${ECOLOGY_CONNECT_TIMEOUT:5000}
+  read-timeout: ${ECOLOGY_READ_TIMEOUT:15000}
+  # 例如：https://oa.example.com/spa/workflow/static4form/index.html#/main/workflowengine/requestview/requestview?requestid={requestId}
+  request-link-template: ${ECOLOGY_REQUEST_LINK_TEMPLATE:}
+  request-status-path: ${ECOLOGY_REQUEST_STATUS_PATH:/api/workflow/paService/getWorkflowRequest}
+  attachment-write-empty-fields: ${ECOLOGY_ATTACHMENT_WRITE_EMPTY_FIELDS:true}
+  callback-enabled: ${ECOLOGY_CALLBACK_ENABLED:false}
+  callback-secret: ${ECOLOGY_CALLBACK_SECRET:}
+  callback-signature-header: ${ECOLOGY_CALLBACK_SIGNATURE_HEADER:X-Ecology-Signature}
+  callback-timestamp-header: ${ECOLOGY_CALLBACK_TIMESTAMP_HEADER:X-Ecology-Timestamp}
+  callback-nonce-header: ${ECOLOGY_CALLBACK_NONCE_HEADER:X-Ecology-Nonce}
+  callback-timestamp-tolerance-seconds: ${ECOLOGY_CALLBACK_TIMESTAMP_TOLERANCE_SECONDS:300}
+  reconcile-enabled: ${ECOLOGY_RECONCILE_ENABLED:false}
+  reconcile-batch-size: ${ECOLOGY_RECONCILE_BATCH_SIZE:50}
+  reconcile-fixed-delay-millis: ${ECOLOGY_RECONCILE_FIXED_DELAY_MILLIS:300000}
+  reconcile-initial-delay-millis: ${ECOLOGY_RECONCILE_INITIAL_DELAY_MILLIS:60000}
+  reconcile-stale-seconds: ${ECOLOGY_RECONCILE_STALE_SECONDS:300}

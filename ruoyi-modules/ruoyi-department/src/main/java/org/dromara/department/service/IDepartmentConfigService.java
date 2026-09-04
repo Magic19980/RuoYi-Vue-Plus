@@ -3,6 +3,7 @@ package org.dromara.department.service;
 import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.department.domain.bo.DepartmentConfigBo;
+import org.dromara.department.domain.bo.DepartmentConfigMigrationBo;
 import org.dromara.department.domain.bo.DepartmentConfigQueryBo;
 import org.dromara.department.domain.vo.DepartmentConfigVo;
 
@@ -16,11 +17,15 @@ public interface IDepartmentConfigService {
 
     DepartmentConfigVo queryById(Long deptId);
 
-    List<DepartmentConfigVo> queryAvailableDepartments();
+    List<DepartmentConfigVo> queryAvailableDepartments(String deptName);
+
+    List<DepartmentConfigVo> queryOrganizationChildren(Long parentId);
 
     Boolean insertByBo(DepartmentConfigBo bo);
 
     Boolean updateByBo(DepartmentConfigBo bo);
+
+    void migrate(DepartmentConfigMigrationBo bo);
 
     Boolean disableByIds(Collection<Long> deptIds);
 }

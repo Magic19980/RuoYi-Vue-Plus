@@ -52,6 +52,14 @@ public class SysUser extends BaseEntity {
      */
     private String employeeNo;
 
+    /** 泛微人员来源类型，USER 表示由泛微 HRM 直接同步。 */
+    @TableField(insertStrategy = FieldStrategy.NOT_EMPTY, updateStrategy = FieldStrategy.NOT_EMPTY)
+    private String oaSourceType;
+
+    /** 泛微人员 ID；由泛微 HRM 作为本地用户的稳定来源标识。 */
+    @TableField(insertStrategy = FieldStrategy.NOT_EMPTY, updateStrategy = FieldStrategy.NOT_EMPTY)
+    private String oaSourceId;
+
     /**
      * 用户类型（sys_user系统用户）
      */

@@ -47,6 +47,18 @@ public class SysDeptController extends BaseController {
     }
 
     /**
+     * 搜索部门树，仅返回命中节点及其上级路径，避免前端加载完整组织树。
+     *
+     * @param dept 查询条件
+     * @return 搜索结果
+     */
+    @SaCheckPermission("system:dept:list")
+    @GetMapping("/search")
+    public R<List<SysDeptVo>> search(SysDeptBo dept) {
+        return R.ok(deptService.selectDeptSearchList(dept));
+    }
+
+    /**
      * 按父部门查询直属子部门，供部门管理页懒加载树节点。
      *
      * @param parentId 父部门ID，根节点传 0

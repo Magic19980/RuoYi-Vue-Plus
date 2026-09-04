@@ -1,5 +1,7 @@
 package org.dromara.system.domain;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -43,6 +45,14 @@ public class SysPost extends BaseEntity {
      * 岗位印尼语名称
      */
     private String postIndonesianName;
+
+    /** 泛微岗位来源类型，JOBTITLE 表示由泛微 HRM 直接同步。 */
+    @TableField(insertStrategy = FieldStrategy.NOT_EMPTY, updateStrategy = FieldStrategy.NOT_EMPTY)
+    private String oaSourceType;
+
+    /** 泛微岗位 ID。 */
+    @TableField(insertStrategy = FieldStrategy.NOT_EMPTY, updateStrategy = FieldStrategy.NOT_EMPTY)
+    private String oaSourceId;
 
     /**
      * 岗位排序

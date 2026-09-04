@@ -18,6 +18,7 @@ import org.dromara.department.domain.vo.WeeklyReportVo;
 import org.dromara.department.service.IWeeklyReportService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -65,6 +66,13 @@ public class WeeklyReportController extends BaseController {
     @GetMapping("/{id}")
     public R<WeeklyReportVo> getInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(weeklyReportService.queryById(id));
+    }
+
+    @SaCheckPermission("department:weeklyReport:remove")
+    @Log(title = "科室周报", businessType = BusinessType.DELETE)
+    @DeleteMapping("/{id}")
+    public R<Void> remove(@NotNull(message = "主键不能为空") @PathVariable Long id) {
+        return toAjax(weeklyReportService.deleteById(id));
     }
 
     @SaCheckPermission("department:weeklyReport:export")

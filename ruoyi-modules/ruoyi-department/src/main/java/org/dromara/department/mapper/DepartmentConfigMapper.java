@@ -18,11 +18,12 @@ public interface DepartmentConfigMapper extends BaseMapperPlus<DepartmentConfig,
 
     @Select({
         "<script>",
-        "select c.dept_id, d.dept_name, c.status, c.manager_user_id,",
+        "select c.dept_id, d.dept_name, case when d.dept_id is not null and d.del_flag = '0' and d.status = '0' then true else false end as system_dept_available,",
+        "c.status, c.manager_user_id,",
         "coalesce(m.nick_name, m.user_name) as manager_name, c.sort_num,",
         "coalesce(active_member.member_count, 0) as member_count,",
         "c.remark, c.create_time, c.update_time",
-        "from dm_department c join sys_dept d on d.dept_id = c.dept_id and d.del_flag = '0'",
+        "from dm_department c left join sys_dept d on d.dept_id = c.dept_id",
         "left join sys_user m on m.user_id = c.manager_user_id and m.del_flag = '0'",
         "left join (select p.create_dept, count(1) as member_count from dm_person_profile p",
         "where p.del_flag = '0' and p.member_status = 'ACTIVE' and p.join_date &lt;= current_date",
@@ -50,9 +51,27 @@ public interface DepartmentConfigMapper extends BaseMapperPlus<DepartmentConfig,
         + "where c.dept_id = #{deptId} and c.del_flag = '0'")
     DepartmentConfigVo selectDetail(@Param("deptId") Long deptId);
 
-    @Select("select d.dept_id, d.dept_name from sys_dept d left join dm_department c on c.dept_id = d.dept_id and c.del_flag = '0' "
-        + "where d.del_flag = '0' and d.status = '0' and c.dept_id is null order by d.dept_name, d.dept_id")
-    List<DepartmentConfigVo> selectAvailableDepartments();
+    @Select({
+        "<script>",
+        "select d.dept_id, d.dept_name from sys_dept d left join dm_department c on c.dept_id = d.dept_id",
+        "where d.del_flag = '0' and d.status = '0' and c.dept_id is null",
+        "and (d.dept_name like concat('%', #{deptName}, '%') or coalesce(d.indonesian_name, '') like concat('%', #{deptName}, '%'))",
+        "order by d.dept_name, d.dept_id limit 100",
+        "</script>"
+    })
+    List<DepartmentConfigVo> selectAvailableDepartments(@Param("deptName") String deptName);
+
+    @Select({
+        "<script>",
+        "select d.dept_id, d.parent_id, d.dept_name,",
+        "case when c.dept_id is null then true else false end as selectable,",
+        "case when exists (select 1 from sys_dept child where child.parent_id = d.dept_id and child.del_flag = '0' and child.status = '0') then true else false end as has_children",
+        "from sys_dept d left join dm_department c on c.dept_id = d.dept_id and c.del_flag = '0'",
+        "where d.del_flag = '0' and d.status = '0' and d.parent_id = #{parentId}",
+        "order by d.order_num asc, d.dept_name asc, d.dept_id asc",
+        "</script>"
+    })
+    List<DepartmentConfigVo> selectOrganizationChildren(@Param("parentId") Long parentId);
 
     @Select("select c.dept_id, d.dept_name from dm_department c join sys_dept d on d.dept_id = c.dept_id and d.del_flag = '0' "
         + "where c.del_flag = '0' and c.status = 'ENABLED' and d.status = '0' "

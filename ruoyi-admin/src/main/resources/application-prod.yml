@@ -1,3 +1,8 @@
+--- # 根据 System-boxplusn 正式环境配置科室系统泛微地址
+ecology:
+  address: ${ECOLOGY_ADDRESS:https://oa.etsingshan.com}
+  # 旧 oa.workflowId=672525，请录入 dm_oa_workflow_config.workflow_id
+
 --- # 临时文件存储位置 避免临时文件被系统清理报错
 spring.servlet.multipart.location: /ruoyi/server/temp
 

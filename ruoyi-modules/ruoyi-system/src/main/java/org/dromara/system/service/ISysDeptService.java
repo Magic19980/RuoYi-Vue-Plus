@@ -34,12 +34,26 @@ public interface ISysDeptService {
     List<SysDeptVo> selectDeptList(SysDeptBo dept);
 
     /**
+     * 按条件搜索部门，仅返回命中部门及其上级路径，避免大规模组织树查询阻塞页面。
+     *
+     * @param dept 查询条件
+     * @return 命中部门及其上级路径
+     */
+    List<SysDeptVo> selectDeptSearchList(SysDeptBo dept);
+
+    /**
      * 按父部门查询直属子部门，供懒加载部门树使用
      *
      * @param parentId 父部门ID
      * @return 直属子部门列表
      */
     List<SysDeptVo> selectDeptChildren(Long parentId);
+
+    /** 按父节点查询泛微同步组织的直属子节点。 */
+    List<SysDeptVo> selectOaDeptChildren(Long parentId);
+
+    /** 搜索泛微同步组织，并返回命中节点及其上级路径。 */
+    List<SysDeptVo> selectOaDeptSearchList(String deptName);
 
     /**
      * 查询部门树结构信息

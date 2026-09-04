@@ -100,6 +100,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
             .likeIfText(SysUser::getUserName, user.getUserName())
             .likeIfText(SysUser::getNickName, user.getNickName())
             .likeIfText(SysUser::getIndonesianName, user.getIndonesianName())
+            .likeIfText(SysUser::getEmployeeNo, user.getEmployeeNo())
             .eqIfText(SysUser::getStatus, user.getStatus())
             .likeIfText(SysUser::getPhoneNumber, user.getPhoneNumber())
             .betweenParams(SysUser::getCreateTime, params, "beginTime", "endTime")

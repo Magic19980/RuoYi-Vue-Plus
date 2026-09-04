@@ -41,7 +41,7 @@ create table sys_dept (
     dept_id           bigint(20)      not null                   comment '部门id',
     parent_id         bigint(20)      default 0                  comment '父部门id',
     ancestors         varchar(500)    default ''                 comment '祖级列表',
-    dept_name         varchar(30)     default ''                 comment '部门名称',
+    dept_name         varchar(255)    default ''                 comment '部门名称',
     indonesian_name   varchar(100)    default null               comment '部门印尼语名称',
     dept_category     varchar(100)    default null               comment '部门类别编码',
     order_num         int(4)          default 0                  comment '显示顺序',
@@ -55,8 +55,12 @@ create table sys_dept (
     create_time       datetime                                   comment '创建时间',
     update_by         bigint(20)      default null               comment '更新者',
     update_time       datetime                                   comment '更新时间',
+    oa_source_type    varchar(20)     default null               comment '泛微组织来源类型（SUBCOMPANY分部、DEPARTMENT部门）',
+    oa_source_id      varchar(64)     default null               comment '泛微组织节点ID',
+    oa_subcompany_id  varchar(64)     default null               comment '泛微所属分部ID',
     primary key (dept_id),
-    key idx_sys_dept_parent_id (parent_id)
+    key idx_sys_dept_parent_id (parent_id),
+    key idx_sys_dept_oa_source (oa_source_type, oa_source_id, oa_subcompany_id)
 ) engine=innodb comment = '部门表';
 
 -- ----------------------------
@@ -64,16 +68,16 @@ create table sys_dept (
 -- ----------------------------
 
 
-insert into sys_dept values(1761000000000000100, 0, '0', 'XXX科技', null, null, 0, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null);
-insert into sys_dept values(1761000000000000101, 1761000000000000100, '0,1761000000000000100', '深圳总公司', null, null, 1, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null);
-insert into sys_dept values(1761000000000000102, 1761000000000000100, '0,1761000000000000100', '长沙分公司', null, null, 2, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null);
-insert into sys_dept values(1761000000000000103, 1761000000000000101, '0,1761000000000000100,1761000000000000101', '研发部门', null, null, 1, 1761100000000000001, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null);
-insert into sys_dept values(1761000000000000104, 1761000000000000101, '0,1761000000000000100,1761000000000000101', '市场部门', null, null, 2, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null);
-insert into sys_dept values(1761000000000000105, 1761000000000000101, '0,1761000000000000100,1761000000000000101', '测试部门', null, null, 3, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null);
-insert into sys_dept values(1761000000000000106, 1761000000000000101, '0,1761000000000000100,1761000000000000101', '财务部门', null, null, 4, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null);
-insert into sys_dept values(1761000000000000107, 1761000000000000101, '0,1761000000000000100,1761000000000000101', '运维部门', null, null, 5, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null);
-insert into sys_dept values(1761000000000000108, 1761000000000000102, '0,1761000000000000100,1761000000000000102', '市场部门', null, null, 1, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null);
-insert into sys_dept values(1761000000000000109, 1761000000000000102, '0,1761000000000000100,1761000000000000102', '财务部门', null, null, 2, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null);
+insert into sys_dept values(1761000000000000100, 0, '0', 'XXX科技', null, null, 0, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, null, null, null);
+insert into sys_dept values(1761000000000000101, 1761000000000000100, '0,1761000000000000100', '深圳总公司', null, null, 1, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, null, null, null);
+insert into sys_dept values(1761000000000000102, 1761000000000000100, '0,1761000000000000100', '长沙分公司', null, null, 2, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, null, null, null);
+insert into sys_dept values(1761000000000000103, 1761000000000000101, '0,1761000000000000100,1761000000000000101', '研发部门', null, null, 1, 1761100000000000001, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, null, null, null);
+insert into sys_dept values(1761000000000000104, 1761000000000000101, '0,1761000000000000100,1761000000000000101', '市场部门', null, null, 2, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, null, null, null);
+insert into sys_dept values(1761000000000000105, 1761000000000000101, '0,1761000000000000100,1761000000000000101', '测试部门', null, null, 3, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, null, null, null);
+insert into sys_dept values(1761000000000000106, 1761000000000000101, '0,1761000000000000100,1761000000000000101', '财务部门', null, null, 4, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, null, null, null);
+insert into sys_dept values(1761000000000000107, 1761000000000000101, '0,1761000000000000100,1761000000000000101', '运维部门', null, null, 5, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, null, null, null);
+insert into sys_dept values(1761000000000000108, 1761000000000000102, '0,1761000000000000100,1761000000000000102', '市场部门', null, null, 1, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, null, null, null);
+insert into sys_dept values(1761000000000000109, 1761000000000000102, '0,1761000000000000100,1761000000000000102', '财务部门', null, null, 2, null, '15888888888', 'xxx@qq.com', '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, null, null, null);
 
 
 -- ----------------------------
@@ -88,7 +92,7 @@ create table sys_user (
     employee_no       varchar(64)     default null               comment '工号',
     user_type         varchar(10)     default 'sys_user'         comment '用户类型（sys_user系统用户）',
     email             varchar(50)     default ''                 comment '用户邮箱',
-    phone_number      varchar(11)     default ''                 comment '手机号码',
+    phone_number      varchar(64)     default ''                 comment '手机号码',
     gender            char(1)         default '0'                comment '用户性别（0男 1女 2未知）',
     avatar            bigint(20)                                 comment '头像地址',
     password          varchar(100)    default ''                 comment '密码',
@@ -102,19 +106,22 @@ create table sys_user (
     update_by         bigint(20)      default null               comment '更新者',
     update_time       datetime                                   comment '更新时间',
     remark            varchar(500)    default null               comment '备注',
+    oa_source_type    varchar(20)     default null               comment '外部主数据来源类型',
+    oa_source_id      varchar(64)     default null               comment '外部主数据来源 ID',
     primary key (user_id),
     key idx_sys_user_dept_id   (dept_id),
     key idx_sys_user_create_by (create_by),
     key idx_sys_user_user_name (user_name),
-    key idx_sys_user_phone     (phone_number)
+    key idx_sys_user_phone     (phone_number),
+    key idx_sys_user_oa_source (oa_source_type, oa_source_id, del_flag)
 ) engine=innodb comment = '用户信息表';
 
 -- ----------------------------
 -- 初始化-用户信息表数据
 -- ----------------------------
-insert into sys_user values(1761100000000000001, 1761000000000000103, 'admin', '疯狂的狮子Li', null, null, 'sys_user', 'crazyLionLi@163.com', '15888888888', '1', null, '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), 1761000000000000103, 1761100000000000001, sysdate(), null, null, '管理员');
-insert into sys_user values(1761100000000000003, 1761000000000000108, 'test', '本部门及以下 密码666666', null, null, 'sys_user', '', '', '0', null, '$2a$10$b8yUzN0C71sbz.PhNOCgJe.Tu1yWC3RNrTyjSQ8p1W0.aaUXUJ.Ne', '0', '0', '127.0.0.1', sysdate(), 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000003, sysdate(), null);
-insert into sys_user values(1761100000000000004, 1761000000000000102, 'test1', '仅本人 密码666666', null, null, 'sys_user', '', '', '0', null, '$2a$10$b8yUzN0C71sbz.PhNOCgJe.Tu1yWC3RNrTyjSQ8p1W0.aaUXUJ.Ne', '0', '0', '127.0.0.1', sysdate(), 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000004, sysdate(), null);
+insert into sys_user values(1761100000000000001, 1761000000000000103, 'admin', '疯狂的狮子Li', null, null, 'sys_user', 'crazyLionLi@163.com', '15888888888', '1', null, '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', '0', '0', '127.0.0.1', sysdate(), 1761000000000000103, 1761100000000000001, sysdate(), null, null, '管理员', null, null);
+insert into sys_user values(1761100000000000003, 1761000000000000108, 'test', '本部门及以下 密码666666', null, null, 'sys_user', '', '', '0', null, '$2a$10$b8yUzN0C71sbz.PhNOCgJe.Tu1yWC3RNrTyjSQ8p1W0.aaUXUJ.Ne', '0', '0', '127.0.0.1', sysdate(), 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000003, sysdate(), null, null, null);
+insert into sys_user values(1761100000000000004, 1761000000000000102, 'test1', '仅本人 密码666666', null, null, 'sys_user', '', '', '0', null, '$2a$10$b8yUzN0C71sbz.PhNOCgJe.Tu1yWC3RNrTyjSQ8p1W0.aaUXUJ.Ne', '0', '0', '127.0.0.1', sysdate(), 1761000000000000103, 1761100000000000001, sysdate(), 1761100000000000004, sysdate(), null, null, null);
 
 -- ----------------------------
 -- 3、岗位信息表
@@ -135,17 +142,20 @@ create table sys_post
     update_by     bigint(20)      default null               comment '更新者',
     update_time   datetime                                   comment '更新时间',
     remark        varchar(500)    default null               comment '备注',
+    oa_source_type varchar(20)    default null               comment '外部主数据来源类型',
+    oa_source_id   varchar(64)    default null               comment '外部主数据来源 ID',
     primary key (post_id),
-    key idx_sys_post_dept_id (dept_id)
+    key idx_sys_post_dept_id (dept_id),
+    key idx_sys_post_oa_source (oa_source_type, oa_source_id, dept_id, del_flag)
 ) engine=innodb comment = '岗位信息表';
 
 -- ----------------------------
 -- 初始化-岗位信息表数据
 -- ----------------------------
-insert into sys_post values(1761200000000000001, 1761000000000000103, 'ceo', '董事长', null, 1, '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert into sys_post values(1761200000000000002, 1761000000000000100, 'se', '项目经理', null, 2, '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert into sys_post values(1761200000000000003, 1761000000000000100, 'hr', '人力资源', null, 3, '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
-insert into sys_post values(1761200000000000004, 1761000000000000100, 'user', '普通员工', null, 4, '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert into sys_post values(1761200000000000001, 1761000000000000103, 'ceo', '董事长', null, 1, '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '', null, null);
+insert into sys_post values(1761200000000000002, 1761000000000000100, 'se', '项目经理', null, 2, '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '', null, null);
+insert into sys_post values(1761200000000000003, 1761000000000000100, 'hr', '人力资源', null, 3, '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '', null, null);
+insert into sys_post values(1761200000000000004, 1761000000000000100, 'user', '普通员工', null, 4, '0', '0', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '', null, null);
 
 
 -- ----------------------------

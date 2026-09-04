@@ -451,6 +451,13 @@
                 <version>${revision}</version>
             </dependency>
 
+            <!-- 泛微审批中心模块 -->
+            <dependency>
+                <groupId>org.dromara</groupId>
+                <artifactId>ruoyi-ecology</artifactId>
+                <version>${revision}</version>
+            </dependency>
+
             <!--  工作流模块  -->
             <dependency>
                 <groupId>org.dromara</groupId>
