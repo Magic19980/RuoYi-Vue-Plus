@@ -400,8 +400,7 @@ public class OaApplicationServiceImpl implements IOaApplicationService {
         if (user == null) {
             throw new ServiceException("当前登录用户不存在");
         }
-        OaWorkflowConfig workflowConfig = workflowConfigService.requireEnabled(bo.getWorkflowConfigId(), bo.getBusinessType());
-        validateDynamicFormData(workflowConfig, bo.getFormDataJson(), bo.getAttachments());
+        workflowConfigService.requireEnabled(bo.getWorkflowConfigId(), bo.getBusinessType());
         OaApplication entity;
         if (bo.getId() == null) {
             entity = new OaApplication();
@@ -458,6 +457,10 @@ public class OaApplicationServiceImpl implements IOaApplicationService {
             throw new ServiceException("当前申请状态不允许重复提交");
         }
         OaWorkflowConfig config = workflowConfigService.requireEnabled(application.getWorkflowConfigId(), application.getBusinessType());
+        List<OaAttachmentBo> attachments = toAttachmentBos(application.getId());
+        validateFormData(application.getFormDataJson());
+        validateAttachments(attachments);
+        validateDynamicFormData(config, application.getFormDataJson(), attachments);
         if (!"CUSTOM".equals(application.getProcessType())) {
             application.setProcessType("CUSTOM");
             applicationMapper.updateById(application);
@@ -1477,7 +1480,7 @@ public class OaApplicationServiceImpl implements IOaApplicationService {
         }
     }
 
-    /** 按当前业务选择的表单定义校验动态字段，保证保存的草稿可以被泛微接受。 */
+    /** 按当前业务选择的表单定义校验动态字段，保证正式提交的数据可以被泛微接受。 */
     private void validateDynamicFormData(OaWorkflowConfig config, String formDataJson,
                                          List<OaAttachmentBo> attachments) {
         if (!hasSchema(config)) {
@@ -1540,6 +1543,16 @@ public class OaApplicationServiceImpl implements IOaApplicationService {
         }
         return attachments.stream().anyMatch(item -> item != null
             && type.equals(normalizeAttachmentType(item.getAttachmentType())));
+    }
+
+    private List<OaAttachmentBo> toAttachmentBos(Long applicationId) {
+        return attachmentMapper.selectByApplicationId(applicationId).stream().map(item -> {
+            OaAttachmentBo attachment = new OaAttachmentBo();
+            attachment.setOssId(item.getOssId());
+            attachment.setAttachmentType(item.getAttachmentType());
+            attachment.setSortNo(item.getSortNo());
+            return attachment;
+        }).toList();
     }
 
     @SuppressWarnings("unchecked")
