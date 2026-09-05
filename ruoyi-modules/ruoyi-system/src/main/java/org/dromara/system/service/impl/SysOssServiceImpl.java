@@ -246,6 +246,23 @@ public class SysOssServiceImpl implements ISysOssService, OssService {
     }
 
     /**
+     * 获取文件预览地址。视频由浏览器直接访问预签名地址，避免通过 byte[] 一次性加载整个文件。
+     *
+     * 即使数据库中的桶策略标记为 public，也统一使用预签名地址：实际对象存储策略可能仍是 private，
+     * 直接拼接 bucket URL 会返回 403，浏览器播放器最终只能停在 0:00。
+     */
+    @Override
+    public String previewUrl(Long ossId) {
+        SysOssVo sysOss = SpringUtils.getAopProxy(this).getById(ossId);
+        if (ObjectUtil.isNull(sysOss)) {
+            throw new ServiceException("文件数据不存在!");
+        }
+        OssClient instance = getOssClient(sysOss.getService());
+        // 预留足够的播放时长，避免长视频播放到中途因预签名地址过期而中断。
+        return instance.presignGetUrl(sysOss.getFileName(), Duration.ofHours(2));
+    }
+
+    /**
      * 优先使用对象存储返回的媒体类型，历史数据没有媒体类型时按文件名推断。
      */
     private MediaType resolveMediaType(String contentType, String originalName) {

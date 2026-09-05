@@ -5,6 +5,7 @@ import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.department.domain.bo.DepartmentDocumentBo;
 import org.dromara.department.domain.bo.DepartmentDocumentQueryBo;
 import org.dromara.department.domain.vo.DepartmentDocumentVersionVo;
+import org.dromara.department.domain.vo.DepartmentDocumentVideoPreviewVo;
 import org.dromara.department.domain.vo.DepartmentDocumentVo;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
@@ -101,6 +102,23 @@ public interface IDepartmentDocumentService {
      * @return 预览响应内容
      */
     ResponseEntity<byte[]> preview(Long id);
+
+    /**
+     * 获取视频资料的临时播放地址。
+     *
+     * @param id 资料主键
+     * @return 视频播放信息
+     */
+    DepartmentDocumentVideoPreviewVo videoPreview(Long id);
+
+    /**
+     * 获取指定历史版本视频资料的临时播放地址。
+     *
+     * @param documentId 资料主键
+     * @param versionId 版本主键
+     * @return 视频播放信息
+     */
+    DepartmentDocumentVideoPreviewVo videoPreviewVersion(Long documentId, Long versionId);
 
     /**
      * 下载资料文件。

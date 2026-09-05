@@ -14,6 +14,7 @@ import org.dromara.common.web.core.BaseController;
 import org.dromara.department.domain.bo.DepartmentDocumentBo;
 import org.dromara.department.domain.bo.DepartmentDocumentQueryBo;
 import org.dromara.department.domain.vo.DepartmentDocumentVersionVo;
+import org.dromara.department.domain.vo.DepartmentDocumentVideoPreviewVo;
 import org.dromara.department.domain.vo.DepartmentDocumentVo;
 import org.dromara.department.service.IDepartmentDocumentService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -131,6 +132,20 @@ public class DepartmentDocumentController extends BaseController {
     @GetMapping("/preview/{id}")
     public ResponseEntity<byte[]> preview(@NotNull @PathVariable Long id) {
         return documentService.preview(id);
+    }
+
+    @SaCheckPermission("department:document:query")
+    @GetMapping("/video-preview/{id}")
+    public R<DepartmentDocumentVideoPreviewVo> videoPreview(@NotNull @PathVariable Long id) {
+        return R.ok(documentService.videoPreview(id));
+    }
+
+    @SaCheckPermission("department:document:query")
+    @GetMapping("/video-preview/{documentId}/version/{versionId}")
+    public R<DepartmentDocumentVideoPreviewVo> videoPreviewVersion(
+        @NotNull @PathVariable Long documentId,
+        @NotNull @PathVariable Long versionId) {
+        return R.ok(documentService.videoPreviewVersion(documentId, versionId));
     }
 
     @SaCheckPermission("department:document:download")

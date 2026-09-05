@@ -77,6 +77,14 @@ public interface ISysOssService {
     ResponseEntity<byte[]> preview(Long ossId);
 
     /**
+     * 获取文件预览地址。私有存储返回短期预签名地址，公有存储返回当前配置下的对象地址。
+     *
+     * @param ossId OSS对象ID
+     * @return 文件预览地址
+     */
+    String previewUrl(Long ossId);
+
+    /**
      * 删除OSS对象存储
      *
      * @param ids     OSS对象ID串

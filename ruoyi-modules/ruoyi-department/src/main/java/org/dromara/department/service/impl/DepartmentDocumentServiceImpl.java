@@ -13,6 +13,7 @@ import org.dromara.department.domain.DepartmentProject;
 import org.dromara.department.domain.bo.DepartmentDocumentBo;
 import org.dromara.department.domain.bo.DepartmentDocumentQueryBo;
 import org.dromara.department.domain.vo.DepartmentDocumentVersionVo;
+import org.dromara.department.domain.vo.DepartmentDocumentVideoPreviewVo;
 import org.dromara.department.domain.vo.DepartmentDocumentVo;
 import org.dromara.department.mapper.DepartmentDocumentMapper;
 import org.dromara.department.mapper.DepartmentDocumentCategoryMapper;
@@ -29,6 +30,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -46,10 +50,12 @@ public class DepartmentDocumentServiceImpl implements IDepartmentDocumentService
     private static final String DELETED = "1";
     private static final String NORMAL = "0";
     private static final long MAX_FILE_SIZE = 50L * 1024 * 1024;
+    private static final long MAX_VIDEO_FILE_SIZE = 500L * 1024 * 1024;
     private static final Set<String> ALLOWED_SUFFIXES = Set.of(
         ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv",
-        ".jpg", ".jpeg", ".png", ".gif", ".zip", ".rar", ".7z"
+        ".jpg", ".jpeg", ".png", ".gif", ".zip", ".rar", ".7z", ".mp4", ".webm", ".ogg"
     );
+    private static final Set<String> VIDEO_SUFFIXES = Set.of(".mp4", ".webm", ".ogg");
 
     private final DepartmentDocumentMapper documentMapper;
     private final DepartmentDocumentCategoryMapper categoryMapper;
@@ -177,6 +183,26 @@ public class DepartmentDocumentServiceImpl implements IDepartmentDocumentService
     }
 
     @Override
+    public DepartmentDocumentVideoPreviewVo videoPreview(Long id) {
+        DepartmentDocument entity = getAccessibleDocument(id);
+        return buildVideoPreview(entity.getId(), entity.getCurrentVersionId(), entity.getCurrentOssId(),
+            entity.getCurrentOriginalName(), entity.getCurrentContentType(), entity.getCurrentFileSuffix(),
+            entity.getCurrentFileSize());
+    }
+
+    @Override
+    public DepartmentDocumentVideoPreviewVo videoPreviewVersion(Long documentId, Long versionId) {
+        getAccessibleDocument(documentId);
+        DepartmentDocumentVersion version = versionMapper.selectById(versionId);
+        if (version == null || !Objects.equals(version.getDocumentId(), documentId)
+            || !NORMAL.equals(version.getDelFlag())) {
+            throw new ServiceException("资料版本不存在或状态不允许操作");
+        }
+        return buildVideoPreview(documentId, version.getId(), version.getOssId(), version.getOriginalName(),
+            version.getContentType(), version.getFileSuffix(), version.getFileSize());
+    }
+
+    @Override
     public ResponseEntity<byte[]> download(Long id) {
         DepartmentDocument entity = getAccessibleDocument(id);
         return ossService.download(entity.getCurrentOssId());
@@ -247,13 +273,15 @@ public class DepartmentDocumentServiceImpl implements IDepartmentDocumentService
         if (file == null || file.isEmpty()) {
             throw new ServiceException("资料文件不能为空");
         }
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new ServiceException("资料文件不能超过50MB");
-        }
         String suffix = suffix(file.getOriginalFilename());
         if (!ALLOWED_SUFFIXES.contains(suffix)) {
             throw new ServiceException("不支持的资料文件类型：" + suffix);
         }
+        long maxFileSize = VIDEO_SUFFIXES.contains(suffix) ? MAX_VIDEO_FILE_SIZE : MAX_FILE_SIZE;
+        if (file.getSize() > maxFileSize) {
+            throw new ServiceException(VIDEO_SUFFIXES.contains(suffix) ? "视频文件不能超过500MB" : "资料文件不能超过50MB");
+        }
+        validateVideoSignature(file, suffix);
     }
 
     private Long validateProject(Long projectId) {
@@ -303,6 +331,70 @@ public class DepartmentDocumentServiceImpl implements IDepartmentDocumentService
             return "";
         }
         return fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+    }
+
+    private String resolveVideoContentType(String contentType, String suffix) {
+        if (StringUtils.isNotBlank(contentType) && contentType.toLowerCase().startsWith("video/")) {
+            return contentType;
+        }
+        return switch (suffix) {
+            case ".webm" -> "video/webm";
+            case ".ogg" -> "video/ogg";
+            default -> "video/mp4";
+        };
+    }
+
+    private DepartmentDocumentVideoPreviewVo buildVideoPreview(Long documentId, Long versionId, Long ossId,
+                                                               String fileName, String contentType, String fileSuffix,
+                                                               Long fileSize) {
+        String suffix = fileSuffix == null ? "" : fileSuffix.toLowerCase();
+        if (!VIDEO_SUFFIXES.contains(suffix)) {
+            throw new ServiceException("当前资料不是支持在线播放的视频格式");
+        }
+        if (ossId == null) {
+            throw new ServiceException("视频文件不存在");
+        }
+        DepartmentDocumentVideoPreviewVo preview = new DepartmentDocumentVideoPreviewVo();
+        preview.setDocumentId(documentId);
+        preview.setVersionId(versionId);
+        preview.setFileName(fileName);
+        preview.setContentType(resolveVideoContentType(contentType, suffix));
+        preview.setFileSize(fileSize);
+        preview.setPlaybackUrl(ossService.previewUrl(ossId));
+        return preview;
+    }
+
+    private void validateVideoSignature(MultipartFile file, String suffix) {
+        if (!VIDEO_SUFFIXES.contains(suffix)) {
+            return;
+        }
+        try (InputStream inputStream = file.getInputStream()) {
+            byte[] header = inputStream.readNBytes(12);
+            boolean valid = switch (suffix) {
+                case ".mp4" -> header.length >= 8
+                    && "ftyp".equals(new String(header, 4, 4, StandardCharsets.US_ASCII));
+                case ".webm" -> startsWith(header, new byte[]{0x1A, 0x45, (byte) 0xDF, (byte) 0xA3});
+                case ".ogg" -> startsWith(header, "OggS".getBytes(StandardCharsets.US_ASCII));
+                default -> false;
+            };
+            if (!valid) {
+                throw new ServiceException("视频文件内容与扩展名不匹配");
+            }
+        } catch (IOException e) {
+            throw new ServiceException("无法读取视频文件内容");
+        }
+    }
+
+    private boolean startsWith(byte[] value, byte[] prefix) {
+        if (value.length < prefix.length) {
+            return false;
+        }
+        for (int i = 0; i < prefix.length; i++) {
+            if (value[i] != prefix[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private PageResult<DepartmentDocumentVo> pageResult(com.baomidou.mybatisplus.extension.plugins.pagination.Page<DepartmentDocumentVo> page) {
