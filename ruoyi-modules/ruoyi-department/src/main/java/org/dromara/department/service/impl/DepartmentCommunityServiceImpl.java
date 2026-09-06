@@ -402,6 +402,7 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
 
     private void copyPost(DepartmentCommunityPostBo bo, DepartmentCommunityPost entity, boolean editing) {
         entity.setTitle(StringUtils.trim(bo.getTitle()));
+        entity.setSubtitle(StringUtils.trim(bo.getSubtitle()));
         entity.setContent(StringUtils.trim(bo.getContent()));
         entity.setPostType(normalizePostType(bo.getPostType()));
         entity.setTags(StringUtils.trim(bo.getTags()));

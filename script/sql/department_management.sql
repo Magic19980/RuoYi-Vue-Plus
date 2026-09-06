@@ -234,6 +234,7 @@ create table if not exists dm_department_document_version (
 create table if not exists dm_department_community_post (
     id                  bigint      not null comment '主键',
     title               varchar(200)    not null comment '帖子标题',
+    subtitle            varchar(300)    default null comment '帖子副标题',
     content             text            not null comment '帖子内容',
     post_type           varchar(20)     not null default 'DISCUSSION' comment '内容类型（DISCUSSION讨论 QUESTION问题 EXPERIENCE经验 IMPROVEMENT改进）',
     tags                varchar(500)    default null comment '话题标签，逗号分隔',

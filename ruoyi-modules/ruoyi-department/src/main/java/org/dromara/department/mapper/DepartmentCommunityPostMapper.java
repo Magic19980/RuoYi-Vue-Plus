@@ -18,7 +18,7 @@ public interface DepartmentCommunityPostMapper extends BaseMapperPlus<Department
 
     @Select({
         "<script>",
-        "select p.id, p.title, p.content, p.post_type, p.tags, p.visibility, p.dept_id,",
+        "select p.id, p.title, p.subtitle, p.content, p.post_type, p.tags, p.visibility, p.dept_id,",
         "d.dept_name, coalesce(u.nick_name, u.user_name) as author_name, p.status,",
         "p.view_count, p.like_count, p.comment_count, p.favorite_count, p.accepted_comment_id,",
         "case when exists (select 1 from dm_department_community_reaction r where r.post_id = p.id and r.user_id = #{userId} and r.reaction_type = 'LIKE' and r.del_flag = '0') then 1 else 0 end as liked,",
@@ -36,7 +36,7 @@ public interface DepartmentCommunityPostMapper extends BaseMapperPlus<Department
         "</if>",
         ")",
         "<if test='bo.keyword != null and bo.keyword != &quot;&quot;'>",
-        "and (p.title like concat('%', #{bo.keyword}, '%') or p.content like concat('%', #{bo.keyword}, '%') or p.tags like concat('%', #{bo.keyword}, '%'))",
+        "and (p.title like concat('%', #{bo.keyword}, '%') or p.subtitle like concat('%', #{bo.keyword}, '%') or p.content like concat('%', #{bo.keyword}, '%') or p.tags like concat('%', #{bo.keyword}, '%'))",
         "</if>",
         "<if test='bo.postType != null and bo.postType != &quot;&quot;'> and p.post_type = #{bo.postType} </if>",
         "<if test='bo.tag != null and bo.tag != &quot;&quot;'> and p.tags like concat('%', #{bo.tag}, '%') </if>",
@@ -53,7 +53,7 @@ public interface DepartmentCommunityPostMapper extends BaseMapperPlus<Department
                                                     @Param("deptId") Long deptId);
 
     @Select({
-        "select p.id, p.title, p.content, p.post_type, p.tags, p.visibility, p.dept_id,",
+        "select p.id, p.title, p.subtitle, p.content, p.post_type, p.tags, p.visibility, p.dept_id,",
         "d.dept_name, coalesce(u.nick_name, u.user_name) as author_name, p.status,",
         "p.view_count, p.like_count, p.comment_count, p.favorite_count, p.accepted_comment_id,",
         "case when exists (select 1 from dm_department_community_reaction r where r.post_id = p.id and r.user_id = #{userId} and r.reaction_type = 'LIKE' and r.del_flag = '0') then 1 else 0 end as liked,",

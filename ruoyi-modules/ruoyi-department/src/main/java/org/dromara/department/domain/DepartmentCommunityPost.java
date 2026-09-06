@@ -26,6 +26,8 @@ public class DepartmentCommunityPost extends BaseEntity {
 
     private String title;
 
+    private String subtitle;
+
     private String content;
 
     private String postType;

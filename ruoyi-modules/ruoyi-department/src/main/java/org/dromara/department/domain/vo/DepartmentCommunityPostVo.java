@@ -18,6 +18,7 @@ public class DepartmentCommunityPostVo implements Serializable {
 
     private Long id;
     private String title;
+    private String subtitle;
     private String content;
     private String postType;
     private String tags;

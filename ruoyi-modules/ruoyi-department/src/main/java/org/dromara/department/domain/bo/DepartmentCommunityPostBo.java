@@ -25,6 +25,9 @@ public class DepartmentCommunityPostBo implements Serializable {
     @Size(max = 200, message = "标题不能超过200个字符")
     private String title;
 
+    @Size(max = 300, message = "副标题不能超过300个字符")
+    private String subtitle;
+
     @NotBlank(message = "内容不能为空")
     @Size(max = 10000, message = "内容不能超过10000个字符")
     private String content;
