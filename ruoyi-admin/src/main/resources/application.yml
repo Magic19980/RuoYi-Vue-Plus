@@ -196,6 +196,8 @@ xss:
     - /system/notice
     - /warm-flow/save-json
     - /ecology/callback
+    # 社区正文由服务层按 Tiptap 白名单清洗，不能在请求包装器中删除 HTML 结构
+    - /department/community/post
 
 --- # 分布式锁 lock4j 全局配置
 lock4j:

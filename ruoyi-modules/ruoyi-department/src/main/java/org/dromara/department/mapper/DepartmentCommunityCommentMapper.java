@@ -1,13 +1,12 @@
 package org.dromara.department.mapper;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
 import org.dromara.department.domain.DepartmentCommunityComment;
 import org.dromara.department.domain.vo.DepartmentCommunityCommentVo;
-
-import java.util.List;
 
 /**
  * 协作社区评论数据层。
@@ -25,5 +24,7 @@ public interface DepartmentCommunityCommentMapper extends BaseMapperPlus<Departm
         "where c.post_id = #{postId} and c.del_flag = '0' and c.status = 'ENABLED'",
         "order by c.create_time asc, c.id asc"
     })
-    List<DepartmentCommunityCommentVo> selectListByPostId(@Param("postId") Long postId, @Param("userId") Long userId);
+    Page<DepartmentCommunityCommentVo> selectPageByPostId(Page<DepartmentCommunityCommentVo> page,
+                                                          @Param("postId") Long postId,
+                                                          @Param("userId") Long userId);
 }

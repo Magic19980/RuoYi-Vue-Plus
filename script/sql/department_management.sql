@@ -1731,3 +1731,94 @@ insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 176
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003291 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003292 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003293 from sys_role_menu where menu_id = 1761400000000003000;
+
+-- 平台问题与建议中心：首期只负责反馈收集、分派、评论和状态跟踪，不自动创建任务、工单、5WHY 或 OA 单据。
+create table if not exists dm_platform_feedback (
+    id                  bigint          not null comment '主键',
+    feedback_no         varchar(40)     not null comment '反馈编号',
+    feedback_type       varchar(30)     not null comment '反馈类型（SYSTEM系统/DATA数据/PROCESS流程/QUESTION问题/SUGGESTION建议）',
+    title               varchar(200)    not null comment '反馈标题',
+    description         text            not null comment '问题或建议描述',
+    module_name         varchar(100)    default null comment '来源模块',
+    page_title          varchar(200)    default null comment '来源页面标题',
+    page_path           varchar(500)    default null comment '来源页面地址',
+    business_ref        varchar(100)    default null comment '业务编号或关联标识',
+    reproduce_steps     text            comment '问题复现步骤',
+    expected_result     varchar(2000)   default null comment '期望结果',
+    actual_result       varchar(2000)   default null comment '实际结果',
+    impact_scope        varchar(20)     not null default 'SELF' comment '影响范围（SELF本人/DEPT部门/ALL全员）',
+    priority            varchar(20)     not null default 'NORMAL' comment '优先级（LOW低/NORMAL普通/HIGH高/URGENT紧急）',
+    status              varchar(30)     not null default 'PENDING' comment '状态',
+    assignee_id         bigint          default null comment '负责人用户ID',
+    resolution_note     varchar(5000)   default null comment '处理说明',
+    attachment_oss_ids  varchar(2000)   default null comment '附件OSS ID，逗号分隔',
+    closed_at           datetime        default null comment '关闭时间',
+    create_dept         bigint          default null comment '创建部门',
+    create_by           bigint          default null comment '创建者',
+    create_time         datetime        default null comment '创建时间',
+    update_by           bigint          default null comment '更新者',
+    update_time         datetime        default null comment '更新时间',
+    del_flag            char(1)         not null default '0' comment '删除标志（0存在 1删除）',
+    primary key (id),
+    unique key uk_dm_platform_feedback_no (feedback_no),
+    key idx_dm_platform_feedback_visibility (create_by, assignee_id, del_flag),
+    key idx_dm_platform_feedback_status (status, priority, update_time),
+    key idx_dm_platform_feedback_type (feedback_type, create_time),
+    key idx_dm_platform_feedback_module (module_name, create_time)
+) engine=innodb comment='平台问题与建议反馈';
+
+create table if not exists dm_platform_feedback_comment (
+    id                  bigint          not null comment '主键',
+    feedback_id         bigint          not null comment '反馈ID',
+    content             varchar(4000)   not null comment '评论内容',
+    create_dept         bigint          default null comment '创建部门',
+    create_by           bigint          default null comment '创建者',
+    create_time         datetime        default null comment '创建时间',
+    update_by           bigint          default null comment '更新者',
+    update_time         datetime        default null comment '更新时间',
+    del_flag            char(1)         not null default '0' comment '删除标志（0存在 1删除）',
+    primary key (id),
+    key idx_dm_platform_feedback_comment_feedback (feedback_id, create_time),
+    key idx_dm_platform_feedback_comment_author (create_by, create_time)
+) engine=innodb comment='平台问题与建议评论';
+
+create table if not exists dm_platform_feedback_activity (
+    id                  bigint          not null comment '主键',
+    feedback_id         bigint          not null comment '反馈ID',
+    action_type         varchar(30)     not null comment '操作类型（CREATED/ASSIGNED/STATUS_CHANGED/NOTE/COMMENT）',
+    action_note         varchar(5000)   default null comment '操作说明',
+    from_status         varchar(30)     default null comment '变更前状态',
+    to_status           varchar(30)     default null comment '变更后状态',
+    create_dept         bigint          default null comment '创建部门',
+    create_by           bigint          default null comment '操作人',
+    create_time         datetime        default null comment '操作时间',
+    update_by           bigint          default null comment '更新者',
+    update_time         datetime        default null comment '更新时间',
+    del_flag            char(1)         not null default '0' comment '删除标志（0存在 1删除）',
+    primary key (id),
+    key idx_dm_platform_feedback_activity_feedback (feedback_id, create_time),
+    key idx_dm_platform_feedback_activity_type (action_type, create_time)
+) engine=innodb comment='平台问题与建议操作记录';
+
+-- 反馈处理人配置：保存2至3名可处理反馈的用户ID，逗号分隔。
+insert ignore into sys_config (config_id, config_name, config_key, config_value, config_type, create_dept, create_by, create_time, remark)
+values (1761700000000000101, '问题与建议处理人', 'department.platformFeedback.handlers', '', 'Y', 1761000000000000103, 1761100000000000001, sysdate(), '由反馈管理员配置，允许2至3名用户保存问题与建议处理进展');
+
+insert ignore into sys_menu values(1761400000000003150, '问题与建议中心', 1761400000000003000, 14, 'platformFeedback', 'department/platformFeedback/index', '', 'N', 'Y', 'C', '0', '0', 'department:platformFeedback:list', 'message', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '统一收集、处理和跟踪平台问题与改进建议');
+insert ignore into sys_menu values(1761400000000003151, '问题建议查询', 1761400000000003150, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:platformFeedback:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003152, '提交问题建议', 1761400000000003150, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:platformFeedback:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003153, '处理问题建议', 1761400000000003150, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:platformFeedback:process', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003154, '评论问题建议', 1761400000000003150, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:platformFeedback:comment', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003155, '管理问题建议', 1761400000000003150, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:platformFeedback:manage', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003150);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003151);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003152);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003153);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003154);
+insert ignore into sys_role_menu values (1761300000000000001, 1761400000000003155);
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003150 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003151 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003152 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003153 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003154 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003155 from sys_role_menu where menu_id = 1761400000000003000;

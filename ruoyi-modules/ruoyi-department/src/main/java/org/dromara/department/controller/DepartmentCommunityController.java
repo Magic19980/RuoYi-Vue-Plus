@@ -34,8 +34,6 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-
 /**
  * 协作社区接口。
  */
@@ -82,9 +80,9 @@ public class DepartmentCommunityController extends BaseController {
 
     @SaCheckPermission("department:community:query")
     @GetMapping("/{postId}/comments")
-    public R<List<DepartmentCommunityCommentVo>> comments(
-        @NotNull(message = "帖子主键不能为空") @PathVariable Long postId) {
-        return R.ok(communityService.queryComments(postId));
+    public R<PageResult<DepartmentCommunityCommentVo>> comments(
+        @NotNull(message = "帖子主键不能为空") @PathVariable Long postId, PageQuery pageQuery) {
+        return R.ok(communityService.queryComments(postId, pageQuery));
     }
 
     @SaCheckPermission("department:community:comment")

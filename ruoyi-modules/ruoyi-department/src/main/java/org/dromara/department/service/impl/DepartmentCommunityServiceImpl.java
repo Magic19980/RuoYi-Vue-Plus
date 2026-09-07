@@ -1,6 +1,7 @@
 package org.dromara.department.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.http.HtmlUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.PageResult;
@@ -31,6 +32,7 @@ import org.dromara.department.mapper.DepartmentCommunityPostMapper;
 import org.dromara.department.mapper.DepartmentCommunityReactionMapper;
 import org.dromara.department.mapper.DepartmentCommunityReportMapper;
 import org.dromara.department.service.IDepartmentCommunityService;
+import org.dromara.department.util.CommunityHtmlSanitizer;
 import org.dromara.system.api.domain.PushPayloadDTO;
 import org.dromara.system.domain.SysOssExt;
 import org.dromara.system.domain.vo.SysOssVo;
@@ -156,11 +158,19 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
     }
 
     @Override
-    public List<DepartmentCommunityCommentVo> queryComments(Long postId) {
+    public PageResult<DepartmentCommunityCommentVo> queryComments(Long postId, PageQuery pageQuery) {
         getAccessiblePost(postId);
-        List<DepartmentCommunityCommentVo> result = commentMapper.selectListByPostId(postId, LoginHelper.getUserId());
+        PageQuery query = pageQuery == null ? new PageQuery(5, 1) : pageQuery;
+        if (query.getPageNum() == null || query.getPageNum() < 1) {
+            query.setPageNum(1);
+        }
+        if (query.getPageSize() == null || query.getPageSize() < 1 || query.getPageSize() > 10) {
+            query.setPageSize(5);
+        }
+        var page = commentMapper.selectPageByPostId(query.build(), postId, LoginHelper.getUserId());
+        List<DepartmentCommunityCommentVo> result = page.getRecords();
         fillCommentMedia(result);
-        return result;
+        return PageResult.build(result, page.getTotal());
     }
 
     @Override
@@ -392,7 +402,7 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
         if (bo == null) {
             throw new ServiceException("帖子内容不能为空");
         }
-        if (StringUtils.isBlank(bo.getTitle())) {
+        if (StringUtils.isBlank(cleanPlainText(bo.getTitle()))) {
             throw new ServiceException("帖子标题不能为空");
         }
         if (StringUtils.isBlank(bo.getContent())) {
@@ -401,15 +411,19 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
     }
 
     private void copyPost(DepartmentCommunityPostBo bo, DepartmentCommunityPost entity, boolean editing) {
-        entity.setTitle(StringUtils.trim(bo.getTitle()));
-        entity.setSubtitle(StringUtils.trim(bo.getSubtitle()));
-        entity.setContent(StringUtils.trim(bo.getContent()));
+        entity.setTitle(cleanPlainText(bo.getTitle()));
+        entity.setSubtitle(cleanPlainText(bo.getSubtitle()));
+        entity.setContent(CommunityHtmlSanitizer.sanitize(StringUtils.trim(bo.getContent())));
         entity.setPostType(normalizePostType(bo.getPostType()));
-        entity.setTags(StringUtils.trim(bo.getTags()));
+        entity.setTags(cleanPlainText(bo.getTags()));
         entity.setVisibility(normalizeVisibility(bo.getVisibility()));
         if (!editing || !STATUS_RESOLVED.equals(entity.getStatus())) {
             entity.setStatus(normalizeStatus(bo.getStatus()));
         }
+    }
+
+    private String cleanPlainText(String value) {
+        return value == null ? null : HtmlUtil.cleanHtmlTag(StringUtils.trim(value));
     }
 
     private void fillMedia(List<DepartmentCommunityPostVo> posts) {

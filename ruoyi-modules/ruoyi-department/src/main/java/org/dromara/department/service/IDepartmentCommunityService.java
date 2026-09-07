@@ -13,7 +13,6 @@ import org.dromara.department.domain.vo.DepartmentCommunityPostVo;
 import org.dromara.department.domain.vo.DepartmentCommunityReactionVo;
 import org.dromara.department.domain.vo.DepartmentCommunityReportVo;
 
-import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -31,7 +30,7 @@ public interface IDepartmentCommunityService {
 
     Boolean deleteById(Long id);
 
-    List<DepartmentCommunityCommentVo> queryComments(Long postId);
+    PageResult<DepartmentCommunityCommentVo> queryComments(Long postId, PageQuery pageQuery);
 
     Boolean addComment(Long postId, DepartmentCommunityCommentBo bo);
 
