@@ -17,4 +17,6 @@ public class DepartmentDocumentQueryBo {
     private String fileSuffix;
 
     private String status;
+
+    private String sortBy;
 }

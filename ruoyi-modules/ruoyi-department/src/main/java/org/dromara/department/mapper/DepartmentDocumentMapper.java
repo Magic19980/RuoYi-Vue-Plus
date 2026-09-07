@@ -47,7 +47,12 @@ public interface DepartmentDocumentMapper extends BaseMapperPlus<DepartmentDocum
         "<when test='scope.all'></when>",
         "<otherwise> and d.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
-        "order by d.update_time desc, d.id desc",
+        "<choose>",
+        "<when test='bo.sortBy == \"updatedAsc\"'> order by d.update_time asc, d.id asc </when>",
+        "<when test='bo.sortBy == \"nameAsc\"'> order by d.title asc, d.id desc </when>",
+        "<when test='bo.sortBy == \"sizeDesc\"'> order by d.current_file_size desc, d.id desc </when>",
+        "<otherwise> order by d.update_time desc, d.id desc </otherwise>",
+        "</choose>",
         "</script>"
     })
     Page<DepartmentDocumentVo> selectPageList(Page<DepartmentDocumentVo> page,
@@ -81,7 +86,12 @@ public interface DepartmentDocumentMapper extends BaseMapperPlus<DepartmentDocum
         "<when test='scope.all'></when>",
         "<otherwise> and d.dept_id = #{scope.deptId} </otherwise>",
         "</choose>",
-        "order by d.update_time desc, d.id desc",
+        "<choose>",
+        "<when test='bo.sortBy == \"updatedAsc\"'> order by d.update_time asc, d.id asc </when>",
+        "<when test='bo.sortBy == \"nameAsc\"'> order by d.title asc, d.id desc </when>",
+        "<when test='bo.sortBy == \"sizeDesc\"'> order by d.current_file_size desc, d.id desc </when>",
+        "<otherwise> order by d.update_time desc, d.id desc </otherwise>",
+        "</choose>",
         "</script>"
     })
     Page<DepartmentDocumentVo> selectRecyclePageList(Page<DepartmentDocumentVo> page,

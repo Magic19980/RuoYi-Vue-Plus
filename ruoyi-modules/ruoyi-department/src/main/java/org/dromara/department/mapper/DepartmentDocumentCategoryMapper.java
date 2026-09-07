@@ -22,7 +22,8 @@ public interface DepartmentDocumentCategoryMapper extends BaseMapperPlus<Departm
      */
     @Select({
         "<script>",
-        "select c.id, c.dept_id, c.parent_id, c.category_name, c.sort_num, c.status, c.remark",
+        "select c.id, c.dept_id, c.parent_id, c.category_name, c.sort_num, c.status, c.remark,",
+        "(select count(1) from dm_department_document d where d.category_id = c.id and d.del_flag = '0') as document_count",
         "from dm_department_document_category c where c.del_flag = '0' and c.status = 'ENABLED'",
         "<choose>",
         "<when test='scope.all'></when>",
