@@ -38,6 +38,7 @@ import org.dromara.system.domain.SysOssExt;
 import org.dromara.system.domain.vo.SysOssVo;
 import org.dromara.system.service.ISysMessageService;
 import org.dromara.system.service.ISysOssService;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -256,7 +257,13 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
             reaction.setReactionType(normalizedType);
             reaction.setCreateDept(LoginHelper.getDeptId());
             reaction.setCreateBy(userId);
-            reactionMapper.insert(reaction);
+            try {
+                reactionMapper.insert(reaction);
+            } catch (DuplicateKeyException ex) {
+                // 两次点击同时到达时，另一请求可能已插入同一互动记录。
+                // 将这次请求视为幂等重试，保持“已点赞/已收藏”状态，不再向前端抛出唯一键错误。
+                added = false;
+            }
         } else {
             reactionMapper.deleteById(reaction.getId());
         }
