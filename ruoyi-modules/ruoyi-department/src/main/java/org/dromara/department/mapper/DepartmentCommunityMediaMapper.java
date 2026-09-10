@@ -31,4 +31,26 @@ public interface DepartmentCommunityMediaMapper extends BaseMapperPlus<Departmen
         "order by sort_num asc, id asc"
     })
     List<DepartmentCommunityMediaVo> selectListByPostId(@Param("postId") Long postId);
+
+    /**
+     * 批量查询帖子媒体关系。
+     *
+     * <p>社区信息流会同时返回多条帖子，媒体关系必须一次性批量查询，避免
+     * “查询帖子列表后逐条查询媒体”的 N+1 查询。</p>
+     *
+     * @param postIds 帖子主键集合
+     * @return 按帖子和媒体顺序返回的媒体关系
+     */
+    @Select({
+        "<script>",
+        "select id, post_id, oss_id, media_type, original_name as file_name, file_suffix, content_type,",
+        "file_size, sort_num",
+        "from dm_department_community_media",
+        "where post_id in",
+        "<foreach collection='postIds' item='postId' open='(' separator=',' close=')'>#{postId}</foreach>",
+        "and del_flag = '0'",
+        "order by post_id asc, sort_num asc, id asc",
+        "</script>"
+    })
+    List<DepartmentCommunityMediaVo> selectListByPostIds(@Param("postIds") List<Long> postIds);
 }

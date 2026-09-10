@@ -31,7 +31,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** 5WHY分析业务实现。 */
@@ -94,10 +96,18 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
         if (ids == null || ids.isEmpty()) {
             return false;
         }
-        for (Long id : ids) {
-            getAccessible(id);
+        List<Long> whyIds = ids.stream().toList();
+        if (whyIds.stream().anyMatch(Objects::isNull)) {
+            throw new ServiceException("5WHY分析记录不存在");
         }
-        return fiveWhyMapper.deleteByIds(ids) > 0;
+        Map<Long, FiveWhy> recordsById = new HashMap<>();
+        for (FiveWhy entity : fiveWhyMapper.selectByIds(whyIds)) {
+            recordsById.put(entity.getId(), entity);
+        }
+        for (Long id : whyIds.stream().distinct().toList()) {
+            assertAccessible(recordsById.get(id));
+        }
+        return fiveWhyMapper.deleteByIds(whyIds.stream().distinct().toList()) > 0;
     }
 
     @Override
@@ -202,7 +212,11 @@ public class FiveWhyServiceImpl implements IFiveWhyService {
     }
 
     private FiveWhy getAccessible(Long id) {
-        FiveWhy entity = fiveWhyMapper.selectById(id);
+        return assertAccessible(fiveWhyMapper.selectById(id));
+    }
+
+    /** 校验5WHY记录存在且属于当前用户可访问的业务科室。 */
+    private FiveWhy assertAccessible(FiveWhy entity) {
         if (entity == null) {
             throw new ServiceException("5WHY分析记录不存在");
         }

@@ -63,18 +63,21 @@ public class PersonProfileController extends BaseController {
     private final IDailyCalendarService dailyCalendarService;
     private final ISysDeptService sysDeptService;
 
+    /** 分页查询科室人员业务档案。 */
     @SaCheckPermission("department:person:list")
     @GetMapping("/list")
     public R<PageResult<PersonProfileVo>> list(PersonProfileQueryBo bo, PageQuery pageQuery) {
         return R.ok(personProfileService.queryPageList(bo, pageQuery));
     }
 
+    /** 查询人员业务档案详情。 */
     @SaCheckPermission("department:person:query")
     @GetMapping("/{id}")
     public R<PersonProfileVo> getInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(personProfileService.queryById(id));
     }
 
+    /** 分页查询可选择的系统用户。 */
     @SaCheckPermission("department:person:query")
     @GetMapping("/userOptions/page")
     public R<PageResult<PersonUserOptionVo>> userOptionsPage(PersonUserOptionQueryBo bo, PageQuery pageQuery) {
@@ -88,12 +91,14 @@ public class PersonProfileController extends BaseController {
         return R.ok(sysDeptService.selectDeptTreeList(new SysDeptBo()));
     }
 
+    /** 查询可选择的系统用户列表。 */
     @SaCheckPermission("department:person:query")
     @GetMapping("/userOptions")
     public R<List<PersonUserOptionVo>> userOptions() {
         return R.ok(personProfileService.queryUserOptions());
     }
 
+    /** 查询当前科室成员选择列表。 */
     @SaCheckPermission("department:person:query")
     @GetMapping("/memberOptions")
     public R<List<PersonUserOptionVo>> memberOptions() {
@@ -112,6 +117,7 @@ public class PersonProfileController extends BaseController {
         return R.ok(dailyCalendarService.queryLeaves(begin, end, userId));
     }
 
+    /** 新增人员休假安排。 */
     @SaCheckPermission("department:person:add")
     @Log(title = "人员档案休假安排", businessType = BusinessType.INSERT)
     @PostMapping("/leave")
@@ -119,6 +125,7 @@ public class PersonProfileController extends BaseController {
         return toAjax(dailyCalendarService.insertLeave(bo));
     }
 
+    /** 修改人员休假安排。 */
     @SaCheckPermission("department:person:edit")
     @Log(title = "人员档案休假安排", businessType = BusinessType.UPDATE)
     @PutMapping("/leave")
@@ -126,6 +133,7 @@ public class PersonProfileController extends BaseController {
         return toAjax(dailyCalendarService.updateLeave(bo));
     }
 
+    /** 批量删除人员休假安排。 */
     @SaCheckPermission("department:person:remove")
     @Log(title = "人员档案休假安排", businessType = BusinessType.DELETE)
     @DeleteMapping("/leave/{ids}")
@@ -147,6 +155,7 @@ public class PersonProfileController extends BaseController {
         return R.ok(personProfileService.switchMyDepartment(deptId));
     }
 
+    /** 新增科室人员业务档案。 */
     @SaCheckPermission("department:person:add")
     @Log(title = "科室人员档案", businessType = BusinessType.INSERT)
     @PostMapping()
@@ -154,6 +163,7 @@ public class PersonProfileController extends BaseController {
         return toAjax(personProfileService.insertByBo(bo));
     }
 
+    /** 批量新增科室人员业务档案。 */
     @SaCheckPermission("department:person:add")
     @Log(title = "科室人员档案", businessType = BusinessType.INSERT)
     @PostMapping("/batch")
@@ -161,6 +171,7 @@ public class PersonProfileController extends BaseController {
         return toAjax(personProfileService.insertBatch(bo));
     }
 
+    /** 修改科室人员业务档案。 */
     @SaCheckPermission("department:person:edit")
     @Log(title = "科室人员档案", businessType = BusinessType.UPDATE)
     @PutMapping()
@@ -168,6 +179,7 @@ public class PersonProfileController extends BaseController {
         return toAjax(personProfileService.updateByBo(bo));
     }
 
+    /** 批量删除科室人员业务档案。 */
     @SaCheckPermission("department:person:remove")
     @Log(title = "科室人员档案", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
@@ -175,6 +187,7 @@ public class PersonProfileController extends BaseController {
         return toAjax(personProfileService.deleteWithValidByIds(Arrays.asList(ids)));
     }
 
+    /** 结束人员在当前科室的任职关系。 */
     @SaCheckPermission("department:person:remove")
     @Log(title = "科室人员档案", businessType = BusinessType.UPDATE)
     @PostMapping("/{id}/end")
@@ -183,6 +196,7 @@ public class PersonProfileController extends BaseController {
         return toAjax(personProfileService.endMembership(id, bo));
     }
 
+    /** 导入科室人员业务档案。 */
     @SaCheckPermission("department:person:import")
     @Log(title = "科室人员档案", businessType = BusinessType.IMPORT)
     @PostMapping(value = "/importData", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -193,6 +207,7 @@ public class PersonProfileController extends BaseController {
         return R.ok(personProfileService.importData(result.getList()) + "。" + result.getAnalysis());
     }
 
+    /** 导出科室人员业务档案。 */
     @SaCheckPermission("department:person:export")
     @Log(title = "科室人员档案", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
@@ -200,6 +215,7 @@ public class PersonProfileController extends BaseController {
         ExcelBuilder.of(personProfileService.queryList(bo), PersonProfileVo.class).sheetName("人员档案").toResponse(response);
     }
 
+    /** 下载科室人员档案导入模板。 */
     @SaCheckPermission("department:person:import")
     @PostMapping("/importTemplate")
     public void importTemplate(HttpServletResponse response) {

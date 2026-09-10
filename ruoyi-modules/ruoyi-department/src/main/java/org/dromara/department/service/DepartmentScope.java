@@ -16,18 +16,22 @@ public final class DepartmentScope {
         this.all = all;
     }
 
+    /** 创建限定到指定业务科室的数据范围。 */
     public static DepartmentScope current(Long deptId) {
         return new DepartmentScope(deptId, false);
     }
 
+    /** 创建不限定科室的数据范围。 */
     public static DepartmentScope all() {
         return new DepartmentScope(null, true);
     }
 
+    /** 返回限定的业务科室编号。 */
     public Long getDeptId() {
         return deptId;
     }
 
+    /** 判断当前范围是否包含全部业务科室。 */
     public boolean isAll() {
         return all;
     }

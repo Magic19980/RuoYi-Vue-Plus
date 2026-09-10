@@ -121,7 +121,7 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         }
         membershipSyncService.syncMainDepartmentIfNeeded(LoginHelper.getUserId(), LoginHelper.getMainDeptId());
         List<PersonDepartmentContextVo> contexts = personProfileMapper.selectCurrentDepartmentContexts(LoginHelper.getUserId(), LocalDate.now());
-        Long currentDeptId = LoginHelper.getDeptId();
+        Long currentDeptId = departmentAccessService.activeDeptId();
         // 只有一个有效关系且系统主部门已失效时，可以安全自动切换；多个关系必须由用户明确选择。
         if (contexts.size() == 1 && !Objects.equals(currentDeptId, contexts.get(0).getDeptId())) {
             PersonDepartmentContextVo context = contexts.get(0);
@@ -163,7 +163,7 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         if (departments.isEmpty()) {
             throw new ServiceException("当前尚未配置启用的业务科室，请先完成科室配置");
         }
-        Long currentDeptId = LoginHelper.getDeptId();
+        Long currentDeptId = departmentAccessService.activeDeptId();
         boolean currentAvailable = false;
         for (DepartmentConfigVo department : departments) {
             if (Objects.equals(department.getDeptId(), currentDeptId)) {
@@ -209,8 +209,16 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         validatePeriod(joinDate, bo.getLeaveDate());
         Long targetDeptId = requireTargetDept();
         Set<Long> userIds = new LinkedHashSet<>(bo.getUserIds());
+        if (userIds.stream().anyMatch(Objects::isNull)) {
+            throw new ServiceException("系统用户不存在或已停用");
+        }
+        Map<Long, PersonUserOptionVo> usersById = personProfileMapper.selectUserOptionsByIds(userIds).stream()
+            .collect(Collectors.toMap(PersonUserOptionVo::getUserId, item -> item, (left, right) -> left));
         for (Long userId : userIds) {
-            PersonUserOptionVo user = findUserOption(userId);
+            PersonUserOptionVo user = usersById.get(userId);
+            if (user == null) {
+                throw new ServiceException("系统用户不存在或已停用");
+            }
             if (hasOverlappingMembership(userId, targetDeptId, joinDate, bo.getLeaveDate(), null)) {
                 throw new ServiceException("用户「" + displayUserName(user) + "」已经纳入当前科室");
             }
@@ -265,8 +273,14 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
         if (ids == null || ids.isEmpty()) {
             return false;
         }
-        for (Long id : ids) {
-            PersonProfile entity = getAccessible(id);
+        List<Long> profileIds = ids.stream().toList();
+        if (profileIds.stream().anyMatch(Objects::isNull)) {
+            throw new ServiceException("人员档案不存在");
+        }
+        Map<Long, PersonProfile> profilesById = personProfileMapper.selectByIds(profileIds).stream()
+            .collect(Collectors.toMap(PersonProfile::getId, item -> item, (left, right) -> left));
+        for (Long id : profileIds.stream().distinct().toList()) {
+            PersonProfile entity = assertAccessible(profilesById.get(id));
             if (!DepartmentMemberStatus.ENDED.equals(entity.getMemberStatus())) {
                 endMembershipInternal(entity, LocalDate.now(), "手动移出科室");
             }
@@ -430,7 +444,11 @@ public class PersonProfileServiceImpl implements IPersonProfileService {
     }
 
     private PersonProfile getAccessible(Long id) {
-        PersonProfile entity = personProfileMapper.selectById(id);
+        return assertAccessible(personProfileMapper.selectById(id));
+    }
+
+    /** 校验人员档案存在且属于当前用户可访问的业务科室。 */
+    private PersonProfile assertAccessible(PersonProfile entity) {
         if (entity == null) {
             throw new ServiceException("人员档案不存在");
         }

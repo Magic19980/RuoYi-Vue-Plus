@@ -21,6 +21,8 @@ public class DepartmentCommunityCommentVo implements Serializable {
     private Long parentId;
     private String content;
     private String authorName;
+    /** 作者头像对应的 OSS ID。 */
+    private Long authorAvatar;
     private String deptName;
     private String status;
     private Boolean mine;

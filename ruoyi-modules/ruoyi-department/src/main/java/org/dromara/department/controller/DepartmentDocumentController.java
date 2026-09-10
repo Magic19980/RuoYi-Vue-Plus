@@ -48,24 +48,28 @@ public class DepartmentDocumentController extends BaseController {
 
     private final IDepartmentDocumentService documentService;
 
+    /** 分页查询科室资料。 */
     @SaCheckPermission("department:document:list")
     @GetMapping("/list")
     public R<PageResult<DepartmentDocumentVo>> list(DepartmentDocumentQueryBo bo, PageQuery pageQuery) {
         return R.ok(documentService.queryPageList(bo, pageQuery));
     }
 
+    /** 分页查询回收站资料。 */
     @SaCheckPermission("department:document:list")
     @GetMapping("/recycle/list")
     public R<PageResult<DepartmentDocumentVo>> recycleList(DepartmentDocumentQueryBo bo, PageQuery pageQuery) {
         return R.ok(documentService.queryRecyclePageList(bo, pageQuery));
     }
 
+    /** 查询资料详情。 */
     @SaCheckPermission("department:document:query")
     @GetMapping("/{id}")
     public R<DepartmentDocumentVo> getInfo(@NotNull(message = "资料主键不能为空") @PathVariable Long id) {
         return R.ok(documentService.queryById(id));
     }
 
+    /** 上传科室资料。 */
     @SaCheckPermission("department:document:add")
     @Log(title = "科室资料", businessType = BusinessType.INSERT)
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -91,6 +95,7 @@ public class DepartmentDocumentController extends BaseController {
         return R.ok(documentService.upload(bo, file));
     }
 
+    /** 修改资料元数据。 */
     @SaCheckPermission("department:document:edit")
     @Log(title = "科室资料", businessType = BusinessType.UPDATE)
     @PutMapping
@@ -98,6 +103,7 @@ public class DepartmentDocumentController extends BaseController {
         return toAjax(documentService.updateByBo(bo));
     }
 
+    /** 上传资料新版本。 */
     @SaCheckPermission("department:document:edit")
     @Log(title = "科室资料版本", businessType = BusinessType.INSERT)
     @PostMapping(value = "/version/{documentId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -108,12 +114,14 @@ public class DepartmentDocumentController extends BaseController {
         return R.ok(documentService.uploadVersion(documentId, versionNote, file));
     }
 
+    /** 查询资料版本列表。 */
     @SaCheckPermission("department:document:query")
     @GetMapping("/versions/{documentId}")
     public R<List<DepartmentDocumentVersionVo>> versions(@NotNull @PathVariable Long documentId) {
         return R.ok(documentService.queryVersions(documentId));
     }
 
+    /** 批量删除科室资料。 */
     @SaCheckPermission("department:document:remove")
     @Log(title = "科室资料", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
@@ -121,6 +129,7 @@ public class DepartmentDocumentController extends BaseController {
         return toAjax(documentService.deleteWithValidByIds(Arrays.asList(ids)));
     }
 
+    /** 批量恢复回收站资料。 */
     @SaCheckPermission("department:document:restore")
     @Log(title = "科室资料", businessType = BusinessType.UPDATE)
     @PutMapping("/restore/{ids}")
@@ -128,18 +137,21 @@ public class DepartmentDocumentController extends BaseController {
         return toAjax(documentService.restoreByIds(Arrays.asList(ids)));
     }
 
+    /** 预览科室资料。 */
     @SaCheckPermission("department:document:query")
     @GetMapping("/preview/{id}")
     public ResponseEntity<byte[]> preview(@NotNull @PathVariable Long id) {
         return documentService.preview(id);
     }
 
+    /** 获取资料视频预览信息。 */
     @SaCheckPermission("department:document:query")
     @GetMapping("/video-preview/{id}")
     public R<DepartmentDocumentVideoPreviewVo> videoPreview(@NotNull @PathVariable Long id) {
         return R.ok(documentService.videoPreview(id));
     }
 
+    /** 获取指定资料版本的视频预览信息。 */
     @SaCheckPermission("department:document:query")
     @GetMapping("/video-preview/{documentId}/version/{versionId}")
     public R<DepartmentDocumentVideoPreviewVo> videoPreviewVersion(
@@ -148,6 +160,7 @@ public class DepartmentDocumentController extends BaseController {
         return R.ok(documentService.videoPreviewVersion(documentId, versionId));
     }
 
+    /** 下载科室资料。 */
     @SaCheckPermission("department:document:download")
     @GetMapping("/download/{id}")
     public ResponseEntity<byte[]> download(@NotNull @PathVariable Long id) {

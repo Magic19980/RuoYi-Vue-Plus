@@ -159,18 +159,34 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         if (ids == null || ids.isEmpty()) {
             return false;
         }
+        List<Long> detailIds = ids.stream().toList();
+        if (detailIds.stream().anyMatch(Objects::isNull)) {
+            throw new ServiceException("人工统计明细不存在");
+        }
+        Map<Long, WorkOrderDetail> detailsById = workOrderDetailMapper.selectByIds(detailIds).stream()
+            .collect(Collectors.toMap(WorkOrderDetail::getId, Function.identity(), (left, right) -> left));
+        List<Long> parentIds = detailIds.stream()
+            .map(detailsById::get)
+            .peek(detail -> {
+                if (detail == null) {
+                    throw new ServiceException("人工统计明细不存在");
+                }
+            })
+            .map(WorkOrderDetail::getWorkOrderId)
+            .filter(Objects::nonNull)
+            .distinct()
+            .toList();
+        Map<Long, WorkOrder> parentsById = workOrderMapper.selectByIds(parentIds).stream()
+            .collect(Collectors.toMap(WorkOrder::getId, Function.identity(), (left, right) -> left));
         Map<Long, WorkOrder> parents = new LinkedHashMap<>();
-        for (Long id : ids) {
-            WorkOrderDetail detail = workOrderDetailMapper.selectById(id);
-            if (detail == null) {
-                throw new ServiceException("人工统计明细不存在");
-            }
-            WorkOrder parent = getAccessible(detail.getWorkOrderId());
+        for (Long id : detailIds) {
+            WorkOrderDetail detail = detailsById.get(id);
+            WorkOrder parent = assertAccessible(parentsById.get(detail.getWorkOrderId()));
             parents.put(parent.getId(), parent);
         }
-        boolean deleted = workOrderDetailMapper.deleteByIds(ids) > 0;
+        boolean deleted = workOrderDetailMapper.deleteByIds(detailIds) > 0;
         if (deleted) {
-            parents.values().forEach(this::syncParentFromDetails);
+            syncParentsFromDetails(parents.values());
         }
         return deleted;
     }
@@ -208,13 +224,18 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         if (ids == null || ids.isEmpty()) {
             return false;
         }
-        for (Long id : ids) {
-            getAccessible(id);
+        List<Long> workOrderIds = ids.stream().toList();
+        if (workOrderIds.stream().anyMatch(Objects::isNull)) {
+            throw new ServiceException("工单不存在");
         }
-        for (Long id : ids) {
-            workOrderDetailMapper.deleteByWorkOrderId(id);
+        Map<Long, WorkOrder> workOrdersById = workOrderMapper.selectByIds(workOrderIds).stream()
+            .collect(Collectors.toMap(WorkOrder::getId, Function.identity(), (left, right) -> left));
+        List<Long> uniqueIds = workOrderIds.stream().distinct().toList();
+        for (Long id : uniqueIds) {
+            assertAccessible(workOrdersById.get(id));
         }
-        return workOrderMapper.deleteByIds(ids) > 0;
+        workOrderDetailMapper.deleteByWorkOrderIds(uniqueIds);
+        return workOrderMapper.deleteByIds(uniqueIds) > 0;
     }
 
     @Override
@@ -293,6 +314,7 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
             "人工统计明细已保存，可在列表中打开明细维护完整字段");
         workOrderMapper.insert(entity);
 
+        List<WorkOrderDetail> details = new ArrayList<>(detailRows.size());
         for (WorkOrderPdfParser.ParsedRow row : detailRows) {
             WorkOrderDetail detail = new WorkOrderDetail();
             detail.setWorkOrderId(entity.getId());
@@ -312,7 +334,10 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
             detail.setWorkContent(row.getWorkContent());
             detail.setQuantity(row.getQuantity());
             detail.setParseMessage(row.getParseMessage());
-            workOrderDetailMapper.insert(detail);
+            details.add(detail);
+        }
+        if (!workOrderDetailMapper.insertBatch(details, 100)) {
+            throw new ServiceException("PDF人工统计明细保存失败");
         }
         batch.setParsedRecordCount(1);
         batch.setPendingRecordCount(0);
@@ -344,9 +369,12 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         int durationCount = 0;
         Map<String, WorkOrderSummaryVo.DimensionCountVo> systemMap = new LinkedHashMap<>();
         Map<String, WorkOrderSummaryVo.DimensionCountVo> faultMap = new LinkedHashMap<>();
+        Map<Long, List<WorkOrderDetail>> detailsByWorkOrder = workOrderDetailMapper.selectByWorkOrderIds(
+            rows.stream().map(WorkOrderVo::getId).toList()
+        ).stream().collect(Collectors.groupingBy(WorkOrderDetail::getWorkOrderId));
         for (WorkOrderVo row : rows) {
             totalQuantity = totalQuantity.add(row.getQuantity() == null ? BigDecimal.ONE : row.getQuantity());
-            List<WorkOrderDetail> details = workOrderDetailMapper.selectByWorkOrderId(row.getId());
+            List<WorkOrderDetail> details = detailsByWorkOrder.getOrDefault(row.getId(), List.of());
             detailCount += details.size();
             for (WorkOrderDetail detail : details) {
                 totalEngineeringQuantity = addFirstNumber(totalEngineeringQuantity, detail.getEngineeringQuantity());
@@ -426,7 +454,11 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
     }
 
     private WorkOrder getAccessible(Long id) {
-        WorkOrder entity = workOrderMapper.selectById(id);
+        return assertAccessible(workOrderMapper.selectById(id));
+    }
+
+    /** 校验工单存在且属于当前用户可访问的业务科室。 */
+    private WorkOrder assertAccessible(WorkOrder entity) {
         if (entity == null) {
             throw new ServiceException("工单不存在");
         }
@@ -558,10 +590,29 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
 
     private void syncParentFromDetails(WorkOrder parent) {
         List<WorkOrderDetail> details = workOrderDetailMapper.selectByWorkOrderId(parent.getId());
+        applyParentFromDetails(parent, details);
+        workOrderMapper.updateById(parent);
+    }
+
+    /** 批量重算多个父工单的汇总字段，避免按父工单逐条查询明细。 */
+    private void syncParentsFromDetails(Collection<WorkOrder> parents) {
+        if (parents == null || parents.isEmpty()) {
+            return;
+        }
+        List<WorkOrder> parentList = parents.stream().filter(Objects::nonNull).toList();
+        Map<Long, List<WorkOrderDetail>> detailsByWorkOrder = workOrderDetailMapper.selectByWorkOrderIds(
+            parentList.stream().map(WorkOrder::getId).toList()
+        ).stream().collect(Collectors.groupingBy(WorkOrderDetail::getWorkOrderId));
+        parentList.forEach(parent -> applyParentFromDetails(
+            parent, detailsByWorkOrder.getOrDefault(parent.getId(), List.of())));
+        workOrderMapper.updateBatchById(parentList, 100);
+    }
+
+    /** 根据明细重新计算父工单的展示字段和数量。 */
+    private void applyParentFromDetails(WorkOrder parent, List<WorkOrderDetail> details) {
         if (details.isEmpty()) {
             parent.setQuantity(BigDecimal.ZERO);
             parent.setWorkContent("暂无人工统计明细");
-            workOrderMapper.updateById(parent);
             return;
         }
         parent.setRequestDept(commonDetailValue(details, WorkOrderDetail::getRequestDept, "多部门（详见明细）"));
@@ -580,7 +631,6 @@ public class WorkOrderServiceImpl implements IWorkOrderService {
         parent.setWorkContent(details.size() == 1
             ? details.get(0).getWorkContent()
             : "共" + details.size() + "条人工统计明细，具体内容请点击“人工统计明细”查看");
-        workOrderMapper.updateById(parent);
     }
 
     private String commonDetailValue(List<WorkOrderDetail> details,

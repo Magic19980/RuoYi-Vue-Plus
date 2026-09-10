@@ -39,4 +39,12 @@ public interface WorkOrderDetailMapper extends BaseMapperPlus<WorkOrderDetail, W
     default int deleteByWorkOrderId(Long workOrderId) {
         return delete(Wrappers.<WorkOrderDetail>lambdaUpdate().eq(WorkOrderDetail::getWorkOrderId, workOrderId));
     }
+
+    /** 批量删除多个工单的全部明细。 */
+    default int deleteByWorkOrderIds(Collection<Long> workOrderIds) {
+        if (workOrderIds == null || workOrderIds.isEmpty()) {
+            return 0;
+        }
+        return delete(Wrappers.<WorkOrderDetail>lambdaUpdate().in(WorkOrderDetail::getWorkOrderId, workOrderIds));
+    }
 }

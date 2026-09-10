@@ -379,11 +379,20 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         if (ids == null || ids.isEmpty()) {
             return false;
         }
+        List<Long> overrideIds = ids.stream()
+            .filter(Objects::nonNull)
+            .distinct()
+            .toList();
+        if (overrideIds.isEmpty()) {
+            return false;
+        }
         Long currentDeptId = requireDeptId();
         boolean departmentViewer = canViewDepartment();
         List<DailyCalendarOverride> entities = new ArrayList<>();
-        for (Long id : ids) {
-            DailyCalendarOverride entity = overrideMapper.selectById(id);
+        Map<Long, DailyCalendarOverride> entitiesById = overrideMapper.selectByIds(overrideIds).stream()
+            .collect(Collectors.toMap(DailyCalendarOverride::getId, item -> item, (left, right) -> left));
+        for (Long id : overrideIds) {
+            DailyCalendarOverride entity = entitiesById.get(id);
             if (entity != null && !Objects.equals(entity.getDeptId(), currentDeptId)) {
                 throw new ServiceException("不能删除其他科室的日期规则");
             }
@@ -395,7 +404,7 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
                 entities.add(entity);
             }
         }
-        boolean deleted = overrideMapper.deleteByIds(ids) > 0;
+        boolean deleted = overrideMapper.deleteByIds(overrideIds) > 0;
         if (deleted) {
             for (DailyCalendarOverride entity : entities) {
                 syncLeaveReportsForDate(entity.getDeptId(), entity.getCalendarDate(), entity.getUserId());
@@ -452,11 +461,20 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
         if (ids == null || ids.isEmpty()) {
             return false;
         }
-        for (Long id : ids) {
-            getLeaveAccessible(id);
+        List<Long> leaveIds = ids.stream()
+            .filter(Objects::nonNull)
+            .distinct()
+            .toList();
+        if (leaveIds.isEmpty()) {
+            return false;
         }
-        dailyReportMapper.delete(Wrappers.<DailyReport>lambdaQuery().in(DailyReport::getLeaveId, ids));
-        return leaveMapper.deleteByIds(ids) > 0;
+        Map<Long, DailyLeave> leavesById = leaveMapper.selectByIds(leaveIds).stream()
+            .collect(Collectors.toMap(DailyLeave::getId, item -> item, (left, right) -> left));
+        for (Long id : leaveIds) {
+            assertLeaveAccessible(leavesById.get(id));
+        }
+        dailyReportMapper.delete(Wrappers.<DailyReport>lambdaQuery().in(DailyReport::getLeaveId, leaveIds));
+        return leaveMapper.deleteByIds(leaveIds) > 0;
     }
 
     @Override
@@ -587,7 +605,11 @@ public class DailyCalendarServiceImpl implements IDailyCalendarService {
     }
 
     private DailyLeave getLeaveAccessible(Long id) {
-        DailyLeave entity = leaveMapper.selectById(id);
+        return assertLeaveAccessible(leaveMapper.selectById(id));
+    }
+
+    /** 校验休假记录属于当前科室且当前用户具备维护权限。 */
+    private DailyLeave assertLeaveAccessible(DailyLeave entity) {
         if (entity == null || !Objects.equals(entity.getDeptId(), requireDeptId())) {
             throw new ServiceException("休假记录不存在或无权访问");
         }

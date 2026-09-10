@@ -19,7 +19,7 @@ public interface DepartmentCommunityPostMapper extends BaseMapperPlus<Department
     @Select({
         "<script>",
         "select p.id, p.title, p.subtitle, p.content, p.post_type, p.tags, p.visibility, p.dept_id,",
-        "d.dept_name, coalesce(u.nick_name, u.user_name) as author_name, p.status,",
+        "d.dept_name, coalesce(u.nick_name, u.user_name) as author_name, u.avatar as author_avatar, p.status,",
         "p.view_count, p.like_count, p.comment_count, p.favorite_count, p.accepted_comment_id,",
         "case when exists (select 1 from dm_department_community_reaction r where r.post_id = p.id and r.user_id = #{userId} and r.reaction_type = 'LIKE' and r.del_flag = '0') then 1 else 0 end as liked,",
         "case when exists (select 1 from dm_department_community_reaction r where r.post_id = p.id and r.user_id = #{userId} and r.reaction_type = 'FAVORITE' and r.del_flag = '0') then 1 else 0 end as favorited,",
@@ -54,7 +54,7 @@ public interface DepartmentCommunityPostMapper extends BaseMapperPlus<Department
 
     @Select({
         "select p.id, p.title, p.subtitle, p.content, p.post_type, p.tags, p.visibility, p.dept_id,",
-        "d.dept_name, coalesce(u.nick_name, u.user_name) as author_name, p.status,",
+        "d.dept_name, coalesce(u.nick_name, u.user_name) as author_name, u.avatar as author_avatar, p.status,",
         "p.view_count, p.like_count, p.comment_count, p.favorite_count, p.accepted_comment_id,",
         "case when exists (select 1 from dm_department_community_reaction r where r.post_id = p.id and r.user_id = #{userId} and r.reaction_type = 'LIKE' and r.del_flag = '0') then 1 else 0 end as liked,",
         "case when exists (select 1 from dm_department_community_reaction r where r.post_id = p.id and r.user_id = #{userId} and r.reaction_type = 'FAVORITE' and r.del_flag = '0') then 1 else 0 end as favorited,",

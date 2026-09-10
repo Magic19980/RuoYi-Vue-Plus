@@ -47,18 +47,21 @@ public class DailyReportController extends BaseController {
 
     private final IDailyReportService dailyReportService;
 
+    /** 分页查询科室日报。 */
     @SaCheckPermission("department:dailyReport:list")
     @GetMapping("/list")
     public R<PageResult<DailyReportVo>> list(DailyReportQueryBo bo, PageQuery pageQuery) {
         return R.ok(dailyReportService.queryPageList(bo, pageQuery));
     }
 
+    /** 查询科室日报详情。 */
     @SaCheckPermission("department:dailyReport:query")
     @GetMapping("/{id}")
     public R<DailyReportVo> getInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(dailyReportService.queryById(id));
     }
 
+    /** 新增科室日报。 */
     @SaCheckPermission("department:dailyReport:add")
     @Log(title = "科室日报", businessType = BusinessType.INSERT)
     @PostMapping()
@@ -66,6 +69,7 @@ public class DailyReportController extends BaseController {
         return toAjax(dailyReportService.insertByBo(bo));
     }
 
+    /** 修改科室日报。 */
     @SaCheckPermission("department:dailyReport:edit")
     @Log(title = "科室日报", businessType = BusinessType.UPDATE)
     @PutMapping()
@@ -73,6 +77,7 @@ public class DailyReportController extends BaseController {
         return toAjax(dailyReportService.updateByBo(bo));
     }
 
+    /** 批量删除科室日报。 */
     @SaCheckPermission("department:dailyReport:remove")
     @Log(title = "科室日报", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
@@ -80,6 +85,7 @@ public class DailyReportController extends BaseController {
         return toAjax(dailyReportService.deleteWithValidByIds(Arrays.asList(ids)));
     }
 
+    /** 导入科室日报。 */
     @SaCheckPermission("department:dailyReport:import")
     @Log(title = "科室日报", businessType = BusinessType.IMPORT)
     @PostMapping(value = "/importData", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -91,6 +97,7 @@ public class DailyReportController extends BaseController {
         return R.ok(message + "。" + result.getAnalysis());
     }
 
+    /** 导出科室日报。 */
     @SaCheckPermission("department:dailyReport:export")
     @Log(title = "科室日报", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
@@ -98,6 +105,7 @@ public class DailyReportController extends BaseController {
         dailyReportService.exportXlsx(bo, response);
     }
 
+    /** 下载科室日报导入模板。 */
     @SaCheckPermission("department:dailyReport:import")
     @PostMapping("/importTemplate")
     public void importTemplate(HttpServletResponse response) {

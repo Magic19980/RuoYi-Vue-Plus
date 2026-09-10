@@ -16,7 +16,7 @@ public interface DepartmentCommunityCommentMapper extends BaseMapperPlus<Departm
 
     @Select({
         "select c.id, c.post_id, c.parent_id, c.content, c.status,",
-        "coalesce(u.nick_name, u.user_name) as author_name, d.dept_name,",
+        "coalesce(u.nick_name, u.user_name) as author_name, u.avatar as author_avatar, d.dept_name,",
         "case when c.create_by = #{userId} then 1 else 0 end as mine, c.create_time",
         "from dm_department_community_comment c",
         "left join sys_user u on u.user_id = c.create_by and u.del_flag = '0'",

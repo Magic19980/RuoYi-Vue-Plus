@@ -32,6 +32,12 @@ public final class CommunityHtmlSanitizer {
     private CommunityHtmlSanitizer() {
     }
 
+    /**
+     * 清洗社区编辑器生成的 HTML，仅保留允许的标签、属性和内联样式。
+     *
+     * @param html 待清洗的正文 HTML
+     * @return 清洗后的 HTML；空内容保持原值
+     */
     public static String sanitize(String html) {
         if (html == null || html.isBlank()) {
             return html;

@@ -45,18 +45,21 @@ public class DepartmentCommunityController extends BaseController {
 
     private final IDepartmentCommunityService communityService;
 
+    /** 分页查询协作社区帖子。 */
     @SaCheckPermission("department:community:list")
     @GetMapping("/list")
     public R<PageResult<DepartmentCommunityPostVo>> list(DepartmentCommunityPostQueryBo bo, PageQuery pageQuery) {
         return R.ok(communityService.queryPageList(bo, pageQuery));
     }
 
+    /** 查询帖子详情及其评论、互动信息。 */
     @SaCheckPermission("department:community:query")
     @GetMapping("/{id}")
     public R<DepartmentCommunityPostVo> getInfo(@NotNull(message = "帖子主键不能为空") @PathVariable Long id) {
         return R.ok(communityService.queryById(id));
     }
 
+    /** 发布协作社区帖子。 */
     @SaCheckPermission("department:community:add")
     @Log(title = "协作社区", businessType = BusinessType.INSERT)
     @PostMapping("/post")
@@ -64,6 +67,7 @@ public class DepartmentCommunityController extends BaseController {
         return toAjax(communityService.insertByBo(bo));
     }
 
+    /** 修改协作社区帖子。 */
     @SaCheckPermission("department:community:edit")
     @Log(title = "协作社区", businessType = BusinessType.UPDATE)
     @PutMapping("/post")
@@ -71,6 +75,7 @@ public class DepartmentCommunityController extends BaseController {
         return toAjax(communityService.updateByBo(bo));
     }
 
+    /** 删除协作社区帖子。 */
     @SaCheckPermission("department:community:remove")
     @Log(title = "协作社区", businessType = BusinessType.DELETE)
     @DeleteMapping("/post/{id}")
@@ -78,6 +83,7 @@ public class DepartmentCommunityController extends BaseController {
         return toAjax(communityService.deleteById(id));
     }
 
+    /** 分页查询帖子评论。 */
     @SaCheckPermission("department:community:query")
     @GetMapping("/{postId}/comments")
     public R<PageResult<DepartmentCommunityCommentVo>> comments(
@@ -85,6 +91,7 @@ public class DepartmentCommunityController extends BaseController {
         return R.ok(communityService.queryComments(postId, pageQuery));
     }
 
+    /** 发布帖子评论。 */
     @SaCheckPermission("department:community:comment")
     @Log(title = "协作社区评论", businessType = BusinessType.INSERT)
     @PostMapping("/{postId}/comments")
@@ -94,6 +101,7 @@ public class DepartmentCommunityController extends BaseController {
         return toAjax(communityService.addComment(postId, bo));
     }
 
+    /** 删除帖子评论。 */
     @SaCheckPermission("department:community:comment")
     @Log(title = "协作社区评论", businessType = BusinessType.DELETE)
     @DeleteMapping("/comment/{id}")
@@ -101,6 +109,7 @@ public class DepartmentCommunityController extends BaseController {
         return toAjax(communityService.deleteComment(id));
     }
 
+    /** 切换当前用户对帖子的互动状态。 */
     @SaCheckPermission("department:community:interact")
     @PostMapping("/{postId}/reaction/{reactionType}")
     public R<DepartmentCommunityReactionVo> toggleReaction(
@@ -109,6 +118,7 @@ public class DepartmentCommunityController extends BaseController {
         return R.ok(communityService.toggleReaction(postId, reactionType));
     }
 
+    /** 将指定评论标记为帖子的解决方案。 */
     @SaCheckPermission("department:community:edit")
     @Log(title = "协作社区", businessType = BusinessType.UPDATE)
     @PostMapping("/{postId}/resolve/{commentId}")
@@ -118,6 +128,7 @@ public class DepartmentCommunityController extends BaseController {
         return toAjax(communityService.resolve(postId, commentId));
     }
 
+    /** 提交帖子举报。 */
     @SaCheckPermission("department:community:report")
     @Log(title = "协作社区举报", businessType = BusinessType.INSERT)
     @PostMapping("/{postId}/report")
@@ -127,12 +138,14 @@ public class DepartmentCommunityController extends BaseController {
         return toAjax(communityService.report(postId, bo));
     }
 
+    /** 分页查询社区举报记录。 */
     @SaCheckPermission("department:community:moderate")
     @GetMapping("/report/list")
     public R<PageResult<DepartmentCommunityReportVo>> reportList(DepartmentCommunityReportQueryBo bo, PageQuery pageQuery) {
         return R.ok(communityService.queryReportPageList(bo, pageQuery));
     }
 
+    /** 处理社区举报。 */
     @SaCheckPermission("department:community:moderate")
     @Log(title = "协作社区举报", businessType = BusinessType.UPDATE)
     @PutMapping("/report")
@@ -141,6 +154,7 @@ public class DepartmentCommunityController extends BaseController {
         return toAjax(communityService.handleReport(bo));
     }
 
+    /** 上传帖子媒体文件。 */
     @SaCheckPermission("department:community:add")
     @Log(title = "协作社区媒体", businessType = BusinessType.INSERT)
     @PostMapping(value = "/media/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -148,6 +162,7 @@ public class DepartmentCommunityController extends BaseController {
         return R.ok(communityService.uploadMedia(file));
     }
 
+    /** 上传评论媒体文件。 */
     @SaCheckPermission("department:community:comment")
     @Log(title = "协作社区评论图片", businessType = BusinessType.INSERT)
     @PostMapping(value = "/comment/media/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

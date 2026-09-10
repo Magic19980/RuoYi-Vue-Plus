@@ -54,6 +54,14 @@ public class WorkOrderPdfParser {
         {388, 424}, {424, 461}, {461, 498}, {498, 535}, {535, 598}, {598, 661}, {661, 802}
     };
 
+    /**
+     * 解析人工单 PDF 并提取表格明细及统计周期。
+     *
+     * @param content PDF 文件字节
+     * @param fileName 原始文件名，用于补充统计周期识别
+     * @return PDF 解析结果
+     * @throws ServiceException 文件为空、格式不支持或未识别到有效明细时抛出
+     */
     public ParseResult parse(byte[] content, String fileName) {
         if (content == null || content.length == 0) {
             throw new ServiceException("PDF文件不能为空");

@@ -38,6 +38,7 @@ public class DailyCalendarController extends BaseController {
 
     private final IDailyCalendarService dailyCalendarService;
 
+    /** 查询指定月份的日报日历。 */
     @SaCheckPermission("department:dailyReport:query")
     @GetMapping
     public R<DailyCalendarVo> calendar(@DateTimeFormat(pattern = "yyyy-MM-dd")
@@ -52,6 +53,7 @@ public class DailyCalendarController extends BaseController {
         return R.ok(dailyCalendarService.queryTodayCalendar());
     }
 
+    /** 查询日报日期例外规则。 */
     @SaCheckPermission("department:dailyReport:query")
     @GetMapping("/override/list")
     public R<List<DailyCalendarOverrideVo>> overrideList(
@@ -60,6 +62,7 @@ public class DailyCalendarController extends BaseController {
         return R.ok(dailyCalendarService.queryOverrides(beginDate, endDate));
     }
 
+    /** 新增日报日期例外规则。 */
     @SaCheckPermission("department:dailyReport:edit")
     @Log(title = "日报日期例外规则", businessType = BusinessType.INSERT)
     @PostMapping("/override")
@@ -67,6 +70,7 @@ public class DailyCalendarController extends BaseController {
         return toAjax(dailyCalendarService.saveOverride(bo));
     }
 
+    /** 修改日报日期例外规则。 */
     @SaCheckPermission("department:dailyReport:edit")
     @Log(title = "日报日期例外规则", businessType = BusinessType.UPDATE)
     @PutMapping("/override")
@@ -74,6 +78,7 @@ public class DailyCalendarController extends BaseController {
         return toAjax(dailyCalendarService.saveOverride(bo));
     }
 
+    /** 批量删除日报日期例外规则。 */
     @SaCheckPermission("department:dailyReport:remove")
     @Log(title = "日报日期例外规则", businessType = BusinessType.DELETE)
     @DeleteMapping("/override/{ids}")

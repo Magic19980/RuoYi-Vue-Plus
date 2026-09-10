@@ -40,12 +40,14 @@ public class WeeklyReportController extends BaseController {
 
     private final IWeeklyReportService weeklyReportService;
 
+    /** 分页查询科室周报。 */
     @SaCheckPermission("department:weeklyReport:list")
     @GetMapping("/list")
     public R<PageResult<WeeklyReportVo>> list(WeeklyReportQueryBo bo, PageQuery pageQuery) {
         return R.ok(weeklyReportService.queryPageList(bo, pageQuery));
     }
 
+    /** 查询指定周的汇总数据。 */
     @SaCheckPermission("department:weeklyReport:summary")
     @GetMapping("/summary")
     public R<WeeklyReportSummaryVo> summary(@RequestParam(required = false)
@@ -55,6 +57,7 @@ public class WeeklyReportController extends BaseController {
         return R.ok(weeklyReportService.buildSummary(bo));
     }
 
+    /** 生成科室周报。 */
     @SaCheckPermission("department:weeklyReport:add")
     @Log(title = "科室周报", businessType = BusinessType.INSERT)
     @PostMapping("/generate")
@@ -62,12 +65,14 @@ public class WeeklyReportController extends BaseController {
         return R.ok(weeklyReportService.generate(bo));
     }
 
+    /** 查询科室周报详情。 */
     @SaCheckPermission("department:weeklyReport:query")
     @GetMapping("/{id}")
     public R<WeeklyReportVo> getInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(weeklyReportService.queryById(id));
     }
 
+    /** 删除科室周报。 */
     @SaCheckPermission("department:weeklyReport:remove")
     @Log(title = "科室周报", businessType = BusinessType.DELETE)
     @DeleteMapping("/{id}")
@@ -75,6 +80,7 @@ public class WeeklyReportController extends BaseController {
         return toAjax(weeklyReportService.deleteById(id));
     }
 
+    /** 导出科室周报演示文稿。 */
     @SaCheckPermission("department:weeklyReport:export")
     @GetMapping("/export/{id}")
     public void export(@NotNull(message = "主键不能为空") @PathVariable Long id, HttpServletResponse response) throws Exception {

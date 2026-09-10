@@ -33,12 +33,14 @@ public class DailyReportAttachmentController extends BaseController {
 
     private final IDailyReportAttachmentService attachmentService;
 
+    /** 查询日报附件列表。 */
     @SaCheckPermission("department:dailyReport:query")
     @GetMapping("/list/{reportId}")
     public R<List<DailyReportAttachmentVo>> list(@NotNull @PathVariable Long reportId) {
         return R.ok(attachmentService.listByReportId(reportId));
     }
 
+    /** 上传日报附件。 */
     @SaCheckPermission("department:dailyReport:edit")
     @Log(title = "日报附件", businessType = BusinessType.INSERT)
     @PostMapping(value = "/upload/{reportId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -46,6 +48,7 @@ public class DailyReportAttachmentController extends BaseController {
         return R.ok(attachmentService.upload(reportId, file));
     }
 
+    /** 删除日报附件。 */
     @SaCheckPermission("department:dailyReport:edit")
     @Log(title = "日报附件", businessType = BusinessType.DELETE)
     @DeleteMapping("/{id}")

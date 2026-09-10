@@ -42,8 +42,10 @@ public class DepartmentMembershipSyncService {
     private final PersonProfileEventMapper personProfileEventMapper;
 
     /**
-     * 登录态内按“主部门 + 日期”去重同步。用户主部门变更仍由事件实时同步，
-     * 这里只负责兜底，避免每个科室接口都重复执行相同的查询和幂等判断。
+     * 按登录态标记执行主部门成员关系的幂等同步。
+     *
+     * <p>用户主部门变更仍由事件实时同步，这里只负责兜底，避免每个科室接口重复执行
+     * 相同的查询和幂等判断。</p>
      */
     @Transactional(rollbackFor = Exception.class)
     public void syncMainDepartmentIfNeeded(Long userId, Long mainDeptId) {
@@ -69,6 +71,7 @@ public class DepartmentMembershipSyncService {
         }
     }
 
+    /** 同步用户主部门对应的正式人员档案，并结束失效的自动关系。 */
     @Transactional(rollbackFor = Exception.class)
     public void syncMainDepartment(Long userId, Long mainDeptId) {
         if (userId == null) {
@@ -106,6 +109,7 @@ public class DepartmentMembershipSyncService {
         endAutoMemberships(userId, mainDeptId, today, operatorId, "系统主部门变更");
     }
 
+    /** 为指定业务科室同步系统主部门用户的自动成员关系。 */
     @Transactional(rollbackFor = Exception.class)
     public void syncConfiguredDepartment(Long deptId) {
         if (deptId == null || departmentConfigMapper.countEnabled(deptId) == 0) {
@@ -116,6 +120,7 @@ public class DepartmentMembershipSyncService {
         }
     }
 
+    /** 结束指定业务科室中由系统主部门自动生成的成员关系。 */
     @Transactional(rollbackFor = Exception.class)
     public void disableDepartmentAutoMemberships(Long deptId) {
         if (deptId == null) {
@@ -128,7 +133,9 @@ public class DepartmentMembershipSyncService {
     }
 
     /**
-     * 主部门变更前必须先结束旧主部门的有效服务关系，避免用户组织归属和人员档案脱节。
+     * 在系统用户变更主部门前校验旧科室是否仍有有效服务关系。
+     *
+     * <p>主部门变更前必须先结束旧主部门的有效服务关系，避免用户组织归属和人员档案脱节。</p>
      */
     @EventListener
     public void onUserDepartmentChanging(UserDepartmentChangingEvent event) {
@@ -142,6 +149,7 @@ public class DepartmentMembershipSyncService {
         }
     }
 
+    /** 在系统用户主部门变更提交后同步新的自动成员关系。 */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onUserDepartmentChanged(UserDepartmentChangedEvent event) {
         try {
@@ -152,6 +160,7 @@ public class DepartmentMembershipSyncService {
         }
     }
 
+    /** 结束用户在目标主部门之外的自动成员关系，保留临时协作关系。 */
     private void endAutoMemberships(Long userId, Long targetDeptId, LocalDate leaveDate,
                                     Long operatorId, String reason) {
         List<PersonProfile> memberships = personProfileMapper.selectActiveAutoMainMemberships(userId);
@@ -162,6 +171,7 @@ public class DepartmentMembershipSyncService {
         }
     }
 
+    /** 将人员档案标记为结束并记录离职事件。 */
     private void endProfile(PersonProfile profile, LocalDate leaveDate, Long operatorId, String reason) {
         profile.setLeaveDate(leaveDate);
         profile.setMemberStatus(DepartmentMemberStatus.ENDED);
@@ -172,6 +182,7 @@ public class DepartmentMembershipSyncService {
         recordEvent(profile, "LEAVE", leaveDate, reason, operatorId);
     }
 
+    /** 记录人员档案服务关系变更事件。 */
     private void recordEvent(PersonProfile profile, String eventType, LocalDate effectiveDate,
                              String reason, Long operatorId) {
         PersonProfileEvent event = new PersonProfileEvent();

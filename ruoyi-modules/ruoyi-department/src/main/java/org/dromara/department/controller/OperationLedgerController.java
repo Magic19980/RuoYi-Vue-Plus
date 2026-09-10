@@ -58,18 +58,21 @@ public class OperationLedgerController extends BaseController {
 
     private final IOperationLedgerService operationLedgerService;
 
+    /** 分页查询运维工作记录。 */
     @SaCheckPermission("department:operationLedger:list")
     @GetMapping("/list")
     public R<PageResult<OperationRecordVo>> list(OperationRecordQueryBo bo, PageQuery pageQuery) {
         return R.ok(operationLedgerService.queryRecordPageList(bo, pageQuery));
     }
 
+    /** 查询运维工作记录详情。 */
     @SaCheckPermission("department:operationLedger:query")
     @GetMapping("/{id}")
     public R<OperationRecordVo> getInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(operationLedgerService.queryRecordById(id));
     }
 
+    /** 新增运维工作记录。 */
     @SaCheckPermission("department:operationLedger:add")
     @Log(title = "运维工作记录", businessType = BusinessType.INSERT)
     @PostMapping()
@@ -77,6 +80,7 @@ public class OperationLedgerController extends BaseController {
         return toAjax(operationLedgerService.insertRecord(bo));
     }
 
+    /** 修改运维工作记录。 */
     @SaCheckPermission("department:operationLedger:edit")
     @Log(title = "运维工作记录", businessType = BusinessType.UPDATE)
     @PutMapping()
@@ -84,6 +88,7 @@ public class OperationLedgerController extends BaseController {
         return toAjax(operationLedgerService.updateRecord(bo));
     }
 
+    /** 批量删除运维工作记录。 */
     @SaCheckPermission("department:operationLedger:remove")
     @Log(title = "运维工作记录", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
@@ -91,6 +96,7 @@ public class OperationLedgerController extends BaseController {
         return toAjax(operationLedgerService.deleteRecords(Arrays.asList(ids)));
     }
 
+    /** 导入运维工作记录。 */
     @SaCheckPermission("department:operationLedger:import")
     @Log(title = "运维工作记录", businessType = BusinessType.IMPORT)
     @PostMapping(value = "/importData", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -131,6 +137,7 @@ public class OperationLedgerController extends BaseController {
         return message.toString();
     }
 
+    /** 导入系统在线率数据。 */
     @SaCheckPermission("department:operationLedger:import")
     @Log(title = "系统在线率", businessType = BusinessType.IMPORT)
     @PostMapping(value = "/importSystemData", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -142,6 +149,7 @@ public class OperationLedgerController extends BaseController {
         return R.ok(operationLedgerService.importSystems(result.getList()) + "。" + result.getAnalysis());
     }
 
+    /** 导出运维工作记录。 */
     @SaCheckPermission("department:operationLedger:export")
     @Log(title = "运维工作记录", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
@@ -150,6 +158,7 @@ public class OperationLedgerController extends BaseController {
         ExcelBuilder.of(list, OperationRecordVo.class).sheetName("运维工作记录").toResponse(response);
     }
 
+    /** 导出系统在线率数据。 */
     @SaCheckPermission("department:operationLedger:export")
     @PostMapping("/exportSystems")
     public void exportSystems(@RequestParam(required = false) LocalDate beginDate,
@@ -160,18 +169,21 @@ public class OperationLedgerController extends BaseController {
         ExcelBuilder.of(list, OperationSystemVo.class).sheetName("系统在线率").toResponse(response);
     }
 
+    /** 下载运维工作记录导入模板。 */
     @SaCheckPermission("department:operationLedger:import")
     @PostMapping("/importTemplate")
     public void importTemplate(HttpServletResponse response) {
         ExcelBuilder.of(new ArrayList<>(), OperationRecordImportVo.class).sheetName("工作记录").toResponse(response);
     }
 
+    /** 下载系统在线率导入模板。 */
     @SaCheckPermission("department:operationLedger:import")
     @PostMapping("/importSystemTemplate")
     public void importSystemTemplate(HttpServletResponse response) {
         ExcelBuilder.of(new ArrayList<>(), OperationSystemImportVo.class).sheetName("系统运维报告").toResponse(response);
     }
 
+    /** 分页查询系统在线率数据。 */
     @SaCheckPermission("department:operationLedger:list")
     @GetMapping("/system/list")
     public R<PageResult<OperationSystemVo>> systemList(@RequestParam(required = false) LocalDate beginDate,
@@ -181,12 +193,14 @@ public class OperationLedgerController extends BaseController {
         return R.ok(operationLedgerService.querySystemPageList(beginDate, endDate, systemName, pageQuery));
     }
 
+    /** 查询系统在线率详情。 */
     @SaCheckPermission("department:operationLedger:query")
     @GetMapping("/system/{id}")
     public R<OperationSystemVo> systemInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(operationLedgerService.querySystemById(id));
     }
 
+    /** 新增系统在线率记录。 */
     @SaCheckPermission("department:operationLedger:add")
     @Log(title = "系统在线率", businessType = BusinessType.INSERT)
     @PostMapping("/system")
@@ -194,6 +208,7 @@ public class OperationLedgerController extends BaseController {
         return toAjax(operationLedgerService.insertSystem(bo));
     }
 
+    /** 修改系统在线率记录。 */
     @SaCheckPermission("department:operationLedger:edit")
     @Log(title = "系统在线率", businessType = BusinessType.UPDATE)
     @PutMapping("/system")
@@ -201,6 +216,7 @@ public class OperationLedgerController extends BaseController {
         return toAjax(operationLedgerService.updateSystem(bo));
     }
 
+    /** 批量删除系统在线率记录。 */
     @SaCheckPermission("department:operationLedger:remove")
     @Log(title = "系统在线率", businessType = BusinessType.DELETE)
     @DeleteMapping("/system/{ids}")
@@ -208,6 +224,7 @@ public class OperationLedgerController extends BaseController {
         return toAjax(operationLedgerService.deleteSystems(Arrays.asList(ids)));
     }
 
+    /** 查询指定日期范围内的运维汇总。 */
     @SaCheckPermission("department:operationLedger:list")
     @GetMapping("/summary")
     public R<OperationSummaryVo> summary(@RequestParam LocalDate beginDate, @RequestParam LocalDate endDate) {

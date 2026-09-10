@@ -48,6 +48,7 @@ public class ScoreProposalController extends BaseController {
 
     private final IScoreProposalService scoreProposalService;
 
+    /** 分页查询SCORE提案。 */
     @SaCheckPermission("department:scoreProposal:list")
     @GetMapping("/list")
     public R<PageResult<ScoreProposalVo>> list(ScoreProposalQueryBo bo, PageQuery pageQuery) {
@@ -89,12 +90,14 @@ public class ScoreProposalController extends BaseController {
         return R.ok(scoreProposalService.queryMetric(month));
     }
 
+    /** 查询SCORE提案详情。 */
     @SaCheckPermission("department:scoreProposal:query")
     @GetMapping("/{id}")
     public R<ScoreProposalVo> getInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(scoreProposalService.queryById(id));
     }
 
+    /** 新增SCORE提案。 */
     @SaCheckPermission("department:scoreProposal:add")
     @Log(title = "SCORE提案", businessType = BusinessType.INSERT)
     @PostMapping
@@ -102,6 +105,7 @@ public class ScoreProposalController extends BaseController {
         return toAjax(scoreProposalService.insertByBo(bo));
     }
 
+    /** 修改SCORE提案。 */
     @SaCheckPermission("department:scoreProposal:edit")
     @Log(title = "SCORE提案", businessType = BusinessType.UPDATE)
     @PutMapping
@@ -109,6 +113,7 @@ public class ScoreProposalController extends BaseController {
         return toAjax(scoreProposalService.updateByBo(bo));
     }
 
+    /** 批量删除SCORE提案。 */
     @SaCheckPermission("department:scoreProposal:remove")
     @Log(title = "SCORE提案", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
@@ -116,6 +121,7 @@ public class ScoreProposalController extends BaseController {
         return toAjax(scoreProposalService.deleteWithValidByIds(Arrays.asList(ids)));
     }
 
+    /** 提交SCORE提案审核结果。 */
     @SaCheckPermission("department:scoreProposal:review")
     @Log(title = "SCORE提案审核", businessType = BusinessType.UPDATE)
     @PostMapping("/review")
@@ -123,12 +129,14 @@ public class ScoreProposalController extends BaseController {
         return toAjax(scoreProposalService.review(bo));
     }
 
+    /** 上传SCORE提案图片。 */
     @SaCheckPermission("department:scoreProposal:edit")
     @PostMapping(value = "/uploadImage", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public R<SysOssVo> uploadImage(@RequestPart("file") MultipartFile file) {
         return R.ok(scoreProposalService.uploadImage(file));
     }
 
+    /** 导出SCORE提案。 */
     @SaCheckPermission("department:scoreProposal:export")
     @Log(title = "SCORE提案", businessType = BusinessType.EXPORT)
     @PostMapping("/export/{id}")

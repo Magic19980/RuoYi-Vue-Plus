@@ -43,18 +43,21 @@ public class FiveWhyController extends BaseController {
 
     private final IFiveWhyService fiveWhyService;
 
+    /** 分页查询5WHY分析记录。 */
     @SaCheckPermission("department:fiveWhy:list")
     @GetMapping("/list")
     public R<PageResult<FiveWhyVo>> list(FiveWhyQueryBo bo, PageQuery pageQuery) {
         return R.ok(fiveWhyService.queryPageList(bo, pageQuery));
     }
 
+    /** 查询5WHY分析详情。 */
     @SaCheckPermission("department:fiveWhy:query")
     @GetMapping("/{id}")
     public R<FiveWhyVo> getInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(fiveWhyService.queryById(id));
     }
 
+    /** 新增5WHY分析记录。 */
     @SaCheckPermission("department:fiveWhy:add")
     @Log(title = "5WHY分析", businessType = BusinessType.INSERT)
     @PostMapping
@@ -62,6 +65,7 @@ public class FiveWhyController extends BaseController {
         return toAjax(fiveWhyService.insertByBo(bo));
     }
 
+    /** 修改5WHY分析记录。 */
     @SaCheckPermission("department:fiveWhy:edit")
     @Log(title = "5WHY分析", businessType = BusinessType.UPDATE)
     @PutMapping
@@ -69,6 +73,7 @@ public class FiveWhyController extends BaseController {
         return toAjax(fiveWhyService.updateByBo(bo));
     }
 
+    /** 批量删除5WHY分析记录。 */
     @SaCheckPermission("department:fiveWhy:remove")
     @Log(title = "5WHY分析", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
@@ -76,6 +81,7 @@ public class FiveWhyController extends BaseController {
         return toAjax(fiveWhyService.deleteWithValidByIds(Arrays.asList(ids)));
     }
 
+    /** 提交5WHY分析审核结果。 */
     @SaCheckPermission("department:fiveWhy:review")
     @Log(title = "5WHY分析审核", businessType = BusinessType.UPDATE)
     @PostMapping("/review")
@@ -83,12 +89,14 @@ public class FiveWhyController extends BaseController {
         return toAjax(fiveWhyService.review(bo));
     }
 
+    /** 上传5WHY分析图片。 */
     @SaCheckPermission("department:fiveWhy:edit")
     @PostMapping(value = "/uploadImage", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public R<SysOssVo> uploadImage(@RequestPart("file") MultipartFile file) {
         return R.ok(fiveWhyService.uploadImage(file));
     }
 
+    /** 导出5WHY分析文档。 */
     @SaCheckPermission("department:fiveWhy:export")
     @Log(title = "5WHY分析", businessType = BusinessType.EXPORT)
     @PostMapping("/export/{id}")

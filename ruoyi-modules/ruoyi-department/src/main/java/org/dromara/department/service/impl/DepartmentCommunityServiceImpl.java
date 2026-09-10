@@ -31,6 +31,7 @@ import org.dromara.department.mapper.DepartmentCommunityMediaMapper;
 import org.dromara.department.mapper.DepartmentCommunityPostMapper;
 import org.dromara.department.mapper.DepartmentCommunityReactionMapper;
 import org.dromara.department.mapper.DepartmentCommunityReportMapper;
+import org.dromara.department.service.DepartmentAccessService;
 import org.dromara.department.service.IDepartmentCommunityService;
 import org.dromara.department.util.CommunityHtmlSanitizer;
 import org.dromara.system.api.domain.PushPayloadDTO;
@@ -90,20 +91,22 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
     private final DepartmentCommunityMediaMapper mediaMapper;
     private final DepartmentCommunityReactionMapper reactionMapper;
     private final DepartmentCommunityReportMapper reportMapper;
+    private final DepartmentAccessService departmentAccessService;
     private final ISysMessageService messageService;
     private final ISysOssService ossService;
 
     @Override
     public PageResult<DepartmentCommunityPostVo> queryPageList(DepartmentCommunityPostQueryBo bo, PageQuery pageQuery) {
         DepartmentCommunityPostQueryBo query = bo == null ? new DepartmentCommunityPostQueryBo() : bo;
-        var page = postMapper.selectPageList(pageQuery.build(), query, LoginHelper.getUserId(), LoginHelper.getDeptId());
+        var page = postMapper.selectPageList(pageQuery.build(), query, LoginHelper.getUserId(), currentDeptId());
+        // 信息流列表需要媒体摘要，统一批量回填，避免每条帖子单独访问数据库。
         fillMedia(page.getRecords());
         return PageResult.build(page.getRecords(), page.getTotal());
     }
 
     @Override
     public DepartmentCommunityPostVo queryById(Long id) {
-        DepartmentCommunityPostVo result = postMapper.selectDetailById(id, LoginHelper.getUserId(), LoginHelper.getDeptId());
+        DepartmentCommunityPostVo result = postMapper.selectDetailById(id, LoginHelper.getUserId(), currentDeptId());
         if (result == null) {
             throw new ServiceException("帖子不存在或您没有访问权限");
         }
@@ -119,7 +122,7 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
     public Boolean insertByBo(DepartmentCommunityPostBo bo) {
         validatePost(bo);
         DepartmentCommunityPost entity = new DepartmentCommunityPost();
-        entity.setDeptId(LoginHelper.getDeptId());
+        entity.setDeptId(requireCurrentDept());
         copyPost(bo, entity, false);
         boolean inserted = postMapper.insert(entity) > 0;
         if (inserted) {
@@ -204,7 +207,7 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
         entity.setParentId(parentId);
         entity.setContent(content == null ? "" : content);
         entity.setStatus("ENABLED");
-        entity.setCreateDept(LoginHelper.getDeptId());
+        entity.setCreateDept(requireCurrentDept());
         entity.setCreateBy(LoginHelper.getUserId());
         boolean inserted = commentMapper.insert(entity) > 0;
         if (inserted) {
@@ -255,7 +258,7 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
             reaction.setPostId(postId);
             reaction.setUserId(userId);
             reaction.setReactionType(normalizedType);
-            reaction.setCreateDept(LoginHelper.getDeptId());
+            reaction.setCreateDept(requireCurrentDept());
             reaction.setCreateBy(userId);
             try {
                 reactionMapper.insert(reaction);
@@ -327,7 +330,7 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
         entity.setReporterUserId(userId);
         entity.setReason(StringUtils.trim(bo.getReason()));
         entity.setStatus(REPORT_PENDING);
-        entity.setCreateDept(LoginHelper.getDeptId());
+        entity.setCreateDept(requireCurrentDept());
         entity.setCreateBy(userId);
         return reportMapper.insert(entity) > 0;
     }
@@ -433,9 +436,25 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
         return value == null ? null : HtmlUtil.cleanHtmlTag(StringUtils.trim(value));
     }
 
+    /**
+     * 批量回填信息流帖子的媒体摘要。
+     *
+     * <p>这里不直接复用单帖子的 {@link #buildMediaList(Long)}，因为列表场景
+     * 需要一次查询覆盖所有帖子；单帖详情仍保留独立查询以控制返回范围。</p>
+     *
+     * @param posts 当前页帖子
+     */
     private void fillMedia(List<DepartmentCommunityPostVo> posts) {
+        if (posts == null || posts.isEmpty()) {
+            return;
+        }
+        List<Long> postIds = posts.stream().map(DepartmentCommunityPostVo::getId).toList();
+        List<DepartmentCommunityMediaVo> mediaRows = mediaMapper.selectListByPostIds(postIds);
+        mediaRows.forEach(this::fillPreviewUrl);
+        Map<Long, List<DepartmentCommunityMediaVo>> mediaByPostId = mediaRows.stream()
+            .collect(Collectors.groupingBy(DepartmentCommunityMediaVo::getPostId));
         posts.forEach(post -> {
-            List<DepartmentCommunityMediaVo> mediaList = buildMediaList(post.getId());
+            List<DepartmentCommunityMediaVo> mediaList = mediaByPostId.getOrDefault(post.getId(), List.of());
             post.setMediaList(mediaList);
             post.setMediaCount(mediaList.size());
         });
@@ -467,16 +486,9 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
     }
 
     private List<DepartmentCommunityMediaVo> buildMediaList(Long postId) {
-        return mediaMapper.selectListByPostId(postId).stream().peek(media -> {
-            if (media.getOssId() == null) {
-                return;
-            }
-            try {
-                media.setPreviewUrl(ossService.previewUrl(media.getOssId()));
-            } catch (Exception ignored) {
-                media.setPreviewUrl(null);
-            }
-        }).toList();
+        List<DepartmentCommunityMediaVo> mediaList = mediaMapper.selectListByPostId(postId);
+        mediaList.forEach(this::fillPreviewUrl);
+        return mediaList;
     }
 
     private void replaceMedia(Long postId, String mediaOssIds) {
@@ -517,7 +529,7 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
             entity.setContentType(contentType(null, mediaType, suffix));
             entity.setFileSize(null);
             entity.setSortNum(index);
-            entity.setCreateDept(LoginHelper.getDeptId());
+            entity.setCreateDept(requireCurrentDept());
             entity.setCreateBy(userId);
             entities.add(entity);
         }
@@ -553,7 +565,7 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
             entity.setContentType(contentType(null, MEDIA_IMAGE, suffix));
             entity.setFileSize(null);
             entity.setSortNum(index);
-            entity.setCreateDept(LoginHelper.getDeptId());
+            entity.setCreateDept(requireCurrentDept());
             entity.setCreateBy(userId);
             entities.add(entity);
         }
@@ -625,9 +637,10 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
         if (Objects.equals(entity.getCreateBy(), LoginHelper.getUserId())) {
             return entity;
         }
+        Long currentDeptId = currentDeptId();
         boolean publicPost = STATUS_PUBLISHED.equals(entity.getStatus()) || STATUS_RESOLVED.equals(entity.getStatus());
         boolean visible = VISIBILITY_ALL.equals(entity.getVisibility())
-            || (VISIBILITY_DEPT.equals(entity.getVisibility()) && Objects.equals(entity.getDeptId(), LoginHelper.getDeptId()));
+            || (VISIBILITY_DEPT.equals(entity.getVisibility()) && Objects.equals(entity.getDeptId(), currentDeptId));
         if (publicPost && visible) {
             return entity;
         }
@@ -642,6 +655,14 @@ public class DepartmentCommunityServiceImpl implements IDepartmentCommunityServi
 
     private boolean isModerator() {
         return LoginHelper.isSuperAdmin() || StpUtil.hasPermission(PERMISSION_MODERATE);
+    }
+
+    private Long currentDeptId() {
+        return departmentAccessService.currentDeptId();
+    }
+
+    private Long requireCurrentDept() {
+        return departmentAccessService.requireCurrentDept("当前登录用户缺少科室信息");
     }
 
     private void assertModerator() {

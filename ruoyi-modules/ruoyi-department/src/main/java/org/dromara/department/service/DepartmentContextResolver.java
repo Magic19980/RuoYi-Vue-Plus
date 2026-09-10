@@ -52,6 +52,16 @@ public class DepartmentContextResolver {
     }
 
     /**
+     * 返回会话中显式选择的业务科室，不触发自动解析或权限校验。
+     *
+     * <p>该值只用于展示和切换“我的科室”上下文。业务数据访问必须使用
+     * {@link #resolveCurrentDeptId()}，避免绕过有效服务关系校验。</p>
+     */
+    public Long getActiveDeptId() {
+        return LoginHelper.getDeptId();
+    }
+
+    /**
      * 清理当前请求的科室缓存。切换科室后调用，确保同一请求后续逻辑读取到新上下文。
      */
     public void clearRequestCache() {
@@ -61,8 +71,9 @@ public class DepartmentContextResolver {
         }
     }
 
+    /** 按会话选择、用户有效服务关系和主部门兜底顺序解析业务科室。 */
     private Long resolveFromLoginContext() {
-        Long currentDeptId = LoginHelper.getDeptId();
+        Long currentDeptId = getActiveDeptId();
         if (LoginHelper.isSuperAdmin()) {
             List<DepartmentConfigVo> departments = departmentConfigMapper.selectEnabledDepartments();
             if (departments.isEmpty()) {

@@ -36,25 +36,28 @@ public class ScoreCategoryController extends BaseController {
 
     private final IScoreCategoryService scoreCategoryService;
 
+    /** 查询SCORE提案分类树。 */
     @SaCheckPermission("department:scoreCategory:list")
     @GetMapping("/list")
     public R<List<ScoreCategoryVo>> list(@RequestParam(value = "enabledOnly", required = false, defaultValue = "false") boolean enabledOnly) {
         return R.ok(scoreCategoryService.queryTree(enabledOnly));
     }
 
-    /** 提案填写页使用的启用分类树。 */
+    /** 查询提案填写页使用的启用分类树。 */
     @SaCheckPermission("department:scoreProposal:list")
     @GetMapping("/options")
     public R<List<ScoreCategoryVo>> options() {
         return R.ok(scoreCategoryService.queryTree(true));
     }
 
+    /** 查询SCORE分类详情。 */
     @SaCheckPermission("department:scoreCategory:list")
     @GetMapping("/{id}")
     public R<ScoreCategoryVo> getInfo(@NotNull(message = "分类主键不能为空") @PathVariable Long id) {
         return R.ok(scoreCategoryService.queryById(id));
     }
 
+    /** 新增SCORE分类。 */
     @SaCheckPermission("department:scoreCategory:add")
     @Log(title = "SCORE分类", businessType = BusinessType.INSERT)
     @PostMapping
@@ -62,6 +65,7 @@ public class ScoreCategoryController extends BaseController {
         return toAjax(scoreCategoryService.insertByBo(bo));
     }
 
+    /** 修改SCORE分类。 */
     @SaCheckPermission("department:scoreCategory:edit")
     @Log(title = "SCORE分类", businessType = BusinessType.UPDATE)
     @PutMapping
@@ -69,6 +73,7 @@ public class ScoreCategoryController extends BaseController {
         return toAjax(scoreCategoryService.updateByBo(bo));
     }
 
+    /** 批量删除SCORE分类。 */
     @SaCheckPermission("department:scoreCategory:remove")
     @Log(title = "SCORE分类", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")

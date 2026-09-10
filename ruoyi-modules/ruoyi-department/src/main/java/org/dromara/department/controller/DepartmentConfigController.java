@@ -39,30 +39,35 @@ public class DepartmentConfigController extends BaseController {
 
     private final IDepartmentConfigService departmentConfigService;
 
+    /** 分页查询业务科室配置。 */
     @SaCheckPermission("department:department:list")
     @GetMapping("/list")
     public R<PageResult<DepartmentConfigVo>> list(DepartmentConfigQueryBo bo, PageQuery pageQuery) {
         return R.ok(departmentConfigService.queryPageList(bo, pageQuery));
     }
 
+    /** 查询可用业务科室。 */
     @SaCheckPermission("department:department:list")
     @GetMapping("/available")
     public R<List<DepartmentConfigVo>> available(DepartmentConfigQueryBo bo) {
         return R.ok(departmentConfigService.queryAvailableDepartments(bo == null ? null : bo.getDeptName()));
     }
 
+    /** 查询系统组织下的子科室。 */
     @SaCheckPermission("department:department:list")
     @GetMapping("/organization/children")
     public R<List<DepartmentConfigVo>> organizationChildren(Long parentId) {
         return R.ok(departmentConfigService.queryOrganizationChildren(parentId));
     }
 
+    /** 查询业务科室配置详情。 */
     @SaCheckPermission("department:department:query")
     @GetMapping("/{deptId}")
     public R<DepartmentConfigVo> getInfo(@NotNull(message = "科室ID不能为空") @PathVariable Long deptId) {
         return R.ok(departmentConfigService.queryById(deptId));
     }
 
+    /** 新增业务科室配置。 */
     @SaCheckPermission("department:department:add")
     @Log(title = "业务科室配置", businessType = BusinessType.INSERT)
     @PostMapping
@@ -70,6 +75,7 @@ public class DepartmentConfigController extends BaseController {
         return toAjax(departmentConfigService.insertByBo(bo));
     }
 
+    /** 修改业务科室配置。 */
     @SaCheckPermission("department:department:edit")
     @Log(title = "业务科室配置", businessType = BusinessType.UPDATE)
     @PutMapping
@@ -77,6 +83,7 @@ public class DepartmentConfigController extends BaseController {
         return toAjax(departmentConfigService.updateByBo(bo));
     }
 
+    /** 迁移业务科室及其关联数据。 */
     @SaCheckPermission("department:department:edit")
     @Log(title = "业务科室配置迁移", businessType = BusinessType.UPDATE)
     @PutMapping("/migrate")
@@ -85,6 +92,7 @@ public class DepartmentConfigController extends BaseController {
         return R.ok();
     }
 
+    /** 批量停用业务科室。 */
     @SaCheckPermission("department:department:remove")
     @Log(title = "业务科室配置", businessType = BusinessType.DELETE)
     @DeleteMapping("/{deptIds}")

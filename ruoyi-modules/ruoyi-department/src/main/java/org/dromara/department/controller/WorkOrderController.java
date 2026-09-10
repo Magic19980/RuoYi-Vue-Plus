@@ -54,30 +54,35 @@ public class WorkOrderController extends BaseController {
 
     private final IWorkOrderService workOrderService;
 
+    /** 分页查询工单台账。 */
     @SaCheckPermission("department:workOrder:list")
     @GetMapping("/list")
     public R<PageResult<WorkOrderVo>> list(WorkOrderQueryBo bo, PageQuery pageQuery) {
         return R.ok(workOrderService.queryPageList(bo, pageQuery));
     }
 
+    /** 查询工单详情。 */
     @SaCheckPermission("department:workOrder:query")
     @GetMapping("/{id}")
     public R<WorkOrderVo> getInfo(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(workOrderService.queryById(id));
     }
 
+    /** 预览工单来源 PDF 文件。 */
     @SaCheckPermission("department:workOrder:query")
     @GetMapping("/{id}/sourcePdf")
     public ResponseEntity<byte[]> sourcePdf(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return workOrderService.previewSourcePdf(id);
     }
 
+    /** 查询工单人工统计明细。 */
     @SaCheckPermission("department:workOrder:query")
     @GetMapping("/{id}/details")
     public R<List<WorkOrderDetailVo>> details(@NotNull(message = "主键不能为空") @PathVariable Long id) {
         return R.ok(workOrderService.queryDetails(id));
     }
 
+    /** 修改工单人工统计明细。 */
     @SaCheckPermission("department:workOrder:edit")
     @Log(title = "人工统计明细", businessType = BusinessType.UPDATE)
     @PutMapping("/detail")
@@ -85,6 +90,7 @@ public class WorkOrderController extends BaseController {
         return toAjax(workOrderService.updateDetailByBo(bo));
     }
 
+    /** 批量删除工单人工统计明细。 */
     @SaCheckPermission("department:workOrder:remove")
     @Log(title = "人工统计明细", businessType = BusinessType.DELETE)
     @DeleteMapping("/detail/{ids}")
@@ -92,6 +98,7 @@ public class WorkOrderController extends BaseController {
         return toAjax(workOrderService.deleteDetails(Arrays.asList(ids)));
     }
 
+    /** 新增工单台账。 */
     @SaCheckPermission("department:workOrder:add")
     @Log(title = "工单台账", businessType = BusinessType.INSERT)
     @PostMapping
@@ -99,6 +106,7 @@ public class WorkOrderController extends BaseController {
         return toAjax(workOrderService.insertByBo(bo));
     }
 
+    /** 修改工单台账。 */
     @SaCheckPermission("department:workOrder:edit")
     @Log(title = "工单台账", businessType = BusinessType.UPDATE)
     @PutMapping
@@ -106,6 +114,7 @@ public class WorkOrderController extends BaseController {
         return toAjax(workOrderService.updateByBo(bo));
     }
 
+    /** 批量删除工单台账。 */
     @SaCheckPermission("department:workOrder:remove")
     @Log(title = "工单台账", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
@@ -113,6 +122,7 @@ public class WorkOrderController extends BaseController {
         return toAjax(workOrderService.deleteWithValidByIds(Arrays.asList(ids)));
     }
 
+    /** 导入工单来源 PDF。 */
     @SaCheckPermission("department:workOrder:import")
     @Log(title = "工单PDF导入", businessType = BusinessType.IMPORT)
     @PostMapping(value = "/importPdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -120,6 +130,7 @@ public class WorkOrderController extends BaseController {
         return R.ok(workOrderService.importPdf(file));
     }
 
+    /** 导出工单台账。 */
     @SaCheckPermission("department:workOrder:export")
     @Log(title = "工单台账", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
@@ -128,6 +139,7 @@ public class WorkOrderController extends BaseController {
         ExcelBuilder.of(list, WorkOrderExportVo.class).sheetName("人工单明细台账").toResponse(response);
     }
 
+    /** 查询指定日期范围内的工单统计汇总。 */
     @SaCheckPermission("department:workOrder:query")
     @GetMapping("/summary")
     public R<WorkOrderSummaryVo> summary(@RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate beginDate,

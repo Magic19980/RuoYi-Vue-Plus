@@ -40,24 +40,28 @@ public class DepartmentProjectController extends BaseController {
 
     private final IDepartmentProjectService departmentProjectService;
 
+    /** 分页查询科室项目。 */
     @SaCheckPermission("department:project:list")
     @GetMapping("/list")
     public R<PageResult<DepartmentProjectVo>> list(DepartmentProjectQueryBo bo, PageQuery pageQuery) {
         return R.ok(departmentProjectService.queryPageList(bo, pageQuery));
     }
 
+    /** 查询科室项目选择项。 */
     @SaCheckPermission("department:project:list")
     @GetMapping("/options")
     public R<List<DepartmentProjectVo>> options() {
         return R.ok(departmentProjectService.queryOptions());
     }
 
+    /** 查询科室项目详情。 */
     @SaCheckPermission("department:project:query")
     @GetMapping("/{id}")
     public R<DepartmentProjectVo> getInfo(@NotNull(message = "项目主键不能为空") @PathVariable Long id) {
         return R.ok(departmentProjectService.queryById(id));
     }
 
+    /** 新增科室项目。 */
     @SaCheckPermission("department:project:add")
     @Log(title = "科室项目", businessType = BusinessType.INSERT)
     @PostMapping
@@ -65,6 +69,7 @@ public class DepartmentProjectController extends BaseController {
         return toAjax(departmentProjectService.insertByBo(bo));
     }
 
+    /** 修改科室项目。 */
     @SaCheckPermission("department:project:edit")
     @Log(title = "科室项目", businessType = BusinessType.UPDATE)
     @PutMapping
@@ -72,6 +77,7 @@ public class DepartmentProjectController extends BaseController {
         return toAjax(departmentProjectService.updateByBo(bo));
     }
 
+    /** 批量删除科室项目。 */
     @SaCheckPermission("department:project:remove")
     @Log(title = "科室项目", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")

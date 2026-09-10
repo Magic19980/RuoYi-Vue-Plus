@@ -35,18 +35,21 @@ public class DepartmentDocumentCategoryController extends BaseController {
 
     private final IDepartmentDocumentCategoryService categoryService;
 
+    /** 查询资料分类选择项。 */
     @SaCheckPermission("department:document:query")
     @GetMapping("/options")
     public R<List<DepartmentDocumentCategoryVo>> options() {
         return R.ok(categoryService.queryOptions());
     }
 
+    /** 查询资料分类树。 */
     @SaCheckPermission("department:document:query")
     @GetMapping("/tree")
     public R<List<DepartmentDocumentCategoryVo>> tree(DepartmentDocumentCategoryQueryBo bo) {
         return R.ok(categoryService.queryTreeList(bo));
     }
 
+    /** 新增资料分类。 */
     @SaCheckPermission("department:documentCategory:add")
     @Log(title = "资料分类", businessType = BusinessType.INSERT)
     @PostMapping
@@ -54,6 +57,7 @@ public class DepartmentDocumentCategoryController extends BaseController {
         return toAjax(categoryService.insertByBo(bo));
     }
 
+    /** 修改资料分类。 */
     @SaCheckPermission("department:documentCategory:edit")
     @Log(title = "资料分类", businessType = BusinessType.UPDATE)
     @PutMapping
@@ -61,6 +65,7 @@ public class DepartmentDocumentCategoryController extends BaseController {
         return toAjax(categoryService.updateByBo(bo));
     }
 
+    /** 批量删除资料分类。 */
     @SaCheckPermission("department:documentCategory:remove")
     @Log(title = "资料分类", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")

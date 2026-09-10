@@ -23,6 +23,9 @@ public class PlatformFeedbackCommentVo implements Serializable {
 
     private String authorName;
 
+    /** 作者头像对应的 OSS ID。 */
+    private Long authorAvatar;
+
     private String deptName;
 
     private Boolean mine;

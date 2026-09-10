@@ -15,7 +15,7 @@ import org.dromara.department.domain.vo.PlatformFeedbackCommentVo;
 public interface PlatformFeedbackCommentMapper extends BaseMapperPlus<PlatformFeedbackComment, PlatformFeedbackCommentVo> {
 
     @Select({
-        "select c.id, c.feedback_id, c.content, coalesce(u.nick_name, u.user_name) as author_name, d.dept_name,",
+        "select c.id, c.feedback_id, c.content, coalesce(u.nick_name, u.user_name) as author_name, u.avatar as author_avatar, d.dept_name,",
         "case when c.create_by = #{userId} then 1 else 0 end as mine, c.create_time",
         "from dm_platform_feedback_comment c",
         "left join sys_user u on u.user_id = c.create_by and u.del_flag = '0'",

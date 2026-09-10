@@ -26,6 +26,7 @@ import org.dromara.department.domain.vo.PlatformFeedbackVo;
 import org.dromara.department.mapper.PlatformFeedbackActivityMapper;
 import org.dromara.department.mapper.PlatformFeedbackCommentMapper;
 import org.dromara.department.mapper.PlatformFeedbackMapper;
+import org.dromara.department.service.DepartmentAccessService;
 import org.dromara.system.api.domain.PushPayloadDTO;
 import org.dromara.system.domain.SysOssExt;
 import org.dromara.system.domain.bo.SysConfigBo;
@@ -90,6 +91,7 @@ public class PlatformFeedbackServiceImpl implements org.dromara.department.servi
     private final PlatformFeedbackMapper feedbackMapper;
     private final PlatformFeedbackCommentMapper commentMapper;
     private final PlatformFeedbackActivityMapper activityMapper;
+    private final DepartmentAccessService departmentAccessService;
     private final ISysOssService ossService;
     private final ISysConfigService sysConfigService;
     private final ISysMessageService messageService;
@@ -136,7 +138,7 @@ public class PlatformFeedbackServiceImpl implements org.dromara.department.servi
         entity.setPriority(normalizePriority(bo.getPriority()));
         entity.setStatus(STATUS_PENDING);
         entity.setAttachmentOssIds(joinAttachmentIds(attachmentIds));
-        entity.setCreateDept(LoginHelper.getDeptId());
+        entity.setCreateDept(requireCurrentDept());
         entity.setCreateBy(LoginHelper.getUserId());
         // feedback_no 为非空字段，必须在首次 INSERT 前生成；同时显式复用主键保证编号稳定且唯一。
         entity.setId(IdGeneratorUtil.nextLongId());
@@ -211,7 +213,7 @@ public class PlatformFeedbackServiceImpl implements org.dromara.department.servi
         PlatformFeedbackComment comment = new PlatformFeedbackComment();
         comment.setFeedbackId(feedbackId);
         comment.setContent(content);
-        comment.setCreateDept(LoginHelper.getDeptId());
+        comment.setCreateDept(requireCurrentDept());
         comment.setCreateBy(LoginHelper.getUserId());
         boolean inserted = commentMapper.insert(comment) > 0;
         if (inserted) {
@@ -400,9 +402,13 @@ public class PlatformFeedbackServiceImpl implements org.dromara.department.servi
         activity.setActionNote(actionNote);
         activity.setFromStatus(fromStatus);
         activity.setToStatus(toStatus);
-        activity.setCreateDept(LoginHelper.getDeptId());
+        activity.setCreateDept(requireCurrentDept());
         activity.setCreateBy(LoginHelper.getUserId());
         activityMapper.insert(activity);
+    }
+
+    private Long requireCurrentDept() {
+        return departmentAccessService.requireCurrentDept("当前登录用户缺少科室信息");
     }
 
     private void assertManager() {

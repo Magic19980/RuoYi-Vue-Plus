@@ -40,6 +40,16 @@ public class DepartmentAccessService {
     }
 
     /**
+     * 获取会话中显式选择的业务科室，不触发自动解析或权限校验。
+     *
+     * <p>仅用于科室上下文列表和切换场景；业务数据访问请使用
+     * {@link #currentDeptId()} 或 {@link #scope(String)}。</p>
+     */
+    public Long activeDeptId() {
+        return departmentContextResolver.getActiveDeptId();
+    }
+
+    /**
      * 校验当前用户是否可以访问指定科室的数据。
      *
      * @param deptId 目标科室
@@ -85,6 +95,7 @@ public class DepartmentAccessService {
         }
     }
 
+    /** 获取当前 HTTP 请求内的科室权限缓存。 */
     @SuppressWarnings("unchecked")
     private Map<String, Boolean> getRequestAccessCache(RequestAttributes requestAttributes) {
         if (requestAttributes == null) {
@@ -101,7 +112,7 @@ public class DepartmentAccessService {
      * @return 是否允许访问
      */
     public boolean canViewCurrentDepartment(String permission) {
-        Long deptId = departmentContextResolver.resolveCurrentDeptId();
+        Long deptId = currentDeptId();
         return canViewDepartment(deptId, permission);
     }
 
@@ -126,7 +137,7 @@ public class DepartmentAccessService {
      * 不在业务列表中隐式展开全部科室。
      */
     public DepartmentScope scope(String permission) {
-        Long deptId = departmentContextResolver.resolveCurrentDeptId();
+        Long deptId = currentDeptId();
         return canViewDepartment(deptId, permission)
             ? DepartmentScope.current(deptId)
             : DepartmentScope.current(null);
@@ -153,9 +164,9 @@ public class DepartmentAccessService {
             return false;
         }
         if (LoginHelper.isSuperAdmin()) {
-            return entityDeptId.equals(departmentContextResolver.resolveCurrentDeptId());
+            return entityDeptId.equals(currentDeptId());
         }
-        Long currentDeptId = departmentContextResolver.resolveCurrentDeptId();
+        Long currentDeptId = currentDeptId();
         return entityDeptId.equals(currentDeptId) && canViewDepartment(entityDeptId, permission);
     }
 

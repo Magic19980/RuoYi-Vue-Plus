@@ -39,18 +39,21 @@ public class DepartmentTaskController extends BaseController {
 
     private final IDepartmentTaskService taskService;
 
+    /** 查询科室任务规则列表。 */
     @SaCheckPermission("department:task:list")
     @GetMapping("/rule/list")
     public R<List<DepartmentTaskRuleVo>> ruleList() {
         return R.ok(taskService.queryRuleList());
     }
 
+    /** 查询科室任务规则详情。 */
     @SaCheckPermission("department:task:query")
     @GetMapping("/rule/{id}")
     public R<DepartmentTaskRuleVo> ruleInfo(@NotNull @PathVariable Long id) {
         return R.ok(taskService.queryRuleById(id));
     }
 
+    /** 新增科室任务规则。 */
     @SaCheckPermission("department:task:add")
     @Log(title = "科室任务规则", businessType = BusinessType.INSERT)
     @PostMapping("/rule")
@@ -58,6 +61,7 @@ public class DepartmentTaskController extends BaseController {
         return toAjax(taskService.saveRule(bo));
     }
 
+    /** 修改科室任务规则。 */
     @SaCheckPermission("department:task:edit")
     @Log(title = "科室任务规则", businessType = BusinessType.UPDATE)
     @PutMapping("/rule")
@@ -65,6 +69,7 @@ public class DepartmentTaskController extends BaseController {
         return toAjax(taskService.saveRule(bo));
     }
 
+    /** 删除科室任务规则。 */
     @SaCheckPermission("department:task:remove")
     @Log(title = "科室任务规则", businessType = BusinessType.DELETE)
     @DeleteMapping("/rule/{id}")
@@ -72,12 +77,14 @@ public class DepartmentTaskController extends BaseController {
         return toAjax(taskService.deleteRule(id));
     }
 
+    /** 查询任务规则的成员分配。 */
     @SaCheckPermission("department:task:list")
     @GetMapping("/assignment/list/{ruleId}")
     public R<List<DepartmentTaskAssignmentVo>> assignmentList(@NotNull @PathVariable Long ruleId) {
         return R.ok(taskService.queryAssignments(ruleId));
     }
 
+    /** 新增任务成员分配。 */
     @SaCheckPermission("department:task:edit")
     @Log(title = "科室任务成员分配", businessType = BusinessType.INSERT)
     @PostMapping("/assignment")
@@ -85,6 +92,7 @@ public class DepartmentTaskController extends BaseController {
         return toAjax(taskService.saveAssignment(bo));
     }
 
+    /** 修改任务成员分配。 */
     @SaCheckPermission("department:task:edit")
     @Log(title = "科室任务成员分配", businessType = BusinessType.UPDATE)
     @PutMapping("/assignment")
@@ -92,6 +100,7 @@ public class DepartmentTaskController extends BaseController {
         return toAjax(taskService.saveAssignment(bo));
     }
 
+    /** 删除任务成员分配。 */
     @SaCheckPermission("department:task:edit")
     @Log(title = "科室任务成员分配", businessType = BusinessType.DELETE)
     @DeleteMapping("/assignment/{id}")
@@ -99,24 +108,28 @@ public class DepartmentTaskController extends BaseController {
         return toAjax(taskService.deleteAssignment(id));
     }
 
+    /** 查询当前用户的任务进度。 */
     @SaCheckPermission("department:task:list")
     @GetMapping("/my")
     public R<List<DepartmentTaskProgressVo>> myTasks() {
         return R.ok(taskService.queryMyTasks());
     }
 
+    /** 查询当前用户待审核的SCORE提案任务。 */
     @SaCheckPermission("department:task:list")
     @GetMapping("/scoreProposal/review-my")
     public R<List<ScoreProposalReviewTaskVo>> myScoreProposalReviewTasks() {
         return R.ok(taskService.queryMyScoreProposalReviewTasks());
     }
 
+    /** 查询科室审核规则列表。 */
     @SaCheckPermission("department:task:list")
     @GetMapping("/review/list")
     public R<List<DepartmentReviewRuleVo>> reviewList() {
         return R.ok(taskService.queryReviewRuleList());
     }
 
+    /** 新增科室审核人配置。 */
     @SaCheckPermission("department:task:reviewConfig")
     @Log(title = "科室审核人配置", businessType = BusinessType.INSERT)
     @PostMapping("/review")
@@ -124,6 +137,7 @@ public class DepartmentTaskController extends BaseController {
         return toAjax(taskService.saveReviewRule(bo));
     }
 
+    /** 修改科室审核人配置。 */
     @SaCheckPermission("department:task:reviewConfig")
     @Log(title = "科室审核人配置", businessType = BusinessType.UPDATE)
     @PutMapping("/review")
@@ -131,6 +145,7 @@ public class DepartmentTaskController extends BaseController {
         return toAjax(taskService.saveReviewRule(bo));
     }
 
+    /** 删除科室审核人配置。 */
     @SaCheckPermission("department:task:reviewConfig")
     @Log(title = "科室审核人配置", businessType = BusinessType.DELETE)
     @DeleteMapping("/review/{id}")
