@@ -1,3 +1,7 @@
+captcha:
+  # 本地开发免验证码，生产环境不要复用此配置。
+  enable: ${CAPTCHA_ENABLED:false}
+
 --- # 根据 System-boxplusn 测试环境配置科室系统泛微地址
 ecology:
   enabled: true

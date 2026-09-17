@@ -1632,7 +1632,7 @@ create table if not exists dm_oa_sync_detail (
 ) engine=innodb comment='泛微 HRM 同步明细';
 
 insert ignore into sys_menu values(1761400000000003241, '同步并接管组织', 1761400000000003290, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:organization', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按泛微组织重建本地部门并同步岗位');
-insert ignore into sys_menu values(1761400000000003242, '同步人员', 1761400000000003290, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:user', '#', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按泛微工号同步系统用户');
+insert ignore into sys_menu values(1761400000000003242, '同步人员', 1761400000000003290, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:user', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '按泛微工号同步系统用户');
 insert ignore into sys_menu values(1761400000000003245, '同步批次查询', 1761400000000003290, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:batch:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看泛微 HRM 同步批次');
 insert ignore into sys_menu values(1761400000000003246, '同步明细查询', 1761400000000003290, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'ecology:hrmSync:detail:list', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '查看泛微 HRM 同步异常明细');
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003241 from sys_role_menu where menu_id = 1761400000000003000;
@@ -1822,3 +1822,411 @@ insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 176
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003153 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003154 from sys_role_menu where menu_id = 1761400000000003000;
 insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003155 from sys_role_menu where menu_id = 1761400000000003000;
+
+-- 房间预约：房间主数据、预约系列、展开后的实际占用实例和参与者。
+-- 房间的占用状态由 dm_room_booking_occurrence 动态计算，房间本身只保存启用/维护/停用状态。
+create table if not exists dm_room_floor_plan (
+    id                   bigint        not null comment '平面图主键',
+    dept_id              bigint        not null comment '维护部门/业务科室ID',
+    plan_name            varchar(100)  not null comment '平面图名称',
+    building_name        varchar(100)  not null comment '建筑物名称',
+    floor_name           varchar(100)  not null comment '楼层名称',
+    floor_no             int           not null default 1 comment '楼层序号',
+    map_image            varchar(500)  default null comment '平面图背景图片地址',
+    map_data             mediumtext   default null comment '2D/3D图形编辑器数据JSON',
+    status               varchar(20)   not null default 'DRAFT' comment 'DRAFT草稿 ENABLED已发布 DISABLED停用',
+    remark               varchar(1000) default null comment '备注',
+    version              bigint        default 0 comment '乐观锁版本号',
+    create_dept          bigint        default null comment '创建部门',
+    create_by            bigint        default null comment '创建者',
+    create_time          datetime      default null comment '创建时间',
+    update_by            bigint        default null comment '更新者',
+    update_time          datetime      default null comment '更新时间',
+    del_flag             char(1)       not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_room_floor_plan_dept_floor (dept_id, building_name, floor_no, del_flag),
+    key idx_dm_room_floor_plan_status (status, del_flag)
+) engine=innodb comment='楼宇楼层房间平面图';
+
+create table if not exists dm_room_floor_plan_version (
+    id                   bigint        not null comment '历史版本主键',
+    floor_plan_id        bigint        not null comment '平面图主键',
+    version_no           int           not null comment '平面图版本号',
+    plan_name            varchar(100)  not null comment '平面图名称快照',
+    building_name        varchar(100)  not null comment '建筑物名称快照',
+    floor_name           varchar(100)  not null comment '楼层名称快照',
+    floor_no             int           not null default 1 comment '楼层序号快照',
+    map_image            varchar(500)  default null comment '背景图片快照',
+    map_data             mediumtext    default null comment '语义化图形数据快照',
+    status               varchar(20)   not null comment '快照生成时的状态',
+    remark               varchar(1000) default null comment '备注快照',
+    version_note         varchar(255)  default null comment '版本说明',
+    create_dept          bigint        default null comment '创建部门',
+    create_by            bigint        default null comment '创建者',
+    create_time          datetime      default null comment '创建时间',
+    update_by            bigint        default null comment '更新者（快照不可变）',
+    update_time          datetime      default null comment '更新时间（快照不可变）',
+    primary key (id),
+    unique key uk_dm_room_floor_plan_version (floor_plan_id, version_no),
+    key idx_dm_room_floor_plan_version_time (floor_plan_id, create_time)
+) engine=innodb comment='房间平面图历史版本快照';
+
+create table if not exists dm_room_resource (
+    id                   bigint        not null comment '房间主键',
+    dept_id              bigint        not null comment '维护部门/业务科室ID',
+    room_code            varchar(64)   not null comment '房间编号',
+    room_name            varchar(100)  not null comment '房间名称',
+    room_type            varchar(50)   default null comment '房间类型',
+    location             varchar(200)  default null comment '建筑物、楼层和位置',
+    floor_plan_id        bigint        default null comment '所属平面图ID',
+    building_name        varchar(100)  default null comment '建筑物名称',
+    floor_name           varchar(100)  default null comment '楼层名称',
+    area_name            varchar(100)  default null comment '区域名称',
+    merge_group          varchar(64)   default null comment '合并房间组编码',
+    display_image        varchar(500)  default null comment '房间展示图地址',
+    photo_urls           text          default null comment '房间照片地址列表',
+    usage_guide          varchar(2000) default null comment '房间使用说明',
+    manager_user_id      bigint        default null comment '房间负责人用户ID',
+    display_screen       tinyint       not null default 1 comment '是否启用房间展示屏信息',
+    capacity             int           not null default 1 comment '容纳人数',
+    amenities            varchar(500)  default null comment '设施编码，逗号分隔',
+    status               varchar(20)   not null default 'ENABLED' comment 'ENABLED启用 MAINTENANCE维护 DISABLED停用',
+    scope_type           varchar(20)   not null default 'PUBLIC' comment 'PUBLIC公共 DEPT本部门',
+    open_time            time          not null default '08:00:00' comment '营业开始时间',
+    close_time           time          not null default '22:00:00' comment '营业结束时间',
+    allow_weekend        tinyint       not null default 1 comment '是否允许周末预约',
+    allow_cross_day      tinyint       not null default 0 comment '是否允许跨自然日预约',
+    approval_mode        varchar(20)   not null default 'NONE' comment 'NONE无需审批 APPROVAL需要审批',
+    max_advance_days     int           not null default 90 comment '最多提前预约天数',
+    max_duration_minutes int           not null default 240 comment '单次最长预约分钟数',
+    allow_recurring      tinyint       not null default 1 comment '是否允许循环预约',
+    remark               varchar(1000) default null comment '备注',
+    version              bigint        default 0 comment '乐观锁版本号',
+    create_dept          bigint        default null comment '创建部门',
+    create_by            bigint        default null comment '创建者',
+    create_time          datetime      default null comment '创建时间',
+    update_by            bigint        default null comment '更新者',
+    update_time          datetime      default null comment '更新时间',
+    del_flag             char(1)       not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_room_resource_dept_code (dept_id, room_code, del_flag),
+    key idx_dm_room_resource_scope_status (scope_type, status, del_flag),
+    key idx_dm_room_resource_type_location (room_type, location, del_flag),
+    key idx_dm_room_resource_floor_plan (floor_plan_id, del_flag)
+) engine=innodb comment='可预约房间资源';
+
+create table if not exists dm_room_resource_acl (
+    id              bigint        not null comment '授权主键',
+    room_id         bigint        not null comment '房间ID',
+    subject_type    varchar(20)   not null comment 'USER用户 DEPT科室 ROLE角色 ALL全公司',
+    subject_id      bigint        default null comment '主体ID，ALL为空',
+    permission_type varchar(20)   not null comment 'VIEW查看 BOOK预约 APPROVE审批',
+    version         bigint        default 0 comment '乐观锁版本号',
+    create_dept     bigint        default null comment '创建部门',
+    create_by       bigint        default null comment '创建者',
+    create_time     datetime      default null comment '创建时间',
+    update_by       bigint        default null comment '更新者',
+    update_time     datetime      default null comment '更新时间',
+    del_flag        char(1)       not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_room_resource_acl (room_id, subject_type, subject_id, permission_type, del_flag),
+    key idx_dm_room_resource_acl_subject (subject_type, subject_id, permission_type, del_flag),
+    key idx_dm_room_resource_acl_room_permission (room_id, permission_type, del_flag)
+) engine=innodb comment='房间级访问、预约和审批授权';
+
+create table if not exists dm_room_approval_rule (
+    id              bigint        not null comment '审批规则主键',
+    room_id         bigint        not null comment '房间ID',
+    step_no         int           not null default 1 comment '审批级别，从1开始',
+    approver_type   varchar(20)   not null comment 'USER用户 DEPT科室 ROLE角色 ALL全公司',
+    approver_id     bigint        default null comment '审批主体ID，ALL为空',
+    timeout_minutes int           not null default 1440 comment '本级审批超时分钟数，0表示不自动超时',
+    enabled         tinyint       not null default 1 comment '是否启用',
+    remark          varchar(500)  default null comment '备注',
+    version         bigint        default 0 comment '乐观锁版本号',
+    create_dept     bigint        default null comment '创建部门',
+    create_by       bigint        default null comment '创建者',
+    create_time     datetime      default null comment '创建时间',
+    update_by       bigint        default null comment '更新者',
+    update_time     datetime      default null comment '更新时间',
+    del_flag        char(1)       not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_room_approval_rule_step (room_id, step_no, del_flag),
+    key idx_dm_room_approval_rule_subject (approver_type, approver_id, enabled, del_flag)
+) engine=innodb comment='房间预约串行多级审批规则';
+
+create table if not exists dm_room_quota_policy (
+    id                bigint        not null comment '配额策略主键',
+    room_id           bigint        not null comment '房间ID',
+    subject_type      varchar(20)   not null comment 'USER用户 DEPT科室 ROLE角色 ALL全公司',
+    subject_id        bigint        default null comment '主体ID，ALL为空',
+    period_type       varchar(20)   not null comment 'DAY日 WEEK周 MONTH月',
+    quota_minutes     int           not null default 0 comment '周期分钟配额，0表示不限制',
+    quota_count       int           not null default 0 comment '周期次数配额，0表示不限制',
+    over_quota_action varchar(20)   not null default 'BLOCK' comment 'BLOCK拦截 APPROVAL转审批',
+    unit_price        decimal(12,2) not null default 0 comment '每小时收费金额，0表示不计费',
+    refund_rate       decimal(5,2)  not null default 100 comment '释放或取消退款比例',
+    enabled           tinyint       not null default 1 comment '是否启用',
+    remark            varchar(500)  default null comment '备注',
+    version           bigint        default 0 comment '乐观锁版本号',
+    create_dept       bigint        default null comment '创建部门',
+    create_by         bigint        default null comment '创建者',
+    create_time       datetime      default null comment '创建时间',
+    update_by         bigint        default null comment '更新者',
+    update_time       datetime      default null comment '更新时间',
+    del_flag          char(1)       not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_room_quota_policy (room_id, subject_type, subject_id, period_type, del_flag),
+    key idx_dm_room_quota_policy_subject (subject_type, subject_id, enabled, del_flag)
+) engine=innodb comment='房间预约用户、科室和角色配额策略';
+
+create table if not exists dm_room_amenity (
+    id            bigint        not null comment '设施主键',
+    dept_id       bigint        not null comment '维护科室ID',
+    amenity_name  varchar(100)  not null comment '设施名称',
+    category      varchar(50)   not null default '基础设施' comment '设施分类',
+    icon          varchar(100)  not null default 'Grid' comment '设施图标编码',
+    sort_no       int           not null default 0 comment '排序号',
+    status        varchar(20)   not null default 'ENABLED' comment 'ENABLED启用 DISABLED停用',
+    remark        varchar(500)  default null comment '备注',
+    version       bigint        default 0 comment '乐观锁版本号',
+    create_dept   bigint        default null comment '创建部门',
+    create_by     bigint        default null comment '创建者',
+    create_time   datetime      default null comment '创建时间',
+    update_by     bigint        default null comment '更新者',
+    update_time   datetime      default null comment '更新时间',
+    del_flag      char(1)       not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_room_amenity_dept_name (dept_id, amenity_name, del_flag),
+    key idx_dm_room_amenity_status (status, sort_no, del_flag)
+) engine=innodb comment='房间设施标准目录';
+
+create table if not exists dm_room_amenity_relation (
+    id          bigint       not null comment '关联主键',
+    room_id     bigint       not null comment '房间ID',
+    amenity_id  bigint       not null comment '设施ID',
+    del_flag    char(1)      not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_room_amenity_relation (room_id, amenity_id, del_flag),
+    key idx_dm_room_amenity_relation_amenity (amenity_id, del_flag)
+) engine=innodb comment='房间与标准设施关联';
+
+create table if not exists dm_room_booking_block (
+    id          bigint        not null comment '封锁记录主键',
+    room_id     bigint        not null comment '房间ID',
+    start_at    datetime      not null comment '封锁开始时间',
+    end_at      datetime      not null comment '封锁结束时间',
+    reason      varchar(500)  default null comment '封锁原因',
+    status      varchar(20)   not null default 'BLOCKED' comment 'BLOCKED封锁 RELEASED解除',
+    recurrence_type varchar(20) default 'NONE' comment '维护计划重复类型',
+    recurrence_interval int default 1 comment '维护计划重复间隔',
+    recurrence_count int default null comment '维护计划重复次数',
+    recurrence_until date default null comment '维护计划结束日期',
+    version     bigint        default 0 comment '乐观锁版本号',
+    create_dept bigint        default null comment '创建部门',
+    create_by   bigint        default null comment '创建者',
+    create_time datetime      default null comment '创建时间',
+    update_by   bigint        default null comment '更新者',
+    update_time datetime      default null comment '更新时间',
+    del_flag    char(1)       not null default '0' comment '删除标志',
+    primary key (id),
+    key idx_dm_room_booking_block_room_time (room_id, start_at, end_at, status, del_flag)
+) engine=innodb comment='房间临时封锁时段';
+
+create table if not exists dm_room_booking (
+    id                  bigint        not null comment '预约系列主键',
+    dept_id             bigint        not null comment '预约组织部门ID',
+    organizer_id        bigint        not null comment '组织人用户ID',
+    request_key         varchar(64)   default null comment '新建预约请求幂等号',
+    title               varchar(200)  not null comment '会议主题',
+    description         varchar(2000) default null comment '会议说明',
+    visibility          varchar(20)   not null default 'PUBLIC' comment 'PUBLIC公开 PRIVATE保密',
+    recurrence_type     varchar(20)   not null default 'NONE' comment 'NONE单次 DAILY每日 WEEKLY每周 MONTHLY每月',
+    recurrence_interval int           not null default 1 comment '循环间隔',
+    recurrence_until    date          default null comment '循环结束日期',
+    recurrence_count    int           default null comment '循环次数',
+    base_start_at       datetime      not null comment '系列起始时间',
+    base_end_at         datetime      not null comment '系列结束时间',
+    status              varchar(20)   not null default 'CONFIRMED' comment 'PENDING待审批 CONFIRMED已确认 IN_USE使用中 REJECTED已驳回 CANCELLED已取消 RELEASED已释放 COMPLETED已完成',
+    approval_required    tinyint       not null default 0 comment '是否需要审批',
+    approved_by         bigint        default null comment '审批人',
+    approved_at         datetime      default null comment '审批时间',
+    rejected_reason     varchar(500)  default null comment '驳回原因',
+    version             bigint        default 0 comment '乐观锁版本号',
+    create_dept         bigint        default null comment '创建部门',
+    create_by           bigint        default null comment '创建者',
+    create_time         datetime      default null comment '创建时间',
+    update_by           bigint        default null comment '更新者',
+    update_time         datetime      default null comment '更新时间',
+    del_flag            char(1)       not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_room_booking_request (organizer_id, request_key, del_flag),
+    key idx_dm_room_booking_organizer (organizer_id, status, del_flag),
+    key idx_dm_room_booking_dept_status (dept_id, status, del_flag),
+    key idx_dm_room_booking_base_time (base_start_at, base_end_at)
+) engine=innodb comment='房间预约系列';
+
+create table if not exists dm_room_booking_occurrence (
+    id                  bigint        not null comment '预约实例主键',
+    booking_id          bigint        not null comment '预约系列ID',
+    room_id             bigint        not null comment '房间ID',
+    occurrence_no       int           not null default 1 comment '系列中的第几次',
+    start_at            datetime      not null comment '实例开始时间',
+    end_at              datetime      not null comment '实例结束时间',
+    status              varchar(20)   not null default 'CONFIRMED' comment '实例状态',
+    approval_step       int           default null comment '当前审批级别，从1开始',
+    approval_due_at     datetime      default null comment '当前审批级别截止时间',
+    check_in_at         datetime      default null comment '签到时间',
+    check_out_at        datetime      default null comment '签退时间',
+    cancellation_reason varchar(500)  default null comment '实例取消原因',
+    version             bigint        default 0 comment '乐观锁版本号',
+    create_dept         bigint        default null comment '创建部门',
+    create_by           bigint        default null comment '创建者',
+    create_time         datetime      default null comment '创建时间',
+    update_by           bigint        default null comment '更新者',
+    update_time          datetime      default null comment '更新时间',
+    del_flag             char(1)       not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_room_booking_occurrence (booking_id, room_id, occurrence_no, del_flag),
+    key idx_dm_room_booking_occurrence_room_time (room_id, start_at, end_at, status, del_flag),
+    key idx_dm_room_booking_occurrence_approval (status, approval_due_at, room_id, del_flag),
+    key idx_dm_room_booking_occurrence_booking (booking_id, occurrence_no)
+) engine=innodb comment='房间预约实际占用实例';
+
+create table if not exists dm_room_booking_attendee (
+    id              bigint       not null comment '参与者记录主键',
+    booking_id      bigint       not null comment '预约系列ID',
+    user_id         bigint       not null comment '参与者用户ID',
+    attendee_status varchar(20)  not null default 'INVITED' comment 'INVITED受邀 ACCEPTED接受 DECLINED拒绝',
+    create_dept     bigint       default null comment '创建部门',
+    create_by       bigint       default null comment '创建者',
+    create_time     datetime     default null comment '创建时间',
+    update_by       bigint       default null comment '更新者',
+    update_time     datetime     default null comment '更新时间',
+    del_flag        char(1)      not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_room_booking_attendee (booking_id, user_id, del_flag),
+    key idx_dm_room_booking_attendee_user (user_id, booking_id)
+) engine=innodb comment='房间预约参与者';
+
+create table if not exists dm_room_booking_blacklist (
+    id bigint not null comment '黑名单主键',
+    room_id bigint not null comment '房间ID',
+    subject_type varchar(20) not null comment 'USER用户 DEPT科室 ROLE角色 ALL全公司',
+    subject_id bigint default null comment '主体ID，ALL为空',
+    reason varchar(500) default null comment '拉黑原因',
+    enabled tinyint not null default 1 comment '是否启用',
+    version bigint default 0 comment '乐观锁版本号',
+    create_dept bigint default null,
+    create_by bigint default null,
+    create_time datetime default null,
+    update_by bigint default null,
+    update_time datetime default null,
+    del_flag char(1) not null default '0',
+    primary key (id),
+    unique key uk_dm_room_booking_blacklist (room_id, subject_type, subject_id, del_flag),
+    key idx_dm_room_booking_blacklist_subject (subject_type, subject_id, enabled, del_flag)
+) engine=innodb comment='房间预约黑名单';
+
+create table if not exists dm_room_booking_recurrence_exception (
+    id bigint not null comment '循环预约例外主键',
+    booking_id bigint not null comment '预约系列ID',
+    occurrence_no int not null comment '预约实例序号',
+    occurrence_date date default null comment '实例日期',
+    reason varchar(500) default null comment '跳过原因',
+    status varchar(20) not null default 'SKIPPED' comment 'SKIPPED跳过',
+    version bigint default 0,
+    create_dept bigint default null,
+    create_by bigint default null,
+    create_time datetime default null,
+    update_by bigint default null,
+    update_time datetime default null,
+    del_flag char(1) not null default '0',
+    primary key (id),
+    unique key uk_dm_room_booking_recurrence_exception (booking_id, occurrence_no, del_flag),
+    key idx_dm_room_booking_recurrence_exception_booking (booking_id, status, del_flag)
+) engine=innodb comment='循环预约跳过实例';
+
+create table if not exists dm_room_quota_usage (
+    id bigint not null comment '配额流水主键',
+    room_id bigint not null comment '房间ID',
+    booking_id bigint default null comment '预约系列ID',
+    occurrence_no int default null comment '预约实例序号',
+    user_id bigint default null comment '预约人',
+    action varchar(20) not null comment 'CONSUME消费 RELEASE释放 REFUND退款',
+    minutes int not null default 0 comment '涉及分钟数',
+    booking_count int not null default 1 comment '涉及次数',
+    amount decimal(12,2) not null default 0 comment '费用或退款金额',
+    reason varchar(500) default null comment '流水原因',
+    create_dept bigint default null,
+    create_by bigint default null,
+    create_time datetime default null,
+    update_by bigint default null,
+    update_time datetime default null,
+    del_flag char(1) not null default '0',
+    primary key (id),
+    key idx_dm_room_quota_usage_room_time (room_id, create_time, del_flag),
+    key idx_dm_room_quota_usage_booking (booking_id, occurrence_no, action, del_flag)
+) engine=innodb comment='房间预约配额消费与退款流水';
+
+create table if not exists dm_room_booking_approval (
+    id              bigint        not null comment '变更记录主键',
+    booking_id      bigint        not null comment '预约系列ID',
+    occurrence_no   int           default null comment '实例序号，空表示系列级操作',
+    action          varchar(20)   not null comment 'SUBMIT提交 UPDATE修改 APPROVE通过 REJECT驳回 AUTO_REJECT超时驳回 CANCEL取消 CHECK_IN签到 CHECK_OUT签退 RELEASE释放 EXTEND延长 AUTO_RELEASE自动释放 AUTO_COMPLETE自动完成',
+    from_status     varchar(20)   default null comment '变更前状态',
+    to_status       varchar(20)   default null comment '变更后状态',
+    operator_id     bigint        default null comment '操作人用户ID',
+    reason          varchar(500)  default null comment '操作原因或审批意见',
+    create_dept     bigint        default null comment '创建部门',
+    create_by       bigint        default null comment '创建者',
+    create_time     datetime      default null comment '操作时间',
+    update_by       bigint        default null comment '更新者',
+    update_time     datetime      default null comment '更新时间',
+    del_flag        char(1)       not null default '0' comment '删除标志',
+    primary key (id),
+    key idx_dm_room_booking_approval_booking (booking_id, create_time),
+    key idx_dm_room_booking_approval_operator (operator_id, create_time)
+) engine=innodb comment='房间预约审批及状态变更历史';
+
+create table if not exists dm_room_calendar_exception (
+    id              bigint        not null comment '日历例外主键',
+    dept_id         bigint        not null comment '业务科室ID',
+    exception_date  date          not null comment '例外日期',
+    exception_type  varchar(20)   not null default 'HOLIDAY' comment 'HOLIDAY节假日 WORKDAY补班',
+    exception_name  varchar(100)  not null comment '例外名称',
+    remark          varchar(500)  default null comment '备注',
+    version         bigint        default 0 comment '乐观锁版本号',
+    create_dept     bigint        default null comment '创建部门',
+    create_by       bigint        default null comment '创建者',
+    create_time     datetime      default null comment '创建时间',
+    update_by       bigint        default null comment '更新者',
+    update_time     datetime      default null comment '更新时间',
+    del_flag        char(1)       not null default '0' comment '删除标志',
+    primary key (id),
+    unique key uk_dm_room_calendar_exception (dept_id, exception_date, del_flag),
+    key idx_dm_room_calendar_exception_date (exception_date, exception_type, del_flag)
+) engine=innodb comment='房间营业日历例外';
+
+insert ignore into sys_menu values(1761400000000003160, '房间预约', 1761400000000003000, 15, 'room', 'department/room/index', '', 'N', 'Y', 'C', '0', '0', 'department:room:list', 'calendar', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '会议室和公共资源预约管理');
+insert ignore into sys_menu values(1761400000000003161, '房间查询', 1761400000000003160, 1, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:room:query', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003162, '创建预约', 1761400000000003160, 2, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:room:book', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003163, '取消预约', 1761400000000003160, 3, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:room:cancel', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003164, '新增房间', 1761400000000003160, 4, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:room:add', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003165, '修改房间', 1761400000000003160, 5, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:room:edit', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003166, '删除房间', 1761400000000003160, 6, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:room:remove', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003167, '预约审批', 1761400000000003160, 7, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:room:approve', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003168, '预约导出', 1761400000000003160, 8, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:room:export', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003169, '房间管理', 1761400000000003160, 9, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:room:manage', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_menu values(1761400000000003170, '全局房间管理', 1761400000000003160, 10, '', '', '', 'N', 'Y', 'F', '0', '0', 'department:room:manageAll', '#', '', '', 1761000000000000103, 1761100000000000001, sysdate(), null, null, '');
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003160 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003161 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003162 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003163 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003164 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003165 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003166 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003167 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003168 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003169 from sys_role_menu where menu_id = 1761400000000003000;
+insert ignore into sys_role_menu (role_id, menu_id) select distinct role_id, 1761400000000003170 from sys_role_menu where menu_id = 1761400000000003000;

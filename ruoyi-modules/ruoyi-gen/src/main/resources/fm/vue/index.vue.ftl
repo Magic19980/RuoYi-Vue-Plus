@@ -252,7 +252,7 @@
         </el-form-item>
 <#elseif column.htmlType == "editor">
         <el-form-item label="${column.columnLabel}">
-          <editor v-model="form.${column.javaField}" :min-height="192"/>
+          <TiptapEditor v-model="form.${column.javaField}" preset="minimal" :min-height="192" />
         </el-form-item>
 <#elseif column.htmlType == "select" && column.dictType?has_content>
         <el-form-item label="${column.columnLabel}" prop="${column.javaField}">
