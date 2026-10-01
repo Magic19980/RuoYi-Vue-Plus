@@ -61,11 +61,6 @@
             <groupId>org.dromara</groupId>
             <artifactId>ruoyi-common-web</artifactId>
         </dependency>
-        <!-- 预约状态通知可复用系统 SMTP 配置发送邮件。 -->
-        <dependency>
-            <groupId>org.dromara</groupId>
-            <artifactId>ruoyi-common-mail</artifactId>
-        </dependency>
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>

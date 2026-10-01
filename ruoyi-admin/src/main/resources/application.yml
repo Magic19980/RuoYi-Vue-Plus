@@ -64,10 +64,6 @@ spring:
   profiles:
     active: @profiles.active@
 
-# 房间预约外部通知。邮件沿用 mail.enabled 和 SMTP 配置；企业微信仅在配置机器人地址后启用。
-room-booking:
-  notification:
-    wecom-webhook-url: ${ROOM_BOOKING_WECOM_WEBHOOK_URL:}
   # 文件上传
   servlet:
     multipart:
