@@ -2552,7 +2552,7 @@ CREATE TABLE sys_user
     user_id     bigint                             NOT NULL,
     dept_id     bigint                             NULL,
     user_name   nvarchar(30)                       NOT NULL,
-    nick_name   nvarchar(30)                       NOT NULL,
+    nick_name   nvarchar(100)                      NOT NULL,
     user_type   nvarchar(10)  DEFAULT ('sys_user') NULL,
     email       nvarchar(50)  DEFAULT ''           NULL,
     phone_number nvarchar(64) DEFAULT ''           NULL,

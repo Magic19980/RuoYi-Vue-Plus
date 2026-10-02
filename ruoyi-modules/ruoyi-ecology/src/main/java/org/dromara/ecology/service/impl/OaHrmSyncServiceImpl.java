@@ -79,6 +79,7 @@ public class OaHrmSyncServiceImpl implements IOaHrmSyncService {
     private static final String CONFLICT = "CONFLICT";
     private static final String HRM_DEFAULT_PASSWORD_HASH_KEY = "ecology.hrm.defaultPasswordHash";
     private static final String HRM_DEFAULT_PASSWORD_ENCRYPTED_KEY = "ecology.hrm.defaultPasswordEncrypted";
+    private static final int USER_NICK_NAME_MAX_LENGTH = 100;
     private static final int OA_PHONE_MAX_LENGTH = 64;
     private static final DateTimeFormatter OA_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -946,6 +947,9 @@ public class OaHrmSyncServiceImpl implements IOaHrmSyncService {
     private SysUserBo buildUserBo(Long userId, String userName, String nickName,
                                   OaUserDirectoryVo source, Long localDeptId,
                                   Map<String, Long> postMappings) {
+        if (nickName != null && nickName.length() > USER_NICK_NAME_MAX_LENGTH) {
+            throw new ServiceException("泛微姓名超过本地用户姓名长度限制（" + USER_NICK_NAME_MAX_LENGTH + "个字符）");
+        }
         SysUserBo bo = new SysUserBo();
         bo.setUserId(userId);
         bo.setUserName(userName);

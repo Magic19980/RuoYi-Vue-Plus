@@ -87,7 +87,7 @@ create table sys_user (
     user_id           bigint(20)      not null                   comment '用户ID',
     dept_id           bigint(20)      default null               comment '部门ID',
     user_name         varchar(30)     not null                   comment '用户账号',
-    nick_name         varchar(30)     not null                   comment '用户姓名',
+    nick_name         varchar(100)    not null                   comment '用户姓名',
     indonesian_name   varchar(100)    default null               comment '印尼语姓名',
     employee_no       varchar(64)     default null               comment '工号',
     user_type         varchar(10)     default 'sys_user'         comment '用户类型（sys_user系统用户）',

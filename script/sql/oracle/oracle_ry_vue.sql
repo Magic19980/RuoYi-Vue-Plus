@@ -132,7 +132,7 @@ create table sys_user (
   user_id           number(20)      not null,
   dept_id           number(20)      default null,
   user_name         varchar2(40)    not null,
-  nick_name         varchar2(40)    not null,
+  nick_name         varchar2(100)   not null,
   user_type         varchar2(10)    default 'sys_user',
   email             varchar2(50)    default '',
   phone_number      varchar2(64)    default '',

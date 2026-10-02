@@ -52,7 +52,7 @@ public class SysUserBo implements Serializable {
      */
     @Xss(message = "用户姓名不能包含脚本字符")
     @NotBlank(message = "用户姓名不能为空")
-    @Size(min = 0, max = 30, message = "用户姓名长度不能超过{max}个字符")
+    @Size(min = 0, max = 100, message = "用户姓名长度不能超过{max}个字符")
     private String nickName;
 
     /**

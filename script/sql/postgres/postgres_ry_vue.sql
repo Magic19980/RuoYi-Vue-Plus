@@ -130,7 +130,7 @@ create table if not exists sys_user
     user_id     int8,
     dept_id     int8,
     user_name   varchar(30)  not null,
-    nick_name   varchar(30)  not null,
+    nick_name   varchar(100) not null,
     user_type   varchar(10)  default 'sys_user'::varchar,
     email       varchar(50)  default ''::varchar,
     phone_number varchar(64) default ''::varchar,
